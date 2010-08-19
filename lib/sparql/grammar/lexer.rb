@@ -7,6 +7,32 @@ module SPARQL; module Grammar
   class Lexer
     include Enumerable
 
+    ESCAPE_CHAR4 = /\\u([0-9A-Fa-f]{4,4})/.freeze
+    ESCAPE_CHAR8 = /\\U([0-9A-Fa-f]{8,8})/.freeze
+    ESCAPE_CHAR  = Regexp.union(ESCAPE_CHAR4, ESCAPE_CHAR8).freeze
+
+    ##
+    # Returns a copy of the given `input` string with all `\uXXXX` and
+    # `\UXXXXXXXX` Unicode codepoint escape sequences replaced with their
+    # unescaped UTF-8 character counterparts.
+    #
+    # @param  [String] input
+    # @return [String]
+    # @see    http://www.w3.org/TR/rdf-sparql-query/#codepointEscape
+    def self.unescape(input)
+      string = input.dup
+      string.force_encoding(Encoding::ASCII_8BIT) if string.respond_to?(:force_encoding)
+
+      # Decode \uXXXX and \UXXXXXXXX code points:
+      string.gsub!(ESCAPE_CHAR) do
+        s = [($1 || $2).hex].pack('U*')
+        s.respond_to?(:force_encoding) ? s.force_encoding(Encoding::ASCII_8BIT) : s
+      end
+
+      string.force_encoding(Encoding::UTF_8) if string.respond_to?(:force_encoding)
+      string
+    end
+
     ##
     # Tokenizes the given `input` string or stream.
     #
@@ -40,6 +66,7 @@ module SPARQL; module Grammar
         when IO, StringIO then input.read
         else input.to_s
       end
+      @input = self.class.unescape(@input) if ESCAPE_CHAR === @input
     end
 
     ##

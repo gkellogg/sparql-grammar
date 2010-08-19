@@ -1,7 +1,31 @@
 require File.join(File.dirname(__FILE__), 'spec_helper')
 
 describe SPARQL::Grammar::Lexer do
-  describe "boolean literals" do
+  describe "when tokenizing Unicode query strings" do
+    it "unescapes \\uXXXX codepoint escape sequences" do
+      inputs = {
+        %q(\u0020)       => %q( ),
+        %q(<ab\u00E9xy>) => %Q(<ab\xC3\xA9xy>),
+        %q(\u03B1:a)     => %Q(\xCE\xB1:a),
+        %q(a\u003Ab)     => %Q(a\x3Ab),
+      }
+      inputs.each do |input, output|
+        output.force_encoding(Encoding::UTF_8) if output.respond_to?(:force_encoding)
+        unescape(input).should == output
+      end
+    end
+    it "unescapes \\UXXXXXXXX codepoint escape sequences" do
+      inputs = {
+        %q(\U00000020)   => %q( ),
+      }
+      inputs.each do |input, output|
+        output.force_encoding(Encoding::UTF_8) if output.respond_to?(:force_encoding)
+        unescape(input).should == output
+      end
+    end
+  end
+
+  describe "when tokenizing boolean literals" do
     it "tokenizes the true literal" do
       tokenize(%q(true)).first
     end
@@ -16,7 +40,7 @@ describe SPARQL::Grammar::Lexer do
     end
   end
 
-  describe "numeric literals" do
+  describe "when tokenizing numeric literals" do
     it "tokenizes unsigned integer literals" do
       tokenize(%q(42)).first
     end
@@ -54,7 +78,7 @@ describe SPARQL::Grammar::Lexer do
     end
   end
 
-  describe "string literals" do
+  describe "when tokenizing string literals" do
     it "tokenizes single-quoted string literals" do
       tokenize(%q('Hello, world!')).first
     end
@@ -72,7 +96,7 @@ describe SPARQL::Grammar::Lexer do
     end
   end
 
-  describe "blank nodes" do
+  describe "when tokenizing blank nodes" do
     it "tokenizes blank node labels" do
       tokenize(%q(_:foobar)).first
     end
@@ -83,7 +107,7 @@ describe SPARQL::Grammar::Lexer do
     end
   end
 
-  describe "variables" do
+  describe "when tokenizing variables" do
     it "tokenizes variables prefixed with '?'" do
       tokenize(%q(?foo)).first
     end
@@ -93,7 +117,7 @@ describe SPARQL::Grammar::Lexer do
     end
   end
 
-  describe "IRI references" do
+  describe "when tokenizing IRI references" do
     it "tokenizes absolute IRI references" do
       tokenize(%q(<http://example.org/foobar>)).first
     end
@@ -103,13 +127,13 @@ describe SPARQL::Grammar::Lexer do
     end
   end
 
-  describe "prefixed names" do
+  describe "when tokenizing prefixed names" do
     it "tokenizes prefixed names" do
       tokenize(%q(dc:title)).first
     end
   end
 
-  describe "RDF literals" do
+  describe "when tokenizing RDF literals" do
     it "tokenizes language-tagged literals" do
       tokenize(%q("Hello, world!"@en)).first
       tokenize(%q("Hello, world!"@en-US)).first
@@ -120,7 +144,7 @@ describe SPARQL::Grammar::Lexer do
     end
   end
 
-  describe "SPARQL keywords" do
+  describe "when tokenizing SPARQL keywords" do
     it "tokenizes base and prefix declaration keywords" do
       %w(base prefix).each do |keyword|
         tokenize(keyword.upcase).first
@@ -169,5 +193,9 @@ describe SPARQL::Grammar::Lexer do
   def tokenize(input, options = {}, &block)
     result = SPARQL::Grammar::Lexer.tokenize(input, options)
     block_given? ? block.call(result) : result
+  end
+
+  def unescape(input)
+    result = SPARQL::Grammar::Lexer.unescape(input)
   end
 end
