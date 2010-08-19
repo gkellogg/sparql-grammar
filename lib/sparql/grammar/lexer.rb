@@ -8,6 +8,16 @@ module SPARQL; module Grammar
     include Enumerable
 
     ##
+    # Tokenizes the given `input` string or stream.
+    #
+    # @param  [String, #to_s]          input
+    # @param  [Hash{Symbol => Object}] options
+    # @return [Array<Token>]
+    def self.tokenize(input, options = {})
+      self.new(input, options).to_a
+    end
+
+    ##
     # @param  [String, #to_s]          input
     # @param  [Hash{Symbol => Object}] options
     def initialize(input = nil, options = {})
@@ -22,8 +32,6 @@ module SPARQL; module Grammar
     attr_accessor :input
 
     ##
-    # Sets the input string or stream.
-    #
     # @param  [String, #to_s] input
     # @return [void]
     def input=(input)
@@ -38,12 +46,13 @@ module SPARQL; module Grammar
     # Enumerates each token in the input string.
     #
     # @yield  [token]
-    # @yieldparam [Object] token
+    # @yieldparam [Token] token
     # @return [Enumerator]
-    def each(&block)
+    def each_token(&block)
       return enum_for(:each) unless block_given?
       # TODO
     end
+    alias_method :each, :each_token
 
     ##
     # Represents a lexer token.
@@ -54,7 +63,7 @@ module SPARQL; module Grammar
       # @param  [Hash{Symbol => Object}] options
       def initialize(name, value, options = {})
         @name, @value = name, value
-        @options = options.dup unless options.empty?
+        @options = options.dup
       end
 
       # @return [Symbol]
@@ -62,6 +71,9 @@ module SPARQL; module Grammar
 
       # @return [Object]
       attr_reader :value
+
+      # @return [Hash]
+      attr_reader :options
 
       ##
       # Returns the attribute named by `key`.
