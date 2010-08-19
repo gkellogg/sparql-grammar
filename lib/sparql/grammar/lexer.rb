@@ -46,7 +46,7 @@ module SPARQL; module Grammar
     end
 
     ##
-    # A lexer token.
+    # Represents a lexer token.
     class Token
       ##
       # @param  [Symbol]                 name
@@ -69,9 +69,11 @@ module SPARQL; module Grammar
       # @param  [Symbol] key
       # @return [Object]
       def [](key)
-        case key.to_sym
-          when :name  then name
-          when :value then value
+        key = key.to_s.to_sym unless key.is_a?(Integer) || key.is_a?(Symbol)
+        case key
+          when 0, :name  then name
+          when 1, :value then value
+          else nil
         end
       end
 
@@ -99,5 +101,11 @@ module SPARQL; module Grammar
         to_hash.inspect
       end
     end # class Token
+
+    ##
+    # Raised for errors during lexical analysis.
+    class Error < StandardError
+      attr_reader :lineno
+    end
   end # class Lexer
 end; end # module SPARQL::Grammar
