@@ -2,6 +2,7 @@ module SPARQL; module Grammar
   ##
   # A lexical analyzer for the SPARQL 1.0 grammar.
   #
+  # @see http://www.w3.org/TR/rdf-sparql-query/#grammar
   # @see http://en.wikipedia.org/wiki/Lexical_analysis
   class Lexer
     include Enumerable
@@ -21,13 +22,21 @@ module SPARQL; module Grammar
     attr_accessor :input
 
     ##
+    # Sets the input string or stream.
+    #
     # @param  [String, #to_s] input
     # @return [void]
     def input=(input)
-      @input = input.to_s
+      @input = case input
+        when String       then input
+        when IO, StringIO then input.read
+        else input.to_s
+      end
     end
 
     ##
+    # Enumerates each token in the input string.
+    #
     # @yield  [token]
     # @yieldparam [Object] token
     # @return [Enumerator]
@@ -35,5 +44,60 @@ module SPARQL; module Grammar
       return enum_for(:each) unless block_given?
       # TODO
     end
+
+    ##
+    # A lexer token.
+    class Token
+      ##
+      # @param  [Symbol]                 name
+      # @param  [Object]                 value
+      # @param  [Hash{Symbol => Object}] options
+      def initialize(name, value, options = {})
+        @name, @value = name, value
+        @options = options.dup unless options.empty?
+      end
+
+      # @return [Symbol]
+      attr_reader :name
+
+      # @return [Object]
+      attr_reader :value
+
+      ##
+      # Returns the attribute named by `key`.
+      #
+      # @param  [Symbol] key
+      # @return [Object]
+      def [](key)
+        case key.to_sym
+          when :name  then name
+          when :value then value
+        end
+      end
+
+      ##
+      # Returns a hash table representation of this token.
+      #
+      # @return [Hash]
+      def to_hash
+        {:name => name, :value => value}
+      end
+
+      ##
+      # Returns an array representation of this token.
+      #
+      # @return [Array]
+      def to_a
+        [name, value]
+      end
+
+      ##
+      # Returns a developer-friendly representation of this token.
+      #
+      # @return [String]
+      def inspect
+        to_hash.inspect
+      end
+    end # class Token
   end # class Lexer
 end; end # module SPARQL::Grammar
