@@ -1,7 +1,7 @@
 require File.join(File.dirname(__FILE__), 'spec_helper')
 
 describe SPARQL::Grammar::Lexer do
-  describe "when tokenizing Unicode query strings" do
+  describe "when tokenizing Unicode strings" do
     it "unescapes \\uXXXX codepoint escape sequences" do
       inputs = {
         %q(\u0020)       => %q( ),
@@ -10,17 +10,43 @@ describe SPARQL::Grammar::Lexer do
         %q(a\u003Ab)     => %Q(a\x3Ab),
       }
       inputs.each do |input, output|
-        output.force_encoding(Encoding::UTF_8) if output.respond_to?(:force_encoding)
+        output.force_encoding(Encoding::UTF_8) if output.respond_to?(:force_encoding) # Ruby 1.9+
         unescape(input).should == output
       end
     end
+
     it "unescapes \\UXXXXXXXX codepoint escape sequences" do
       inputs = {
         %q(\U00000020)   => %q( ),
+        %q(\U00010000)   => %Q(\xF0\x90\x80\x80),
+        %q(\U000EFFFF)   => %Q(\xF3\xAF\xBF\xBF),
       }
       inputs.each do |input, output|
-        output.force_encoding(Encoding::UTF_8) if output.respond_to?(:force_encoding)
+        output.force_encoding(Encoding::UTF_8) if output.respond_to?(:force_encoding) # Ruby 1.9+
         unescape(input).should == output
+      end
+    end
+
+    it "matches the PN_CHARS_BASE production correctly" do
+      strings = [
+        ["\xC3\x80",         "\xC3\x96"],         # \u00C0-\u00D6
+        ["\xC3\x98",         "\xC3\xB6"],         # \u00D8-\u00F6
+        ["\xC3\xB8",         "\xCB\xBF"],         # \u00F8-\u02FF
+        ["\xCD\xB0",         "\xCD\xBD"],         # \u0370-\u037D
+        ["\xCD\xBF",         "\xE1\xBF\xBF"],     # \u037F-\u1FFF
+        ["\xE2\x80\x8C",     "\xE2\x80\x8D"],     # \u200C-\u200D
+        ["\xE2\x81\xB0",     "\xE2\x86\x8F"],     # \u2070-\u218F
+        ["\xE2\xB0\x80",     "\xE2\xBF\xAF"],     # \u2C00-\u2FEF
+        ["\xE3\x80\x81",     "\xED\x9F\xBF"],     # \u3001-\uD7FF
+        ["\xEF\xA4\x80",     "\xEF\xB7\x8F"],     # \uF900-\uFDCF
+        ["\xEF\xB7\xB0",     "\xEF\xBF\xBD"],     # \uFDF0-\uFFFD
+        ["\xF0\x90\x80\x80", "\xF3\xAF\xBF\xBF"], # \u{10000}-\u{EFFFF}]
+      ]
+      strings.each do |range|
+        range.each do |string|
+          string.force_encoding(Encoding::UTF_8) if string.respond_to?(:force_encoding) # Ruby 1.9+
+          string.should match(SPARQL::Grammar::Lexer::PN_CHARS_BASE)
+        end
       end
     end
   end
