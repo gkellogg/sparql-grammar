@@ -13,6 +13,16 @@ module SPARQL; module Grammar
   class Lexer
     include Enumerable
 
+    ESCAPE_CHARS         = {
+      '\t'   => "\t",    # \u0009 (tab)
+      '\n'   => "\n",    # \u000A (line feed)
+      '\r'   => "\r",    # \u000D (carriage return)
+      '\b'   => "\b",    # \u0008 (backspace)
+      '\f'   => "\f",    # \u000C (form feed)
+      '\\"'  => '"',     # \u0022 (quotation mark, double quote mark)
+      '\\\'' => '\'',    # \u0027 (apostrophe-quote, single quote mark)
+      '\\\\' => '\\'     # \u005C (backslash)
+    }
     ESCAPE_CHAR4         = /\\u([0-9A-Fa-f]{4,4})/                              # \uXXXX
     ESCAPE_CHAR8         = /\\U([0-9A-Fa-f]{8,8})/                              # \UXXXXXXXX
     ESCAPE_CHAR          = /#{ESCAPE_CHAR4}|#{ESCAPE_CHAR8}/
@@ -126,7 +136,7 @@ module SPARQL; module Grammar
     # @param  [String] input
     # @return [String]
     # @see    http://www.w3.org/TR/rdf-sparql-query/#codepointEscape
-    def self.unescape(input)
+    def self.unescape_codepoints(input)
       string = input.dup
       string.force_encoding(Encoding::ASCII_8BIT) if string.respond_to?(:force_encoding) # Ruby 1.9+
 
@@ -138,6 +148,18 @@ module SPARQL; module Grammar
 
       string.force_encoding(Encoding::UTF_8) if string.respond_to?(:force_encoding)      # Ruby 1.9+
       string
+    end
+
+    ##
+    # Returns a copy of the given `input` string with all string escape
+    # sequences (e.g. `\n` and `\t`) replaced with their unescaped UTF-8
+    # character counterparts.
+    #
+    # @param  [String] input
+    # @return [String]
+    # @see    http://www.w3.org/TR/rdf-sparql-query/#grammarEscapes
+    def self.unescape_string(input)
+      input.gsub(ECHAR) { |escaped| ESCAPE_CHARS[escaped] }
     end
 
     ##
@@ -173,7 +195,7 @@ module SPARQL; module Grammar
         when IO, StringIO then input.read
         else input.to_s
       end
-      @input = self.class.unescape(@input) if ESCAPE_CHAR === @input
+      @input = self.class.unescape_codepoints(@input) if ESCAPE_CHAR === @input
     end
 
     ##
@@ -196,7 +218,7 @@ module SPARQL; module Grammar
             when matched = scanner.scan(PNAME_NS)
               yield Token.new(:PNAME_NS, scanner[1].empty? ? nil : scanner[1].to_sym)
             when matched = scanner.scan(String)
-              yield Token.new(:String, unescape_string(scanner[1] || scanner[2] || scanner[3] || scanner[4]))
+              yield Token.new(:String, self.class.unescape_string(scanner[1] || scanner[2] || scanner[3] || scanner[4]))
             when matched = scanner.scan(LANGTAG)
               yield Token.new(:LANGTAG, scanner[1].to_sym)
             when matched = scanner.scan(DOUBLE)
@@ -229,15 +251,6 @@ module SPARQL; module Grammar
       enum_for(:each_token)
     end
     alias_method :each, :each_token
-
-  protected
-
-    ##
-    # @param  [String]
-    # @return [String]
-    def unescape_string(string)
-      string # TODO
-    end
 
     ##
     # Represents a lexer token.

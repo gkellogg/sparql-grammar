@@ -1,7 +1,9 @@
 require File.join(File.dirname(__FILE__), 'spec_helper')
 
 describe SPARQL::Grammar::Lexer do
-  describe "when tokenizing Unicode strings" do
+  describe "when unescaping Unicode input" do
+    # @see http://www.w3.org/TR/rdf-sparql-query/#codepointEscape
+
     it "unescapes \\uXXXX codepoint escape sequences" do
       inputs = {
         %q(\u0020)       => %q( ),
@@ -11,7 +13,7 @@ describe SPARQL::Grammar::Lexer do
       }
       inputs.each do |input, output|
         output.force_encoding(Encoding::UTF_8) if output.respond_to?(:force_encoding) # Ruby 1.9+
-        unescape(input).should == output
+        SPARQL::Grammar::Lexer.unescape_codepoints(input).should == output
       end
     end
 
@@ -23,10 +25,22 @@ describe SPARQL::Grammar::Lexer do
       }
       inputs.each do |input, output|
         output.force_encoding(Encoding::UTF_8) if output.respond_to?(:force_encoding) # Ruby 1.9+
-        unescape(input).should == output
+        SPARQL::Grammar::Lexer.unescape_codepoints(input).should == output
       end
     end
+  end
 
+  describe "when unescaping strings" do
+    # @see http://www.w3.org/TR/rdf-sparql-query/#grammarEscapes
+
+    SPARQL::Grammar::Lexer::ESCAPE_CHARS.each do |escaped, unescaped|
+      it "unescapes #{escaped} escape sequences" do
+        SPARQL::Grammar::Lexer.unescape_string(escaped).should == unescaped
+      end
+    end
+  end
+
+  describe "when matching Unicode input" do
     it "matches the PN_CHARS_BASE production correctly" do
       strings = [
         ["\xC3\x80",         "\xC3\x96"],         # \u00C0-\u00D6
@@ -186,7 +200,7 @@ describe SPARQL::Grammar::Lexer do
   end
 
   describe "when tokenizing blank nodes" do
-    it "tokenizes blank node labels" do
+    it "tokenizes labelled blank nodes" do
       tokenize(%q(_:foobar)) do |tokens|
         tokens.should have(1).element
         tokens.first.type.should  == :BlankNode
@@ -418,6 +432,36 @@ describe SPARQL::Grammar::Lexer do
           tokens.first.type.should  == nil
           tokens.first.value.should == keyword.downcase.to_sym
         end
+      end
+    end
+  end
+
+  describe "when tokenizing query strings" do
+    it "tokenizes ASK queries" do
+      query = "ASK WHERE { ?s ?p ?o . }"
+      tokenize(query) do |tokens|
+        tokens.should have(8).elements
+      end
+    end
+
+    it "tokenizes SELECT queries" do
+      query = "SELECT * WHERE { ?s ?p ?o . }"
+      tokenize(query) do |tokens|
+        tokens.should have(9).elements
+      end
+    end
+
+    it "tokenizes CONSTRUCT queries" do
+      query = "CONSTRUCT { ?s ?p ?o . }"
+      tokenize(query) do |tokens|
+        tokens.should have(7).elements
+      end
+    end
+
+    it "tokenizes DESCRIBE queries" do
+      query = "DESCRIBE ?s WHERE { ?s ?p ?o . }"
+      tokenize(query) do |tokens|
+        tokens.should have(9).elements
       end
     end
   end
