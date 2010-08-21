@@ -280,9 +280,9 @@ module SPARQL; module Grammar
             when matched = scanner.scan(NIL)
               yield Token.new(:NIL, RDF.nil)
             when matched = scanner.scan(KEYWORD)
-              yield Token.new(nil, matched.downcase.to_sym)
+              yield Token.new(nil, matched.upcase.to_sym)
             when matched = scanner.scan(DELIMITER)
-              yield Token.new(nil, matched)
+              yield Token.new(nil, matched.to_sym)
             when matched = scanner.scan(OPERATOR)
               yield Token.new(nil, matched.to_sym)
             else

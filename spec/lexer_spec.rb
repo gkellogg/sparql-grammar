@@ -321,7 +321,7 @@ describe SPARQL::Grammar::Lexer do
         tokens[0].type.should  == :String
         tokens[0].value.should == '3.1415'
         tokens[1].type.should  == nil
-        tokens[1].value.should == '^^'
+        tokens[1].value.should == :'^^'
         tokens[2].type.should  == :IRI_REF
         tokens[2].value.should == RDF::XSD.double
       end
@@ -334,7 +334,7 @@ describe SPARQL::Grammar::Lexer do
         tokenize(delimiter) do |tokens|
           tokens.should have(1).element
           tokens.first.type.should  == nil
-          tokens.first.value.should == delimiter
+          tokens.first.value.should == delimiter.to_sym
         end
       end
     end
@@ -358,7 +358,7 @@ describe SPARQL::Grammar::Lexer do
         tokenize(keyword.upcase, keyword.downcase) do |tokens|
           tokens.should have(1).element
           tokens.first.type.should  == nil
-          tokens.first.value.should == keyword.downcase.to_sym
+          tokens.first.value.should == keyword.upcase.to_sym
         end
       end
     end
@@ -370,7 +370,7 @@ describe SPARQL::Grammar::Lexer do
         tokenize(keyword.upcase, keyword.downcase) do |tokens|
           tokens.should have(1).element
           tokens.first.type.should  == nil
-          tokens.first.value.should == keyword.downcase.to_sym
+          tokens.first.value.should == keyword.upcase.to_sym
         end
       end
     end
@@ -382,7 +382,7 @@ describe SPARQL::Grammar::Lexer do
         tokenize(keyword.upcase, keyword.downcase) do |tokens|
           tokens.should have(1).element
           tokens.first.type.should  == nil
-          tokens.first.value.should == keyword.downcase.to_sym
+          tokens.first.value.should == keyword.upcase.to_sym
         end
       end
     end
@@ -394,7 +394,7 @@ describe SPARQL::Grammar::Lexer do
         tokenize(keyword.upcase, keyword.downcase) do |tokens|
           tokens.should have(1).element
           tokens.first.type.should  == nil
-          tokens.first.value.should == keyword.downcase.to_sym
+          tokens.first.value.should == keyword.upcase.to_sym
         end
       end
     end
@@ -406,7 +406,7 @@ describe SPARQL::Grammar::Lexer do
         tokenize(keyword.upcase, keyword.downcase) do |tokens|
           tokens.should have(1).element
           tokens.first.type.should  == nil
-          tokens.first.value.should == keyword.downcase.to_sym
+          tokens.first.value.should == keyword.upcase.to_sym
         end
       end
     end
@@ -418,7 +418,7 @@ describe SPARQL::Grammar::Lexer do
         tokenize(keyword.upcase, keyword.downcase) do |tokens|
           tokens.should have(1).element
           tokens.first.type.should  == nil
-          tokens.first.value.should == keyword.downcase.to_sym
+          tokens.first.value.should == keyword.upcase.to_sym
         end
       end
     end
@@ -430,7 +430,7 @@ describe SPARQL::Grammar::Lexer do
         tokenize(keyword, keyword.upcase, keyword.downcase) do |tokens|
           tokens.should have(1).element
           tokens.first.type.should  == nil
-          tokens.first.value.should == keyword.downcase.to_sym
+          tokens.first.value.should == keyword.upcase.to_sym
         end
       end
     end
