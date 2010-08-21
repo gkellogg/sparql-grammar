@@ -74,6 +74,7 @@ information, see <http://unlicense.org/> or the accompanying UNLICENSE file.
 [RDF]:        http://www.w3.org/RDF/
 [SPARQL]:     http://en.wikipedia.org/wiki/SPARQL
 [SPARQL 1.0]: http://www.w3.org/TR/rdf-sparql-query/
+[SPARQL 1.1]: http://www.w3.org/TR/sparql11-query/
 [grammar]:    http://www.w3.org/TR/rdf-sparql-query/#grammar
 [RDF.rb]:     http://rdf.rubyforge.org/
 [Backports]:  http://rubygems.org/gems/backports
