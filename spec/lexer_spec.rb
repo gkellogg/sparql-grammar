@@ -328,7 +328,29 @@ describe SPARQL::Grammar::Lexer do
     end
   end
 
-  describe "when tokenizing SPARQL delimiters" do
+  describe "when tokenizing comments" do
+    it "ignores the remainder of the current line" do
+      tokenize("# ?foo ?bar", "# ?foo ?bar\n", "# ?foo ?bar\r\n") do |tokens|
+        tokens.should have(0).elements
+      end
+    end
+
+    it "ignores leading whitespace" do
+      tokenize(" # ?foo ?bar", "\n# ?foo ?bar", "\r\n# ?foo ?bar") do |tokens|
+        tokens.should have(0).elements
+      end
+    end
+
+    it "resumes tokenization from the following line" do
+      tokenize("# ?foo\n?bar", "# ?foo\r\n?bar") do |tokens|
+        tokens.should have(1).elements
+        tokens.first.type.should  == :Var
+        tokens.first.value.should == :bar
+      end
+    end
+  end
+
+  describe "when tokenizing delimiters" do
     %w|^^ { } ( ) [ ] , ; .|.each do |delimiter|
       it "tokenizes the #{delimiter.inspect} delimiter" do
         tokenize(delimiter) do |tokens|
@@ -340,7 +362,7 @@ describe SPARQL::Grammar::Lexer do
     end
   end
 
-  describe "when tokenizing SPARQL operators" do
+  describe "when tokenizing operators" do
     %w(a || && != <= >= ! = < > + - * /).each do |operator|
       it "tokenizes the #{operator.inspect} operator" do
         tokenize(operator) do |tokens|
@@ -472,9 +494,5 @@ describe SPARQL::Grammar::Lexer do
       tokens.should be_a(SPARQL::Grammar::Lexer)
       block.call(tokens.to_a)
     end
-  end
-
-  def unescape(input)
-    result = SPARQL::Grammar::Lexer.unescape(input)
   end
 end

@@ -85,6 +85,7 @@ module SPARQL; module Grammar
     KEYWORD              = /#{KEYWORDS.join('|')}|#{FUNCTIONS.join('|')}/i
     DELIMITER            = /\^\^|[{}()\[\],;\.]/
     OPERATOR             = /a|\|\||&&|!=|<=|>=|[!=<>+\-*\/]/
+    COMMENT              = /#.*/
 
     PN_CHARS_BASE        = /[A-Z]|[a-z]|#{U_CHARS1}/                            # [95]
     PN_CHARS_U           = /_|#{PN_CHARS_BASE}/                                 # [96]
@@ -239,9 +240,12 @@ module SPARQL; module Grammar
               yield Token.new(nil, matched)
             when matched = scanner.scan(OPERATOR)
               yield Token.new(nil, matched.to_sym)
+            when skipped = scanner.skip(COMMENT)
+              # @see http://www.w3.org/TR/rdf-sparql-query/#grammarComments
+              # skip the remainder of the current line
             when matched = scanner.scan(WS)
+              # @see http://www.w3.org/TR/rdf-sparql-query/#whitespace
               # silently skip all whitespace
-              # TODO: handle SPARQL comments
               # TODO: increment lineno when encountering "\n"
             else
               raise Error.new("unexpected token: #{scanner.rest.inspect}")
