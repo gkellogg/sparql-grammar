@@ -192,6 +192,8 @@ module SPARQL; module Grammar
     end
 
     ##
+    # Initializes a new lexer instance.
+    #
     # @param  [String, #to_s]          input
     # @param  [Hash{Symbol => Object}] options
     def initialize(input = nil, options = {})
@@ -199,12 +201,21 @@ module SPARQL; module Grammar
       self.input = input if input
     end
 
+    ##
+    # Any additional options for the lexer.
+    #
     # @return [Hash]
     attr_reader   :options
 
+    ##
+    # The current input string.
+    #
     # @return [String]
     attr_accessor :input
 
+    ##
+    # The current line number (zero-based).
+    #
     # @return [Integer]
     attr_reader   :lineno
 
@@ -298,8 +309,17 @@ module SPARQL; module Grammar
 
     ##
     # Represents a lexer token.
+    #
+    # @example Creating a new token
+    #   token = SPARQL::Grammar::Lexer::Token.new(:LANGTAG, :en)
+    #   token.type   #=> :LANGTAG
+    #   token.value  #=> :en
+    #
+    # @see http://en.wikipedia.org/wiki/Lexical_analysis#Token
     class Token
       ##
+      # Initializes a new token instance.
+      #
       # @param  [Symbol]                 type
       # @param  [Object]                 value
       # @param  [Hash{Symbol => Object}] options
@@ -308,12 +328,21 @@ module SPARQL; module Grammar
         @options = options.dup
       end
 
+      ##
+      # The token's symbol type.
+      #
       # @return [Symbol]
       attr_reader :type
 
+      ##
+      # The token's value.
+      #
       # @return [Object]
       attr_reader :value
 
+      ##
+      # Any additional options for the token.
+      #
       # @return [Hash]
       attr_reader :options
 
@@ -358,17 +387,35 @@ module SPARQL; module Grammar
 
     ##
     # Raised for errors during lexical analysis.
+    #
+    # @example Raising a lexer error
+    #   raise SPARQL::Grammar::Lexer::Error.new(
+    #     "invalid token '%' on line 10",
+    #     :input => query, :token => '%', :lineno => 9)
+    #
+    # @see http://ruby-doc.org/core/classes/StandardError.html
     class Error < StandardError
+      ##
+      # The input string associated with the error.
+      #
       # @return [String]
       attr_reader :input
 
+      ##
+      # The invalid token which triggered the error.
+      #
       # @return [String]
       attr_reader :token
 
+      ##
+      # The line number where the error occurred.
+      #
       # @return [Integer]
       attr_reader :lineno
 
       ##
+      # Initializes a new lexer error instance.
+      #
       # @param  [String, #to_s]          message
       # @param  [Hash{Symbol => Object}] options
       # @option options [String]         :input  (nil)
@@ -380,6 +427,6 @@ module SPARQL; module Grammar
         @lineno = options[:lineno]
         super(message.to_s)
       end
-    end
+    end # class Error
   end # class Lexer
 end; end # module SPARQL::Grammar

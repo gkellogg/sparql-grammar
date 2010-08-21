@@ -1,7 +1,8 @@
 SPARQL Parser for RDF.rb
 ========================
 
-This is a pure-Ruby implementation of a [SPARQL][] parser for [RDF.rb][].
+This is a pure-Ruby implementation of a [SPARQL][] lexer and parser for
+[RDF.rb][]. (Currently in pre-alpha state.)
 
 * <http://github.com/bendiken/sparql-grammar>
 
@@ -11,6 +12,7 @@ Features
 * Implements a complete lexical analyzer for the [SPARQL 1.0][]
   [grammar][] (a full parser is in the works).
 * Compatible with Ruby 1.8.7+, Ruby 1.9.x, and JRuby 1.4/1.5.
+* Supports Unicode query strings both on Ruby 1.8.x and 1.9.x.
 
 Examples
 --------
@@ -35,6 +37,7 @@ Documentation
 Dependencies
 ------------
 
+* [Ruby](http://ruby-lang.org/) (>= 1.8.7) or (>= 1.8.1 with [Backports][])
 * [RDF.rb](http://rubygems.org/gems/rdf) (>= 0.2.0)
 
 Installation
@@ -73,3 +76,4 @@ information, see <http://unlicense.org/> or the accompanying UNLICENSE file.
 [SPARQL 1.0]: http://www.w3.org/TR/rdf-sparql-query/
 [grammar]:    http://www.w3.org/TR/rdf-sparql-query/#grammar
 [RDF.rb]:     http://rdf.rubyforge.org/
+[Backports]:  http://rubygems.org/gems/backports

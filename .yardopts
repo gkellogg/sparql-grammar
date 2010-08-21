@@ -1,4 +1,4 @@
---title "SPARQL::Grammar - SPARQL Parser for RDF.rb"
+--title "SPARQL::Grammar - SPARQL Lexer and Parser for RDF.rb"
 --output-dir doc/yard
 --protected
 --no-private

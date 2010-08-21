@@ -8,7 +8,7 @@ GEMSPEC = Gem::Specification.new do |gem|
   gem.name               = 'sparql-grammar'
   gem.homepage           = 'http://sparql.rubyforge.org/grammar/'
   gem.license            = 'Public Domain' if gem.respond_to?(:license=)
-  gem.summary            = 'SPARQL parser for RDF.rb.'
+  gem.summary            = 'SPARQL lexer and parser for RDF.rb.'
   gem.description        = gem.summary
   gem.rubyforge_project  = 'sparql'
 
@@ -16,7 +16,7 @@ GEMSPEC = Gem::Specification.new do |gem|
   gem.email              = 'public-rdf-ruby@w3.org'
 
   gem.platform           = Gem::Platform::RUBY
-  gem.files              = %w(AUTHORS CONTRIBUTORS README UNLICENSE VERSION) + Dir.glob('lib/**/*.rb') + Dir.glob('lib/**/*.rl')
+  gem.files              = %w(AUTHORS CONTRIBUTORS README UNLICENSE VERSION) + Dir.glob('lib/**/*.rb')
   gem.bindir             = %q(bin)
   gem.executables        = %w()
   gem.default_executable = gem.executables.first
