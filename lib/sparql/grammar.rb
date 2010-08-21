@@ -18,5 +18,18 @@ module SPARQL
 
     # Make all defined non-autoloaded constants immutable:
     constants.each { |name| const_get(name).freeze unless autoload?(name) }
+
+    ##
+    # Tokenizes the given SPARQL `query` string.
+    #
+    # @param  [String, #to_s]          query
+    # @param  [Hash{Symbol => Object}] options
+    # @yield  [lexer]
+    # @yieldparam [Lexer] lexer
+    # @return [Lexer]
+    # @raise  [Lexer::Error] on invalid input
+    def self.tokenize(query, options = {}, &block)
+      Lexer.tokenize(query, options, &block)
+    end
   end
 end

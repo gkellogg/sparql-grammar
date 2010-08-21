@@ -8,6 +8,20 @@ module SPARQL; module Grammar
   # Note that productions [80]-[85] have been incorporated directly into
   # [77], [78], [79].
   #
+  # @example Tokenizing a SPARQL query string
+  #   query = "SELECT * WHERE { ?s ?p ?o }"
+  #   lexer = SPARQL::Grammar::Lexer.tokenize(query)
+  #   lexer.each_token do |token|
+  #     puts token.inspect
+  #   end
+  #
+  # @example Handling error conditions
+  #   begin
+  #     SPARQL::Grammar::Lexer.tokenize(query)
+  #   rescue SPARQL::Grammar::Lexer::Error => error
+  #     warn error.inspect
+  #   end
+  #
   # @see http://www.w3.org/TR/rdf-sparql-query/#grammar
   # @see http://en.wikipedia.org/wiki/Lexical_analysis
   class Lexer
@@ -168,9 +182,13 @@ module SPARQL; module Grammar
     #
     # @param  [String, #to_s]          input
     # @param  [Hash{Symbol => Object}] options
-    # @return [Enumerable<Token>]
-    def self.tokenize(input, options = {})
-      self.new(input, options)
+    # @yield  [lexer]
+    # @yieldparam [Lexer] lexer
+    # @return [Lexer]
+    # @raise  [Lexer::Error] on invalid input
+    def self.tokenize(input, options = {}, &block)
+      lexer = self.new(input, options)
+      block_given? ? block.call(lexer) : lexer
     end
 
     ##

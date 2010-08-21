@@ -8,13 +8,22 @@ This is a pure-Ruby implementation of a [SPARQL][] parser for [RDF.rb][].
 Features
 --------
 
-TODO
+* Implements a complete lexical analyzer for the [SPARQL 1.0][]
+  [grammar][] (a full parser is in the works).
+* Compatible with Ruby 1.8.7+, Ruby 1.9.x, and JRuby 1.4/1.5.
 
 Examples
 --------
 
     require 'rubygems'
     require 'sparql/grammar'
+
+### Tokenizing a SPARQL query string
+
+    lexer = SPARQL::Grammar.tokenize("SELECT * WHERE { ?s ?p ?o }")
+    lexer.each_token do |token|
+      puts token.inspect
+    end
 
 Documentation
 -------------
@@ -59,6 +68,8 @@ License
 `SPARQL::Grammar` is free and unencumbered public domain software. For more
 information, see <http://unlicense.org/> or the accompanying UNLICENSE file.
 
-[RDF]:    http://www.w3.org/RDF/
-[SPARQL]: http://en.wikipedia.org/wiki/SPARQL
-[RDF.rb]: http://rdf.rubyforge.org/
+[RDF]:        http://www.w3.org/RDF/
+[SPARQL]:     http://en.wikipedia.org/wiki/SPARQL
+[SPARQL 1.0]: http://www.w3.org/TR/rdf-sparql-query/
+[grammar]:    http://www.w3.org/TR/rdf-sparql-query/#grammar
+[RDF.rb]:     http://rdf.rubyforge.org/
