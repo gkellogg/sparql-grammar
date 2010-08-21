@@ -6,3 +6,8 @@ begin
 rescue LoadError => e
 end
 require 'sparql/grammar'
+
+desc "Build the sparql-grammar-#{File.read('VERSION').chomp}.gem file"
+task :build do
+  sh "gem build .gemspec"
+end
