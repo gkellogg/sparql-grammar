@@ -20,7 +20,31 @@ module SPARQL
     constants.each { |name| const_get(name).freeze unless autoload?(name) }
 
     ##
+    # Returns `true` if the given SPARQL `query` string is valid.
+    #
+    # Currently only performs lexical analysis using the SPARQL 1.0 grammar.
+    #
+    # @example
+    #   SPARQL::Grammar.valid?("SELECT ?s WHERE { ?s ?p ?o }")  #=> true
+    #   SPARQL::Grammar.valid?("SELECT s WHERE { ?s ?p ?o }")   #=> false
+    #
+    # @param  [String, #to_s]          query
+    # @param  [Hash{Symbol => Object}] options
+    # @return [Boolean]
+    def self.valid?(query, options = {})
+      # TODO: once the parser is ready to go, change this over to using
+      # syntactic analysis rather than mere lexical analysis.
+      Lexer.new(query, options).valid?
+    end
+
+    ##
     # Tokenizes the given SPARQL `query` string.
+    #
+    # @example
+    #   lexer = SPARQL::Grammar.tokenize("SELECT * WHERE { ?s ?p ?o }")
+    #   lexer.each_token do |token|
+    #     puts token.inspect
+    #   end
     #
     # @param  [String, #to_s]          query
     # @param  [Hash{Symbol => Object}] options
