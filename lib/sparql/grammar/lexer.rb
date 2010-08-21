@@ -222,6 +222,21 @@ module SPARQL; module Grammar
     end
 
     ##
+    # Returns `true` if the input string is lexically valid.
+    #
+    # To be considered valid, the input string must contain more than zero
+    # tokens, and must not contain any invalid tokens.
+    #
+    # @return [Boolean]
+    def valid?
+      begin
+        !count.zero?
+      rescue Error
+        false
+      end
+    end
+
+    ##
     # Enumerates each token in the input string.
     #
     # @yield  [token]
