@@ -328,28 +328,6 @@ describe SPARQL::Grammar::Lexer do
     end
   end
 
-  describe "when tokenizing comments" do
-    it "ignores the remainder of the current line" do
-      tokenize("# ?foo ?bar", "# ?foo ?bar\n", "# ?foo ?bar\r\n") do |tokens|
-        tokens.should have(0).elements
-      end
-    end
-
-    it "ignores leading whitespace" do
-      tokenize(" # ?foo ?bar", "\n# ?foo ?bar", "\r\n# ?foo ?bar") do |tokens|
-        tokens.should have(0).elements
-      end
-    end
-
-    it "resumes tokenization from the following line" do
-      tokenize("# ?foo\n?bar", "# ?foo\r\n?bar") do |tokens|
-        tokens.should have(1).elements
-        tokens.first.type.should  == :Var
-        tokens.first.value.should == :bar
-      end
-    end
-  end
-
   describe "when tokenizing delimiters" do
     %w|^^ { } ( ) [ ] , ; .|.each do |delimiter|
       it "tokenizes the #{delimiter.inspect} delimiter" do
@@ -458,7 +436,85 @@ describe SPARQL::Grammar::Lexer do
     end
   end
 
-  describe "when tokenizing query strings" do
+  describe "when handling comments" do
+    it "ignores the remainder of the current line" do
+      tokenize("# ?foo ?bar", "# ?foo ?bar\n", "# ?foo ?bar\r\n") do |tokens|
+        tokens.should have(0).elements
+      end
+    end
+
+    it "ignores leading whitespace" do
+      tokenize(" # ?foo ?bar", "\n# ?foo ?bar", "\r\n# ?foo ?bar") do |tokens|
+        tokens.should have(0).elements
+      end
+    end
+
+    it "resumes tokenization from the following line" do
+      tokenize("# ?foo\n?bar", "# ?foo\r\n?bar") do |tokens|
+        tokens.should have(1).elements
+        tokens.first.type.should  == :Var
+        tokens.first.value.should == :bar
+      end
+    end
+  end
+
+  describe "when skipping white space" do
+    it "tracks the current line number" do
+      inputs = {
+        ""     => 0,
+        "\n"   => 1,
+        "\n\n" => 2,
+        "\r\n" => 1,
+      }
+      inputs.each do |input, lineno|
+        lexer = SPARQL::Grammar::Lexer.tokenize(input)
+        lexer.to_a # consumes the input
+        lexer.lineno.should == lineno
+      end
+    end
+  end
+
+  describe "when encountering invalid input" do
+    it "raises a lexer error" do
+      lambda { tokenize("SELECT foo WHERE {}") }.should raise_error(SPARQL::Grammar::Lexer::Error)
+    end
+
+    it "reports the invalid token which triggered the error" do
+      begin
+        tokenize("SELECT foo WHERE {}")
+      rescue SPARQL::Grammar::Lexer::Error => error
+        error.token.should  == 'foo'
+      end
+      begin
+        tokenize("SELECT ?foo WHERE { bar }")
+      rescue SPARQL::Grammar::Lexer::Error => error
+        error.token.should  == 'bar'
+      end
+    end
+
+    it "reports the correct token which triggered the error" do
+      begin
+        tokenize("SELECT foo#bar\nWHERE {}")
+      rescue SPARQL::Grammar::Lexer::Error => error
+        error.token.should  == 'foo'
+      end
+    end
+
+    it "reports the line number where the error occurred" do
+      begin
+        tokenize("SELECT foo WHERE {}")
+      rescue SPARQL::Grammar::Lexer::Error => error
+        error.lineno.should == 0
+      end
+      begin
+        tokenize("SELECT\nfoo WHERE {}")
+      rescue SPARQL::Grammar::Lexer::Error => error
+        error.lineno.should == 1
+      end
+    end
+  end
+
+  describe "when tokenizing entire query strings" do
     it "tokenizes ASK queries" do
       query = "ASK WHERE { ?s ?p ?o . }"
       tokenize(query) do |tokens|

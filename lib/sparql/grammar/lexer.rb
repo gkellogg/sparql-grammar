@@ -187,6 +187,9 @@ module SPARQL; module Grammar
     # @return [String]
     attr_accessor :input
 
+    # @return [Integer]
+    attr_reader   :lineno
+
     ##
     # @param  [String, #to_s] input
     # @return [void]
@@ -197,6 +200,7 @@ module SPARQL; module Grammar
         else input.to_s
       end
       @input = self.class.unescape_codepoints(@input) if ESCAPE_CHAR === @input
+      @lineno = 0
     end
 
     ##
@@ -207,9 +211,17 @@ module SPARQL; module Grammar
     # @return [Enumerator]
     def each_token(&block)
       if block_given?
+        @lineno = 0
         scanner = StringScanner.new(@input)
         until scanner.eos?
           case
+            when matched = scanner.scan(WS)
+              # @see http://www.w3.org/TR/rdf-sparql-query/#whitespace
+              # skip all white space, but keep track of the current line number
+              @lineno += matched.count("\n")
+            when skipped = scanner.skip(COMMENT)
+              # @see http://www.w3.org/TR/rdf-sparql-query/#grammarComments
+              # skip the remainder of the current line
             when matched = scanner.scan(Var)
               yield Token.new(:Var, (scanner[1] || scanner[2]).to_sym)
             when matched = scanner.scan(IRI_REF)
@@ -240,15 +252,10 @@ module SPARQL; module Grammar
               yield Token.new(nil, matched)
             when matched = scanner.scan(OPERATOR)
               yield Token.new(nil, matched.to_sym)
-            when skipped = scanner.skip(COMMENT)
-              # @see http://www.w3.org/TR/rdf-sparql-query/#grammarComments
-              # skip the remainder of the current line
-            when matched = scanner.scan(WS)
-              # @see http://www.w3.org/TR/rdf-sparql-query/#whitespace
-              # silently skip all whitespace
-              # TODO: increment lineno when encountering "\n"
             else
-              raise Error.new("unexpected token: #{scanner.rest.inspect}")
+              token = (scanner.rest.split(/#{WS}|#{COMMENT}/).first rescue nil) || scanner.rest
+              raise Error.new("invalid token #{token.inspect} on line #{lineno + 1}",
+                :input => input, :token => token, :lineno => lineno)
           end
         end
       end
@@ -319,7 +326,27 @@ module SPARQL; module Grammar
     ##
     # Raised for errors during lexical analysis.
     class Error < StandardError
+      # @return [String]
+      attr_reader :input
+
+      # @return [String]
+      attr_reader :token
+
+      # @return [Integer]
       attr_reader :lineno
+
+      ##
+      # @param  [String, #to_s]          message
+      # @param  [Hash{Symbol => Object}] options
+      # @option options [String]         :input  (nil)
+      # @option options [String]         :token  (nil)
+      # @option options [Integer]        :lineno (nil)
+      def initialize(message, options = {})
+        @input  = options[:input]
+        @token  = options[:token]
+        @lineno = options[:lineno]
+        super(message.to_s)
+      end
     end
   end # class Lexer
 end; end # module SPARQL::Grammar
