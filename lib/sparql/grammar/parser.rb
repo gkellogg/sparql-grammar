@@ -274,9 +274,9 @@ module SPARQL; module Grammar
       # TODO
     end
 
-    # `[44] Var`
+    # `[44] Var ::= VAR1 | VAR2`
     def var
-      # TODO
+      (token = accept(:Var)) ? RDF::Query::Variable.new(token.value) : false
     end
 
     # `[45] GraphTerm`
@@ -359,49 +359,87 @@ module SPARQL; module Grammar
       # TODO
     end
 
-    # `[61] NumericLiteral`
+    # `[61] NumericLiteral ::= NumericLiteralUnsigned | NumericLiteralPositive | NumericLiteralNegative`
     def numeric_literal
-      # TODO
+      (token = accept(:NumericLiteral)) ? RDF::Literal(token.value) : false
     end
 
-    # `[62] NumericLiteralUnsigned`
+    # `[62] NumericLiteralUnsigned ::= INTEGER | DECIMAL | DOUBLE`
     def numeric_literal_unsigned
-      # TODO
+      numeric_literal
     end
 
-    # `[63] NumericLiteralPositive`
+    # `[63] NumericLiteralPositive ::= INTEGER_POSITIVE | DECIMAL_POSITIVE | DOUBLE_POSITIVE`
     def numeric_literal_positive
-      # TODO
+      numeric_literal # TODO: enforce the sign constraint
     end
 
-    # `[64] NumericLiteralNegative`
+    # `[64] NumericLiteralNegative ::= INTEGER_NEGATIVE | DECIMAL_NEGATIVE | DOUBLE_NEGATIVE`
     def numeric_literal_negative
-      # TODO
+      numeric_literal # TODO: enforce the sign constraint
     end
 
-    # `[65] BooleanLiteral`
+    # `[65] BooleanLiteral ::= 'true' | 'false'`
     def boolean_literal
-      # TODO
+      (token = accept(:BooleanLiteral)) ? RDF::Literal(token.value) : false
     end
 
-    # `[66] String`
+    # `[66] String ::= STRING_LITERAL1 | STRING_LITERAL2 | STRING_LITERAL_LONG1 | STRING_LITERAL_LONG2`
     def string
-      # TODO
+      (token = accept(:String)) ? RDF::Literal(token.value) : false
     end
 
-    # `[67] IRIref`
+    # `[67] IRIref ::= IRI_REF | PrefixedName`
     def iriref
-      # TODO
+      iri_ref || prefixed_name
     end
 
-    # `[68] PrefixedName`
+    # `[68] PrefixedName ::= PNAME_LN | PNAME_NS`
     def prefixed_name
-      # TODO
+      pname_ln || pname_ns
     end
 
-    # `[69] BlankNode`
+    # `[69] BlankNode ::= BLANK_NODE_LABEL | ANON`
     def blank_node
-      # TODO
+      (token = accept(:BlankNode)) ? RDF::Node(token.value) : false
     end
+
+    # `[70] IRI_REF ::= '<' ([^<>"{}|^\`\]-[#x00-#x20])* '>'`
+    def iri_ref
+      (token = accept(:IRI_REF)) ? RDF::URI(token.value) : false # TODO: handle relative URLs here?
+    end
+
+    # `[71] PNAME_NS ::= PN_PREFIX? ':'`
+    def pname_ns
+      (token = accept(:PNAME_NS)) ? token.value : false # FIXME
+    end
+
+    # `[72] PNAME_LN ::= PNAME_NS PN_LOCAL`
+    def pname_ln
+      (token = accept(:PNAME_LN)) ? token.value : false # FIXME
+    end
+
+    # `[76] LANGTAG ::= '@' [a-zA-Z]+ ('-' [a-zA-Z0-9]+)*`
+    def langtag
+      (token = accept(:LANGTAG)) ? token.value : false
+    end
+
+    # `[92] NIL ::= '(' WS* ')'`
+    def nil()
+      (token = accept(:NIL)) ? RDF.nil : false
+    end
+
+  private
+
+    ##
+    # @param  [Symbol, String] type_or_value
+    # @return [Token]
+    def accept(type_or_value)
+      if (token = tokens.first) && token === type_or_value
+        tokens.shift
+      end
+    end
+
+    instance_methods.each { |method| public method } # DEBUG
   end # class Parser
 end; end # module SPARQL::Grammar

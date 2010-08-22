@@ -315,7 +315,7 @@ module SPARQL; module Grammar
     # @param  [Symbol] type
     # @param  [Object] value
     # @return [Token]
-    def token(type, value)
+    def token(type, value = nil)
       Token.new(type, value, :lineno => lineno)
     end
 
