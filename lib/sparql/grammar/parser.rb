@@ -59,24 +59,41 @@ module SPARQL; module Grammar
 
   protected
 
-    # `[1] Query`
+    # `[1] Query ::= Prologue (SelectQuery | ConstructQuery | DescribeQuery | AskQuery)`
     def query
-      # TODO
+      result = [:query]
+      if (decls = prologue) && decls.size > 1
+        result += decls[1..-1]
+      end
+      result << (select_query || construct_query || describe_query || ask_query)
+      result.compact!
+      result.size > 1 ? result : false
     end
 
-    # `[2] Prologue`
+    # `[2] Prologue ::= BaseDecl? PrefixDecl*`
     def prologue
-      # TODO
+      result = [:prologue, base_decl || nil, *prefix_decls]
+      result.compact!
+      result.size > 1 ? result : false
     end
 
-    # `[3] BaseDecl`
+    # `[3] BaseDecl ::= 'BASE' IRI_REF`
     def base_decl
-      # TODO
+      accept('BASE') ? [:base, iri_ref] : fail
     end
 
-    # `[4] PrefixDecl`
+    # `[4] PrefixDecl*`
+    def prefix_decls
+      result = []
+      while decl = prefix_decl
+        result << decl
+      end
+      result
+    end
+
+    # `[4] PrefixDecl ::= 'PREFIX' PNAME_NS IRI_REF`
     def prefix_decl
-      # TODO
+      accept('PREFIX') ? [:prefix, pname_ns, iri_ref] : fail
     end
 
     # `[5] SelectQuery`
@@ -99,24 +116,24 @@ module SPARQL; module Grammar
       # TODO
     end
 
-    # `[9] DatasetClause`
+    # `[9] DatasetClause ::= 'FROM' (DefaultGraphClause | NamedGraphClause)`
     def dataset_clause
-      # TODO
+      accept('FROM') ? (default_graph_clause || named_graph_clause) : fail # FIXME
     end
 
-    # `[10] DefaultGraphClause`
+    # `[10] DefaultGraphClause ::= SourceSelector`
     def default_graph_clause
-      # TODO
+      (iri = source_selector) ? [:default, iri] : fail # FIXME
     end
 
-    # `[11] NamedGraphClause`
+    # `[11] NamedGraphClause ::= 'NAMED' SourceSelector`
     def named_graph_clause
-      # TODO
+      accept('NAMED') ? [:named, source_selector] : fail # FIXME
     end
 
-    # `[12] SourceSelector`
+    # `[12] SourceSelector ::= IRIref`
     def source_selector
-      # TODO
+      iriref
     end
 
     # `[13] WhereClause`
@@ -144,14 +161,22 @@ module SPARQL; module Grammar
       # TODO
     end
 
-    # `[18] LimitClause`
+    # `[18] LimitClause ::= 'LIMIT' INTEGER`
     def limit_clause
-      # TODO
+      case
+        when accept('LIMIT') && token = accept(:NumericLiteral)
+          [:limit, token.value] # TODO: enforce the integer constraint
+        else fail
+      end
     end
 
-    # `[19] OffsetClause`
+    # `[19] OffsetClause ::= 'OFFSET' INTEGER`
     def offset_clause
-      # TODO
+      case
+        when accept('OFFSET') && token = accept(:NumericLiteral)
+          [:offset, token.value] # TODO: enforce the integer constraint
+        else fail
+      end
     end
 
     # `[20] GroupGraphPattern`
@@ -276,7 +301,7 @@ module SPARQL; module Grammar
 
     # `[44] Var ::= VAR1 | VAR2`
     def var
-      (token = accept(:Var)) ? RDF::Query::Variable.new(token.value) : false
+      (token = accept(:Var)) ? RDF::Query::Variable.new(token.value) : fail
     end
 
     # `[45] GraphTerm`
@@ -361,7 +386,7 @@ module SPARQL; module Grammar
 
     # `[61] NumericLiteral ::= NumericLiteralUnsigned | NumericLiteralPositive | NumericLiteralNegative`
     def numeric_literal
-      (token = accept(:NumericLiteral)) ? RDF::Literal(token.value) : false
+      (token = accept(:NumericLiteral)) ? RDF::Literal(token.value) : fail
     end
 
     # `[62] NumericLiteralUnsigned ::= INTEGER | DECIMAL | DOUBLE`
@@ -381,12 +406,12 @@ module SPARQL; module Grammar
 
     # `[65] BooleanLiteral ::= 'true' | 'false'`
     def boolean_literal
-      (token = accept(:BooleanLiteral)) ? RDF::Literal(token.value) : false
+      (token = accept(:BooleanLiteral)) ? RDF::Literal(token.value) : fail
     end
 
     # `[66] String ::= STRING_LITERAL1 | STRING_LITERAL2 | STRING_LITERAL_LONG1 | STRING_LITERAL_LONG2`
     def string
-      (token = accept(:String)) ? RDF::Literal(token.value) : false
+      (token = accept(:String)) ? RDF::Literal(token.value) : fail
     end
 
     # `[67] IRIref ::= IRI_REF | PrefixedName`
@@ -401,32 +426,32 @@ module SPARQL; module Grammar
 
     # `[69] BlankNode ::= BLANK_NODE_LABEL | ANON`
     def blank_node
-      (token = accept(:BlankNode)) ? RDF::Node(token.value) : false
+      (token = accept(:BlankNode)) ? RDF::Node(token.value) : fail
     end
 
     # `[70] IRI_REF ::= '<' ([^<>"{}|^\`\]-[#x00-#x20])* '>'`
     def iri_ref
-      (token = accept(:IRI_REF)) ? RDF::URI(token.value) : false # TODO: handle relative URLs here?
+      (token = accept(:IRI_REF)) ? RDF::URI(token.value) : fail # TODO: handle relative URLs here?
     end
 
     # `[71] PNAME_NS ::= PN_PREFIX? ':'`
     def pname_ns
-      (token = accept(:PNAME_NS)) ? token.value : false # FIXME
+      (token = accept(:PNAME_NS)) ? token.value : fail # FIXME
     end
 
     # `[72] PNAME_LN ::= PNAME_NS PN_LOCAL`
     def pname_ln
-      (token = accept(:PNAME_LN)) ? token.value : false # FIXME
+      (token = accept(:PNAME_LN)) ? token.value : fail # FIXME
     end
 
     # `[76] LANGTAG ::= '@' [a-zA-Z]+ ('-' [a-zA-Z0-9]+)*`
     def langtag
-      (token = accept(:LANGTAG)) ? token.value : false
+      (token = accept(:LANGTAG)) ? token.value : fail
     end
 
     # `[92] NIL ::= '(' WS* ')'`
     def nil()
-      (token = accept(:NIL)) ? RDF.nil : false
+      (token = accept(:NIL)) ? RDF.nil : fail
     end
 
   private
@@ -439,6 +464,13 @@ module SPARQL; module Grammar
         tokens.shift
       end
     end
+
+    ##
+    # @return [void]
+    def fail
+      false
+    end
+    alias_method :fail!, :fail
 
     instance_methods.each { |method| public method } # DEBUG
   end # class Parser
