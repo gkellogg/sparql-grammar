@@ -1,6 +1,150 @@
 require File.join(File.dirname(__FILE__), 'spec_helper')
 
 describe SPARQL::Grammar::Parser do
+  describe "when matching the [1] Query production rule" do
+    # TODO
+  end
+
+  describe "when matching the [2] Prologue production rule" do
+    # TODO
+  end
+
+  describe "when matching the [3] BaseDecl production rule" do
+    # TODO
+  end
+
+  describe "when matching the [4] PrefixDecl production rule" do
+    # TODO
+  end
+
+  describe "when matching the [5] SelectQuery production rule" do
+    # TODO
+  end
+
+  describe "when matching the [6] ConstructQuery production rule" do
+    # TODO
+  end
+
+  describe "when matching the [7] DescribeQuery production rule" do
+    # TODO
+  end
+
+  describe "when matching the [8] AskQuery production rule" do
+    # TODO
+  end
+
+  describe "when matching the [9] DatasetClause production rule" do
+    # TODO
+  end
+
+  describe "when matching the [10] DefaultGraphClause production rule" do
+    # TODO
+  end
+
+  describe "when matching the [11] NamedGraphClause production rule" do
+    # TODO
+  end
+
+  describe "when matching the [12] SourceSelector production rule" do
+    # TODO
+  end
+
+  describe "when matching the [13] WhereClause production rule" do
+    # TODO
+  end
+
+  describe "when matching the [14] SolutionModifier production rule" do
+    # TODO
+  end
+
+  describe "when matching the [15] LimitOffsetClauses production rule" do
+    # TODO
+  end
+
+  describe "when matching the [16] OrderClause production rule" do
+    # TODO
+  end
+
+  describe "when matching the [17] OrderCondition production rule" do
+    # TODO
+  end
+
+  describe "when matching the [18] LimitClause production rule" do
+    # TODO
+  end
+
+  describe "when matching the [19] OffsetClause production rule" do
+    # TODO
+  end
+
+  describe "when matching the [20] GroupGraphPattern production rule" do
+    # TODO
+  end
+
+  describe "when matching the [21] TriplesBlock production rule" do
+    # TODO
+  end
+
+  describe "when matching the [22] GraphPatternNotTriples production rule" do
+    # TODO
+  end
+
+  describe "when matching the [23] OptionalGraphPattern production rule" do
+    # TODO
+  end
+
+  describe "when matching the [24] GraphGraphPattern production rule" do
+    # TODO
+  end
+
+  describe "when matching the [25] GroupOrUnionGraphPattern production rule" do
+    # TODO
+  end
+
+  describe "when matching the [26] Filter production rule" do
+    # TODO
+  end
+
+  describe "when matching the [27] Constraint production rule" do
+    # TODO
+  end
+
+  describe "when matching the [28] FunctionCall production rule" do
+    # TODO
+  end
+
+  describe "when matching the [29] ArgList production rule" do
+    # TODO
+  end
+
+  describe "when matching the [30] ConstructTemplate production rule" do
+    # TODO
+  end
+
+  describe "when matching the [31] ConstructTriples production rule" do
+    # TODO
+  end
+
+  describe "when matching the [32] TriplesSameSubject production rule" do
+    # TODO
+  end
+
+  describe "when matching the [33] PropertyListNotEmpty production rule" do
+    # TODO
+  end
+
+  describe "when matching the [34] PropertyList production rule" do
+    # TODO
+  end
+
+  describe "when matching the [35] ObjectList production rule" do
+    # TODO
+  end
+
+  describe "when matching the [36] Object production rule" do
+    # TODO
+  end
+
   describe "when matching the [37] Verb production rule" do
     it "recognizes the VarOrIRIref nonterminal" do
       # TODO
@@ -9,6 +153,22 @@ describe SPARQL::Grammar::Parser do
     it "recognizes the 'a' lexeme" do
       parse(%q(a)).verb.should == RDF.type
     end
+  end
+
+  describe "when matching the [38] TriplesNode production rule" do
+    # TODO
+  end
+
+  describe "when matching the [39] BlankNodePropertyList production rule" do
+    # TODO
+  end
+
+  describe "when matching the [40] Collection production rule" do
+    # TODO
+  end
+
+  describe "when matching the [41] GraphNode production rule" do
+    # TODO
   end
 
   describe "when matching the [42] VarOrTerm production rule" do
@@ -69,6 +229,62 @@ describe SPARQL::Grammar::Parser do
     it "recognizes the NIL terminal" do
       # TODO
     end
+  end
+
+  describe "when matching the [46] Expression production rule" do
+    # TODO
+  end
+
+  describe "when matching the [47] ConditionalOrExpression production rule" do
+    # TODO
+  end
+
+  describe "when matching the [48] ConditionalAndExpression production rule" do
+    # TODO
+  end
+
+  describe "when matching the [49] ValueLogical production rule" do
+    # TODO
+  end
+
+  describe "when matching the [50] RelationalExpression production rule" do
+    # TODO
+  end
+
+  describe "when matching the [51] NumericExpression production rule" do
+    # TODO
+  end
+
+  describe "when matching the [52] AdditiveExpression production rule" do
+    # TODO
+  end
+
+  describe "when matching the [53] MultiplicativeExpression production rule" do
+    # TODO
+  end
+
+  describe "when matching the [54] UnaryExpression production rule" do
+    # TODO
+  end
+
+  describe "when matching the [55] PrimaryExpression production rule" do
+    # TODO
+  end
+
+  describe "when matching the [56] BrackettedExpression production rule" do
+    # TODO
+  end
+
+  describe "when matching the [57] BuiltInCall production rule" do
+    # TODO
+  end
+
+  describe "when matching the [58] RegexExpression production rule" do
+    # TODO
+  end
+
+  describe "when matching the [59] IRIrefOrFunction production rule" do
+    # TODO
   end
 
   describe "when matching the [60] RDFLiteral production rule" do
@@ -269,6 +485,8 @@ describe SPARQL::Grammar::Parser do
     end
   end
 
+  # NOTE: production rules [73..75] are internal to the lexer
+
   describe "when matching the [76] LANGTAG production rule" do
     it "recognizes the '@en' lexeme" do
       parse(%q(@en)).langtag.should == :en
@@ -279,11 +497,15 @@ describe SPARQL::Grammar::Parser do
     end
   end
 
+  # NOTE: production rules [77..91] are internal to the lexer
+
   describe "when matching the [92] NIL production rule" do
     it "recognizes the '()' lexeme" do
       parse(%q(())).nil.should == RDF.nil
     end
   end
+
+  # NOTE: production rules [93..100] are internal to the lexer
 
   describe "when parsing ASK queries" do
     # TODO
