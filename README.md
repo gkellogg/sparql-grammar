@@ -1,5 +1,5 @@
-SPARQL Parser for RDF.rb
-========================
+SPARQL Lexer and Parser for RDF.rb
+==================================
 
 This is a pure-Ruby implementation of a [SPARQL][] lexer and parser for
 [RDF.rb][]. (Currently in pre-alpha state.)
@@ -33,6 +33,8 @@ Documentation
 <http://sparql.rubyforge.org/grammar/>
 
 * {SPARQL::Grammar}
+  * {SPARQL::Grammar::Parser}
+  * {SPARQL::Grammar::Lexer}
 
 Dependencies
 ------------
