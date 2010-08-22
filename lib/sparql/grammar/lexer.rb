@@ -255,57 +255,153 @@ module SPARQL; module Grammar
     # @return [Enumerator]
     def each_token(&block)
       if block_given?
-        @lineno = 0
-        scanner = StringScanner.new(@input)
+        @lineno  = 0
+        @scanner = StringScanner.new(@input)
         until scanner.eos?
           case
-            when matched = scanner.scan(WS)
-              # @see http://www.w3.org/TR/rdf-sparql-query/#whitespace
-              # skip all white space, but keep track of the current line number
-              @lineno += matched.count("\n")
-            when skipped = scanner.skip(COMMENT)
-              # @see http://www.w3.org/TR/rdf-sparql-query/#grammarComments
-              # skip the remainder of the current line
-            when matched = scanner.scan(Var)
-              yield token(:Var, (scanner[1] || scanner[2]).to_sym)
-            when matched = scanner.scan(IRI_REF)
-              yield token(:IRI_REF, scanner[1])
-            when matched = scanner.scan(PNAME_LN)
-              yield token(:PNAME_LN, [scanner[1].empty? ? nil : scanner[1].to_sym, scanner[2].to_sym])
-            when matched = scanner.scan(PNAME_NS)
-              yield token(:PNAME_NS, scanner[1].empty? ? nil : scanner[1].to_sym)
-            when matched = scanner.scan(String)
-              yield token(:String, self.class.unescape_string(scanner[1] || scanner[2] || scanner[3] || scanner[4]))
-            when matched = scanner.scan(LANGTAG)
-              yield token(:LANGTAG, scanner[1].to_sym)
-            when matched = scanner.scan(DOUBLE)
-              yield token(:NumericLiteral, Float(matched))
-            when matched = scanner.scan(DECIMAL)
-              yield token(:NumericLiteral, BigDecimal(matched))
-            when matched = scanner.scan(INTEGER)
-              yield token(:NumericLiteral, Integer(matched))
-            when matched = scanner.scan(BooleanLiteral)
-              yield token(:BooleanLiteral, matched.eql?('true'))
-            when matched = scanner.scan(BlankNode)
-              yield token(:BlankNode, !scanner[1] || scanner[1].empty? ? nil : scanner[1].to_sym)
-            when matched = scanner.scan(NIL)
-              yield token(:NIL)
-            when matched = scanner.scan(KEYWORD)
-              yield token(nil, matched.upcase.to_sym)
-            when matched = scanner.scan(DELIMITER)
-              yield token(nil, matched.to_sym)
-            when matched = scanner.scan(OPERATOR)
-              yield token(nil, matched.to_sym)
+            when skip_whitespace
+            when skip_comment
+            when token = match_token
+              yield token
             else
-              token = (scanner.rest.split(/#{WS}|#{COMMENT}/).first rescue nil) || scanner.rest
-              raise Error.new("invalid token #{token.inspect} on line #{lineno + 1}",
-                :input => input, :token => token, :lineno => lineno)
+              lexeme = (@scanner.rest.split(/#{WS}|#{COMMENT}/).first rescue nil) || @scanner.rest
+              raise Error.new("invalid token #{lexeme.inspect} on line #{lineno + 1}",
+                :input => input, :token => lexeme, :lineno => lineno)
           end
         end
+        @scanner = nil
       end
       enum_for(:each_token)
     end
     alias_method :each, :each_token
+
+  protected
+
+    # @return [StringScanner]
+    attr_reader :scanner
+
+    # @see http://www.w3.org/TR/rdf-sparql-query/#whitespace
+    def skip_whitespace
+      # skip all white space, but keep track of the current line number
+      if matched = scanner.scan(WS)
+        @lineno += matched.count("\n")
+        matched
+      end
+    end
+
+    # @see http://www.w3.org/TR/rdf-sparql-query/#grammarComments
+    def skip_comment
+      # skip the remainder of the current line
+      skipped = scanner.skip(COMMENT)
+    end
+
+    def match_token
+      match_var             ||
+      match_iri_ref         ||
+      match_pname_ln        ||
+      match_pname_ns        ||
+      match_string          ||
+      match_langtag         ||
+      match_double          ||
+      match_decimal         ||
+      match_integer         ||
+      match_boolean_literal ||
+      match_blank_node      ||
+      match_nil             ||
+      match_keyword         ||
+      match_delimiter       ||
+      match_operator
+    end
+
+    def match_var
+      if matched = scanner.scan(Var)
+        token(:Var, (scanner[1] || scanner[2]).to_sym)
+      end
+    end
+
+    def match_iri_ref
+      if matched = scanner.scan(IRI_REF)
+        token(:IRI_REF, scanner[1])
+      end
+    end
+
+    def match_pname_ln
+      if matched = scanner.scan(PNAME_LN)
+        token(:PNAME_LN, [scanner[1].empty? ? nil : scanner[1].to_sym, scanner[2].to_sym])
+      end
+    end
+
+    def match_pname_ns
+      if matched = scanner.scan(PNAME_NS)
+        token(:PNAME_NS, scanner[1].empty? ? nil : scanner[1].to_sym)
+      end
+    end
+
+    def match_string
+      if matched = scanner.scan(String)
+        token(:String, self.class.unescape_string(scanner[1] || scanner[2] || scanner[3] || scanner[4]))
+      end
+    end
+
+    def match_langtag
+      if matched = scanner.scan(LANGTAG)
+        token(:LANGTAG, scanner[1].to_sym)
+      end
+    end
+
+    def match_double
+      if matched = scanner.scan(DOUBLE)
+        token(:NumericLiteral, Float(matched))
+      end
+    end
+
+    def match_decimal
+      if matched = scanner.scan(DECIMAL)
+        token(:NumericLiteral, BigDecimal(matched))
+      end
+    end
+
+    def match_integer
+      if matched = scanner.scan(INTEGER)
+        token(:NumericLiteral, Integer(matched))
+      end
+    end
+
+    def match_boolean_literal
+      if matched = scanner.scan(BooleanLiteral)
+        token(:BooleanLiteral, matched.eql?('true'))
+      end
+    end
+
+    def match_blank_node
+      if matched = scanner.scan(BlankNode)
+        token(:BlankNode, !scanner[1] || scanner[1].empty? ? nil : scanner[1].to_sym)
+      end
+    end
+
+    def match_nil
+      if matched = scanner.scan(NIL)
+        token(:NIL)
+      end
+    end
+
+    def match_keyword
+      if matched = scanner.scan(KEYWORD)
+        token(nil, matched.upcase.to_sym)
+      end
+    end
+
+    def match_delimiter
+      if matched = scanner.scan(DELIMITER)
+        token(nil, matched.to_sym)
+      end
+    end
+
+    def match_operator
+      if matched = scanner.scan(OPERATOR)
+        token(nil, matched.to_sym)
+      end
+    end
 
   protected
 
