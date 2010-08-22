@@ -474,6 +474,15 @@ describe SPARQL::Grammar::Lexer do
     end
   end
 
+  describe "when yielding tokens" do
+    it "annotates tokens with the current line number" do
+      tokenize("1\n2\n3\n4") do |tokens|
+        tokens.should have(4).elements
+        4.times { |line| tokens[line].lineno.should == line }
+      end
+    end
+  end
+
   describe "when encountering invalid input" do
     it "raises a lexer error" do
       lambda { tokenize("SELECT foo WHERE {}") }.should raise_error(SPARQL::Grammar::Lexer::Error)

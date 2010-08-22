@@ -267,35 +267,35 @@ module SPARQL; module Grammar
               # @see http://www.w3.org/TR/rdf-sparql-query/#grammarComments
               # skip the remainder of the current line
             when matched = scanner.scan(Var)
-              yield Token.new(:Var, (scanner[1] || scanner[2]).to_sym)
+              yield token(:Var, (scanner[1] || scanner[2]).to_sym)
             when matched = scanner.scan(IRI_REF)
-              yield Token.new(:IRI_REF, scanner[1])
+              yield token(:IRI_REF, scanner[1])
             when matched = scanner.scan(PNAME_LN)
-              yield Token.new(:PNAME_LN, [scanner[1].empty? ? nil : scanner[1].to_sym, scanner[2].to_sym])
+              yield token(:PNAME_LN, [scanner[1].empty? ? nil : scanner[1].to_sym, scanner[2].to_sym])
             when matched = scanner.scan(PNAME_NS)
-              yield Token.new(:PNAME_NS, scanner[1].empty? ? nil : scanner[1].to_sym)
+              yield token(:PNAME_NS, scanner[1].empty? ? nil : scanner[1].to_sym)
             when matched = scanner.scan(String)
-              yield Token.new(:String, self.class.unescape_string(scanner[1] || scanner[2] || scanner[3] || scanner[4]))
+              yield token(:String, self.class.unescape_string(scanner[1] || scanner[2] || scanner[3] || scanner[4]))
             when matched = scanner.scan(LANGTAG)
-              yield Token.new(:LANGTAG, scanner[1].to_sym)
+              yield token(:LANGTAG, scanner[1].to_sym)
             when matched = scanner.scan(DOUBLE)
-              yield Token.new(:NumericLiteral, Float(matched))
+              yield token(:NumericLiteral, Float(matched))
             when matched = scanner.scan(DECIMAL)
-              yield Token.new(:NumericLiteral, BigDecimal(matched))
+              yield token(:NumericLiteral, BigDecimal(matched))
             when matched = scanner.scan(INTEGER)
-              yield Token.new(:NumericLiteral, Integer(matched))
+              yield token(:NumericLiteral, Integer(matched))
             when matched = scanner.scan(BooleanLiteral)
-              yield Token.new(:BooleanLiteral, matched.eql?('true'))
+              yield token(:BooleanLiteral, matched.eql?('true'))
             when matched = scanner.scan(BlankNode)
-              yield Token.new(:BlankNode, !scanner[1] || scanner[1].empty? ? nil : scanner[1].to_sym)
+              yield token(:BlankNode, !scanner[1] || scanner[1].empty? ? nil : scanner[1].to_sym)
             when matched = scanner.scan(NIL)
-              yield Token.new(:NIL, nil)
+              yield token(:NIL, nil)
             when matched = scanner.scan(KEYWORD)
-              yield Token.new(nil, matched.upcase.to_sym)
+              yield token(nil, matched.upcase.to_sym)
             when matched = scanner.scan(DELIMITER)
-              yield Token.new(nil, matched.to_sym)
+              yield token(nil, matched.to_sym)
             when matched = scanner.scan(OPERATOR)
-              yield Token.new(nil, matched.to_sym)
+              yield token(nil, matched.to_sym)
             else
               token = (scanner.rest.split(/#{WS}|#{COMMENT}/).first rescue nil) || scanner.rest
               raise Error.new("invalid token #{token.inspect} on line #{lineno + 1}",
@@ -306,6 +306,18 @@ module SPARQL; module Grammar
       enum_for(:each_token)
     end
     alias_method :each, :each_token
+
+  protected
+
+    ##
+    # Constructs a new token object annotated with the current line number.
+    #
+    # @param  [Symbol] type
+    # @param  [Object] value
+    # @return [Token]
+    def token(type, value)
+      Token.new(type, value, :lineno => lineno)
+    end
 
     ##
     # Represents a lexer token.
@@ -323,9 +335,11 @@ module SPARQL; module Grammar
       # @param  [Symbol]                 type
       # @param  [Object]                 value
       # @param  [Hash{Symbol => Object}] options
+      # @option options [Integer]        :lineno (nil)
       def initialize(type, value, options = {})
         @type, @value = type, value
         @options = options.dup
+        @lineno  = @options.delete(:lineno)
       end
 
       ##
@@ -339,6 +353,12 @@ module SPARQL; module Grammar
       #
       # @return [Object]
       attr_reader :value
+
+      ##
+      # The line number where the token was encountered.
+      #
+      # @return [Integer]
+      attr_reader :lineno
 
       ##
       # Any additional options for the token.
