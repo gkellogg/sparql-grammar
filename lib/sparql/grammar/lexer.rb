@@ -289,7 +289,7 @@ module SPARQL; module Grammar
             when matched = scanner.scan(BlankNode)
               yield token(:BlankNode, !scanner[1] || scanner[1].empty? ? nil : scanner[1].to_sym)
             when matched = scanner.scan(NIL)
-              yield token(:NIL, nil)
+              yield token(:NIL)
             when matched = scanner.scan(KEYWORD)
               yield token(nil, matched.upcase.to_sym)
             when matched = scanner.scan(DELIMITER)
@@ -336,7 +336,7 @@ module SPARQL; module Grammar
       # @param  [Object]                 value
       # @param  [Hash{Symbol => Object}] options
       # @option options [Integer]        :lineno (nil)
-      def initialize(type, value, options = {})
+      def initialize(type, value = nil, options = {})
         @type, @value = type, value
         @options = options.dup
         @lineno  = @options.delete(:lineno)
@@ -377,6 +377,26 @@ module SPARQL; module Grammar
           when 0, :type  then type
           when 1, :value then value
           else nil
+        end
+      end
+
+      ##
+      # Returns `true` if the given `value` matches either the type or value
+      # of this token.
+      #
+      # @example Matching using the symbolic type
+      #   SPARQL::Grammar::Lexer::Token.new(:NIL) === :NIL     #=> true
+      #
+      # @example Matching using the string value
+      #   SPARQL::Grammar::Lexer::Token.new(nil, "{") === "{"  #=> true
+      #
+      # @param  [Symbol, String] value
+      # @return [Boolean]
+      def ===(value)
+        case value
+          when Symbol   then value == @type
+          when ::String then value.to_s == @value.to_s
+          else false
         end
       end
 
