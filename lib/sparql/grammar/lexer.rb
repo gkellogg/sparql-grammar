@@ -208,7 +208,7 @@ module SPARQL; module Grammar
     attr_reader   :options
 
     ##
-    # The current input string.
+    # The current input string being processed.
     #
     # @return [String]
     attr_accessor :input
@@ -224,7 +224,7 @@ module SPARQL; module Grammar
     # @return [void]
     def input=(input)
       @input = case input
-        when String       then input
+        when ::String     then input
         when IO, StringIO then input.read
         else input.to_s
       end
@@ -269,7 +269,7 @@ module SPARQL; module Grammar
             when matched = scanner.scan(Var)
               yield Token.new(:Var, (scanner[1] || scanner[2]).to_sym)
             when matched = scanner.scan(IRI_REF)
-              yield Token.new(:IRI_REF, RDF::URI(scanner[1]))
+              yield Token.new(:IRI_REF, scanner[1])
             when matched = scanner.scan(PNAME_LN)
               yield Token.new(:PNAME_LN, [scanner[1].empty? ? nil : scanner[1].to_sym, scanner[2].to_sym])
             when matched = scanner.scan(PNAME_NS)
@@ -287,9 +287,9 @@ module SPARQL; module Grammar
             when matched = scanner.scan(BooleanLiteral)
               yield Token.new(:BooleanLiteral, matched.eql?('true'))
             when matched = scanner.scan(BlankNode)
-              yield Token.new(:BlankNode, RDF::Node(scanner[1]))
+              yield Token.new(:BlankNode, !scanner[1] || scanner[1].empty? ? nil : scanner[1].to_sym)
             when matched = scanner.scan(NIL)
-              yield Token.new(:NIL, RDF.nil)
+              yield Token.new(:NIL, nil)
             when matched = scanner.scan(KEYWORD)
               yield Token.new(nil, matched.upcase.to_sym)
             when matched = scanner.scan(DELIMITER)

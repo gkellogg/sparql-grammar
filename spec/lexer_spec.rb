@@ -86,7 +86,7 @@ describe SPARQL::Grammar::Lexer do
       tokenize(%q(()), %q(( )), %q((  ))) do |tokens|
         tokens.should have(1).element
         tokens.first.type.should  == :NIL
-        tokens.first.value.should == RDF.nil
+        tokens.first.value.should == nil
       end
     end
   end
@@ -204,7 +204,7 @@ describe SPARQL::Grammar::Lexer do
       tokenize(%q(_:foobar)) do |tokens|
         tokens.should have(1).element
         tokens.first.type.should  == :BlankNode
-        tokens.first.value.should == RDF::Node(:foobar)
+        tokens.first.value.should == :foobar
       end
     end
 
@@ -212,7 +212,7 @@ describe SPARQL::Grammar::Lexer do
       tokenize(%q([]), %q([ ])) do |tokens|
         tokens.should have(1).element
         tokens.first.type.should  == :BlankNode
-        tokens.first.value.should be_an(RDF::Node)
+        tokens.first.value.should be_nil
       end
     end
   end
@@ -240,7 +240,7 @@ describe SPARQL::Grammar::Lexer do
       tokenize(%q(<http://example.org/foobar>)) do |tokens|
         tokens.should have(1).element
         tokens.first.type.should  == :IRI_REF
-        tokens.first.value.should == RDF::URI('http://example.org/foobar')
+        tokens.first.value.should == 'http://example.org/foobar'
       end
     end
 
@@ -248,7 +248,7 @@ describe SPARQL::Grammar::Lexer do
       tokenize(%q(<foobar>)) do |tokens|
         tokens.should have(1).element
         tokens.first.type.should  == :IRI_REF
-        tokens.first.value.should == RDF::URI('foobar')
+        tokens.first.value.should == 'foobar'
       end
     end
   end
@@ -323,7 +323,7 @@ describe SPARQL::Grammar::Lexer do
         tokens[1].type.should  == nil
         tokens[1].value.should == :'^^'
         tokens[2].type.should  == :IRI_REF
-        tokens[2].value.should == RDF::XSD.double
+        tokens[2].value.should == RDF::XSD.double.to_s
       end
     end
   end
