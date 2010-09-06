@@ -12,11 +12,11 @@ GEMSPEC = Gem::Specification.new do |gem|
   gem.description        = gem.summary
   gem.rubyforge_project  = 'sparql'
 
-  gem.authors            = ['Arto Bendiken']
+  gem.author             = 'Arto Bendiken'
   gem.email              = 'public-rdf-ruby@w3.org'
 
   gem.platform           = Gem::Platform::RUBY
-  gem.files              = %w(AUTHORS CONTRIBUTORS README UNLICENSE VERSION) + Dir.glob('lib/**/*.rb')
+  gem.files              = %w(AUTHORS CREDITS README UNLICENSE VERSION) + Dir.glob('lib/**/*.rb')
   gem.bindir             = %q(bin)
   gem.executables        = %w()
   gem.default_executable = gem.executables.first
