@@ -1,4 +1,4 @@
-require 'rdf'
+require 'rdf' # @see http://rubygems.org/gems/rdf
 
 module SPARQL
   ##
@@ -56,5 +56,5 @@ module SPARQL
     def self.tokenize(query, options = {}, &block)
       Lexer.tokenize(query, options, &block)
     end
-  end
-end
+  end # Grammar
+end # SPARQL
