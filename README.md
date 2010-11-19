@@ -58,15 +58,20 @@ To get a local working copy of the development repository, do:
 
     % git clone git://github.com/bendiken/sparql-grammar.git
 
-Alternatively, you can download the latest development version as a tarball
-as follows:
+Alternatively, download the latest development version as a tarball as
+follows:
 
     % wget http://github.com/bendiken/sparql-grammar/tarball/master
+
+Mailing List
+------------
+
+* <http://lists.w3.org/Archives/Public/public-rdf-ruby/>
 
 Author
 ------
 
-* [Arto Bendiken](mailto:arto.bendiken@gmail.com) - <http://ar.to/>
+* [Arto Bendiken](http://github.com/bendiken) - <http://ar.to/>
 
 Contributors
 ------------
