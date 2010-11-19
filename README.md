@@ -41,7 +41,7 @@ Dependencies
 ------------
 
 * [Ruby](http://ruby-lang.org/) (>= 1.8.7) or (>= 1.8.1 with [Backports][])
-* [RDF.rb](http://rubygems.org/gems/rdf) (>= 0.2.3)
+* [RDF.rb](http://rubygems.org/gems/rdf) (>= 0.3.0)
 
 Installation
 ------------
