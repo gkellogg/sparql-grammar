@@ -1,9 +1,8 @@
 require 'sparql/grammar'
 require 'rdf/spec'
 require 'rdf/ntriples'
-require 'rdf/raptor'
 
-Spec::Runner.configure do |config|
+RSpec.configure do |config|
   config.include(RDF::Spec::Matchers)
 end
 
