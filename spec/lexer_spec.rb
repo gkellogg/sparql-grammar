@@ -554,6 +554,7 @@ describe SPARQL::Grammar::Lexer do
   end
 
   def tokenize(*inputs, &block)
+    options = inputs.last.is_a?(Hash) ? inputs.pop : {}
     inputs.each do |input|
       tokens = SPARQL::Grammar::Lexer.tokenize(input, options)
       tokens.should be_a(SPARQL::Grammar::Lexer)
