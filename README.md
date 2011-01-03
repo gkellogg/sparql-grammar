@@ -49,6 +49,11 @@ http://www.w3.org/2000/10/swap/grammar/sparql.n3 (along with bnf-token-rules.n3)
 
 sparql-selectors.n3 is itself used to generate meta.rb using script/build_meta.
 
+Note that The SWAP version of sparql.n3 is an older version of the grammar with the newest in sparql.ttl,
+which uses the EBNF form. Sparql.n3 file has been updated by hand to be consistent with the sparql.ttl version.
+A future direction will be to generate rules from sparql.ttl to generate branch tables similar to those
+expresed in meta.rb, but this requires rules not currently available.
+
 Dependencies
 ------------
 
