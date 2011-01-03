@@ -1,0 +1,65 @@
+#!/usr/bin/env ruby -s
+require 'rubygems'
+$:.unshift(File.expand_path(File.join(File.dirname(__FILE__), "..", 'lib')))
+require 'sparql/grammar'
+require 'getoptlong'
+require 'open-uri'
+
+def run(input, base)
+  start = Time.new
+  num = 0
+  puts  "#{input.read}---\n\n" unless $quiet
+  input.rewind
+  if $quiet
+    $stdout = StringIO.new
+  end
+  parser = SPARQL::Grammar::Parser.new(input.read, :progress => true)
+  parser.parse
+  if $quiet
+    $stdout = STDOUT
+    print "."
+  end
+  puts
+  secs = Time.new - start
+  puts "Parsed in #{secs} seconds."
+#rescue Exception => e
+#  fname = input.respond_to?(:path) ? input.path : "-stdin-"
+#  #STDERR.puts("\nIn #{fname}: #{e.message}")
+#  raise e
+end
+
+$verbose = false
+$output_format = :ntriples
+$input_format = :n3
+base_uri  = "http://example.com"
+input = nil
+
+opts = GetoptLong.new(
+  ["--debug", GetoptLong::NO_ARGUMENT],
+  ["--verbose", GetoptLong::NO_ARGUMENT],
+  ["--quiet", GetoptLong::NO_ARGUMENT],
+  ["--execute", "-e", GetoptLong::REQUIRED_ARGUMENT],
+  ["--parse-only", GetoptLong::NO_ARGUMENT],
+  ["--uri", GetoptLong::REQUIRED_ARGUMENT]
+)
+opts.each do |opt, arg|
+  case opt
+  when '--verbose' then $verbose = true
+  when '--quiet' then $quiet = true
+  when '--debug' then ::RDF::N3::debug = true
+  when '--execute' then input = arg
+  when '--uri' then base_uri = arg
+  when '--parse-only' then $parse_only = true
+  end
+end
+
+if ARGV.empty?
+  s = input ? input : $stdin.read
+  run(StringIO.new(s), base_uri)
+else
+  ARGV.each do |test_file|
+    puts "parse #{test_file}"
+    run(Kernel.open(test_file), base_uri)
+  end
+end
+puts

@@ -37,6 +37,18 @@ Documentation
   * {SPARQL::Grammar::Parser}
   * {SPARQL::Grammar::Lexer}
 
+Implementation Notes
+--------------------
+The parser is driven through a rules table contained in lib/sparql/grammar/parser/meta.rb. This includes
+branch rules to indicate productions to be taken based on a current production.
+
+The meta.rb file is generated from lib/rdf/n3/reader/sparql-selectors.n3 which is the result of parsing
+http://www.w3.org/2000/10/swap/grammar/sparql.n3 (along with bnf-token-rules.n3) using cwm using the following command sequence:
+
+    cwm ../grammar/sparql.n3 bnf-token-rules.n3 --think --purge --data > sparql-selectors.n3
+
+sparql-selectors.n3 is itself used to generate meta.rb using script/build_meta.
+
 Dependencies
 ------------
 

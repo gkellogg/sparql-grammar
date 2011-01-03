@@ -6,14 +6,20 @@ module SPARQL; module Grammar
   # @see http://en.wikipedia.org/wiki/Parsing
   # @see http://en.wikipedia.org/wiki/Recursive_descent_parser
   class Parser
+    include SPARQL::Grammar::Meta
+
+    START = 'http://www.w3.org/2000/10/swap/grammar/sparql#Query'
+
     ##
     # Initializes a new parser instance.
     #
     # @param  [String, #to_s]          input
     # @param  [Hash{Symbol => Object}] options
+    # @option option [Boolean] :progress Output parser progress
     def initialize(input = nil, options = {})
       @options = options.dup
       self.input = input if input
+      @productions = []
     end
 
     ##
@@ -49,6 +55,86 @@ module SPARQL; module Grammar
       end
     end
 
+    # Parse query
+    def parse(prod = START)
+      todo_stack = [{:prod => prod, :terms => nil}]
+      while !todo_stack.empty?
+        pushed = false
+        if todo_stack.last[:terms].nil?
+          todo_stack.last[:terms] = []
+          token = tokens.first
+          debug "parse token: #{token.inspect}, prod #{todo_stack.last[:prod]}"
+          
+          # Got an opened production
+          onStart(abbr(todo_stack.last[:prod]))
+          break if token.nil?
+          
+          cur_prod = todo_stack.last[:prod]
+          prod_branch = BRANCHES[cur_prod.to_sym]
+          error("No branches found for '#{abbr(cur_prod)}'",
+            :production => cur_prod, :token => token) if prod_branch.nil?
+          sequence = prod_branch[token.representation]
+          if sequence.nil?
+            expected = prod_branch.values.uniq.map {|u| u.map {|v| abbr(v).inspect}.join(",")}
+            error("Found '#{token.inspect}' when parsing a #{abbr(cur_prod)}. expected #{expected.join(' | ')}",
+              :production => cur_prod, :token => token)
+          end
+          todo_stack.last[:terms] += sequence
+        end
+        
+        debug "parse: #{todo_stack.last.inspect}"
+        while !todo_stack.last[:terms].to_a.empty?
+          term = todo_stack.last[:terms].shift
+          debug "parse tokens: #{tokens.inspect}"
+          if tokens.map(&:representation).include?(term)
+            token = accept(term)
+            debug "parse term(#{token.inspect}): #{term}"
+            if token
+              onToken(abbr(term), token.value)
+            else
+              error("Found '#{word}...'; #{term} expected",
+                :production => todo_stack.last[:prod], :token => tokens.first)
+            end
+          else
+            debug "parse term(push): #{term}"
+            todo_stack << {:prod => term, :terms => nil}
+            pushed = true
+            break
+          end
+        end
+        
+        while !pushed && todo_stack.last[:terms].to_a.empty?
+          todo_stack.pop
+          self.onFinish
+        end
+      end
+      while !todo_stack.empty?
+        todo_stack.pop
+        self.onFinish
+      end
+    end
+    
+    def abbr(prodURI)
+      prodURI.to_s.split('#').last
+    end
+    
+    # Start for production
+    def onStart(prod)
+      progress ' ' * @productions.length + prod
+      @productions << prod
+    end
+
+    # Finish of production
+    def onFinish
+      prod = @productions.pop()
+      progress ' ' * @productions.length + '/' + prod
+    end
+
+    # A token
+    def onToken(prod, token)
+      progress ' ' * @productions.length + "#{prod}(#{token.inspect})"
+    end
+
     ##
     # Returns `true` if the input string is syntactically valid.
     #
@@ -59,6 +145,30 @@ module SPARQL; module Grammar
 
   protected
 
+    # @param [String] str Error string
+    # @param [Hash] options
+    # @option options [URI, #to_s] :production
+    # @option options [Token] :token
+    def error(str, options = {})
+      $stderr.puts str
+      raise Error.new("Error on production #{options[:production]} with input #{options[:token].inspect} at line #{options[:token].lineno}: #{str}", options)
+    end
+
+    ##
+    # Progress output when parsing
+    # @param [String] str
+    def progress(str)
+      $stderr.puts(str) if @options[:progress]
+    end
+
+    ##
+    # Progress output when debugging
+    # @param [String] str
+    def debug(str)
+      $stderr.puts(str) if $verbose
+    end
+
+    # XXX -- Following are for previous recursive-ascent attempt
     # `[1] Query ::= Prologue (SelectQuery | ConstructQuery | DescribeQuery | AskQuery)`
     def parse_query
       result = [:query]
@@ -473,5 +583,58 @@ module SPARQL; module Grammar
     alias_method :fail!, :fail
 
     instance_methods.each { |method| public method } # DEBUG
+
+  public
+    ##
+    # Raised for errors during parsing.
+    #
+    # @example Raising a parser error
+    #   raise SPARQL::Grammar::Parser::Error.new(
+    #     "FIXME on line 10",
+    #     :input => query, :production => '%', :lineno => 9)
+    #
+    # @see http://ruby-doc.org/core/classes/StandardError.html
+    class Error < StandardError
+      ##
+      # The input string associated with the error.
+      #
+      # @return [String]
+      attr_reader :input
+
+      ##
+      # The grammar production where the error was found.
+      #
+      # @return [String]
+      attr_reader :production
+
+      ##
+      # The line number where the error occurred.
+      #
+      # @return [Integer]
+      attr_reader :lineno
+
+      ##
+      # Position within line of error.
+      #
+      # @return [Integer]
+      attr_reader :position
+
+      ##
+      # Initializes a new lexer error instance.
+      #
+      # @param  [String, #to_s]          message
+      # @param  [Hash{Symbol => Object}] options
+      # @option options [String]         :input  (nil)
+      # @option options [String]         :production  (nil)
+      # @option options [Integer]        :lineno (nil)
+      # @option options [Integer]        :position (nil)
+      def initialize(message, options = {})
+        @input  = options[:input]
+        @production  = options[:production]
+        @lineno = options[:lineno]
+        @position = options[:position]
+        super(message.to_s)
+      end
+    end # class Error
   end # class Parser
 end; end # module SPARQL::Grammar

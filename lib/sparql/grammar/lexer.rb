@@ -117,28 +117,22 @@ module SPARQL; module Grammar
     VAR1                 = /\?(#{VARNAME})/                                     # [74]
     VAR2                 = /\$(#{VARNAME})/                                     # [75]
     LANGTAG              = /@([a-zA-Z]+(?:-[a-zA-Z0-9]+)*)/                     # [76]
-    INTEGER              = /[+-]?[0-9]+/                                        # [77]
-    DECIMAL              = /[+-]?(?:[0-9]+\.[0-9]*|\.[0-9]+)/                   # [78]
+    INTEGER              = /[0-9]+/                                             # [77]
+    DECIMAL              = /(?:[0-9]+\.[0-9]*|\.[0-9]+)/                        # [78]
     EXPONENT             = /[eE][+-]?[0-9]+/                                    # [86]
-    DOUBLE               = /[+-]?(?:[0-9]+\.[0-9]*|\.[0-9]+|[0-9]+)#{EXPONENT}/ # [79]
+    DOUBLE               = /(?:[0-9]+\.[0-9]*|\.[0-9]+|[0-9]+)#{EXPONENT}/      # [79]
     ECHAR                = /\\[tbnrf\\"']/                                      # [91]
     STRING_LITERAL1      = /'((?:[^\x27\x5C\x0A\x0D]|#{ECHAR})*)'/              # [87]
     STRING_LITERAL2      = /"((?:[^\x22\x5C\x0A\x0D]|#{ECHAR})*)"/              # [88]
-    STRING_LITERAL_LONG1 = /'''((?:(?:'|'')?(?:[^'\\]|#{ECHAR})+)*)'''/         # [89]
-    STRING_LITERAL_LONG2 = /"""((?:(?:"|"")?(?:[^"\\]|#{ECHAR})+)*)"""/         # [90]
+    STRING_LITERAL_LONG1 = /'''((?:(?:'|'')?(?:[^'\\]|#{ECHAR})+)*)'''/m       # [89]
+    STRING_LITERAL_LONG2 = /"""((?:(?:"|"")?(?:[^"\\]|#{ECHAR})+)*)"""/m        # [90]
     WS                   = /\x20|\x09|\x0D|\x0A/                                # [93]
     NIL                  = /\(#{WS}*\)/                                         # [92]
     ANON                 = /\[#{WS}*\]/                                         # [94]
 
-    Var                  = /#{VAR1}|#{VAR2}/                                    # [44]
-    NumericLiteral       = /#{DOUBLE}|#{DECIMAL}|#{INTEGER}/                    # [61]
     BooleanLiteral       = /true|false/                                         # [65]
     String               = /#{STRING_LITERAL_LONG1}|#{STRING_LITERAL_LONG2}|
                             #{STRING_LITERAL1}|#{STRING_LITERAL2}/x             # [66]
-    PrefixedName         = /#{PNAME_LN}|#{PNAME_NS}/                            # [68]
-    IRIref               = /#{IRI_REF}|#{PrefixedName}/                         # [67]
-    RDFLiteral           = /#{String}(?:#{LANGTAG}|(?:\^\^#{IRIref}))?/         # [60]
-    BlankNode            = /#{BLANK_NODE_LABEL}|#{ANON}/                        # [69]
 
     # Make all defined regular expression constants immutable:
     constants.each { |name| const_get(name).freeze }
@@ -306,64 +300,73 @@ module SPARQL; module Grammar
       match_decimal         ||
       match_integer         ||
       match_boolean_literal ||
-      match_blank_node      ||
+      match_blank_node_label||
       match_nil             ||
+      match_anon            ||
       match_keyword         ||
       match_delimiter       ||
       match_operator
     end
 
     def match_var
-      if matched = scanner.scan(Var)
-        token(:Var, (scanner[1] || scanner[2]).to_sym)
+      if matched = scanner.scan(VAR1)
+        token(:VAR1, matched.to_s)
+      elsif matched = scanner.scan(VAR2)
+        token(:VAR2, matched.to_s)
       end
     end
 
     def match_iri_ref
       if matched = scanner.scan(IRI_REF)
-        token(:IRI_REF, scanner[1])
+        token(:IRI_REF, scanner[1].to_s)
       end
     end
 
     def match_pname_ln
       if matched = scanner.scan(PNAME_LN)
-        token(:PNAME_LN, [scanner[1].empty? ? nil : scanner[1].to_sym, scanner[2].to_sym])
+        token(:PNAME_LN, [scanner[1].empty? ? nil : scanner[1].to_s, scanner[2].to_s])
       end
     end
 
     def match_pname_ns
       if matched = scanner.scan(PNAME_NS)
-        token(:PNAME_NS, scanner[1].empty? ? nil : scanner[1].to_sym)
+        token(:PNAME_NS, scanner[1].empty? ? nil : scanner[1].to_s)
       end
     end
 
     def match_string
-      if matched = scanner.scan(String)
-        token(:String, self.class.unescape_string(scanner[1] || scanner[2] || scanner[3] || scanner[4]))
+      if matched = scanner.scan(STRING_LITERAL_LONG1)
+        token(:STRING_LITERAL_LONG1, self.class.unescape_string(matched))
+      elsif matched = scanner.scan(STRING_LITERAL_LONG2)
+        token(:STRING_LITERAL_LONG2, self.class.unescape_string(matched))
+      elsif matched = scanner.scan(STRING_LITERAL1)
+        token(:STRING_LITERAL1, self.class.unescape_string(matched))
+      elsif matched = scanner.scan(STRING_LITERAL2)
+        token(:STRING_LITERAL2, self.class.unescape_string(matched))
       end
     end
 
     def match_langtag
       if matched = scanner.scan(LANGTAG)
-        token(:LANGTAG, scanner[1].to_sym)
+        token(:LANGTAG, scanner[1].to_s)
       end
     end
 
     def match_double
       if matched = scanner.scan(DOUBLE)
-        token(:NumericLiteral, Float(matched))
+        token(:DOUBLE, Float(matched))
       end
     end
 
     def match_decimal
       if matched = scanner.scan(DECIMAL)
-        token(:NumericLiteral, BigDecimal(matched))
+        token(:DECIMAL, BigDecimal(matched))
       end
     end
 
     def match_integer
       if matched = scanner.scan(INTEGER)
-        token(:NumericLiteral, Integer(matched))
+        token(:INTEGER, Integer(matched))
       end
     end
 
@@ -373,9 +376,9 @@ module SPARQL; module Grammar
       end
     end
 
-    def match_blank_node
-      if matched = scanner.scan(BlankNode)
-        token(:BlankNode, !scanner[1] || scanner[1].empty? ? nil : scanner[1].to_sym)
+    def match_blank_node_label
+      if matched = scanner.scan(BLANK_NODE_LABEL)
+        token(:BLANK_NODE_LABEL, scanner[1].to_s)
       end
     end
 
@@ -385,21 +388,27 @@ module SPARQL; module Grammar
       end
     end
 
+    def match_anon
+      if matched = scanner.scan(ANON)
+        token(:ANON)
+      end
+    end
+
     def match_keyword
       if matched = scanner.scan(KEYWORD)
-        token(nil, matched.upcase.to_sym)
+        token(nil, matched.upcase.to_s)
       end
     end
 
     def match_delimiter
       if matched = scanner.scan(DELIMITER)
-        token(nil, matched.to_sym)
+        token(nil, matched.to_s)
       end
     end
 
     def match_operator
       if matched = scanner.scan(OPERATOR)
-        token(nil, matched.to_sym)
+        token(nil, matched.to_s)
       end
     end
 
@@ -408,10 +417,15 @@ module SPARQL; module Grammar
     ##
     # Constructs a new token object annotated with the current line number.
     #
+    # The parser relies on the type being a symbolized URI and the value being
+    # a string, if there is no type. If there is a type, then the value takes
+    # on the native representation appropriate for that type.
+    #
     # @param  [Symbol] type
     # @param  [Object] value
     # @return [Token]
     def token(type, value = nil)
+      type = :"http://www.w3.org/2000/10/swap/grammar/sparql##{type}" if type && !type.to_s.include?("/")
       Token.new(type, value, :lineno => lineno)
     end
 
@@ -420,8 +434,8 @@ module SPARQL; module Grammar
     #
     # @example Creating a new token
     #   token = SPARQL::Grammar::Lexer::Token.new(:LANGTAG, :en)
-    #   token.type   #=> :LANGTAG
-    #   token.value  #=> :en
+    #   token.type   #=> :"http://www.w3.org/2000/10/swap/grammar/sparql#LANGTAG"
+    #   token.value  #=> "en"
     #
     # @see http://en.wikipedia.org/wiki/Lexical_analysis#Token
     class Token
@@ -433,7 +447,7 @@ module SPARQL; module Grammar
       # @param  [Hash{Symbol => Object}] options
       # @option options [Integer]        :lineno (nil)
       def initialize(type, value = nil, options = {})
-        @type, @value = type, value
+        @type, @value = (type ? type.to_s.to_sym : nil), value
         @options = options.dup
         @lineno  = @options.delete(:lineno)
       end
@@ -470,8 +484,8 @@ module SPARQL; module Grammar
       def [](key)
         key = key.to_s.to_sym unless key.is_a?(Integer) || key.is_a?(Symbol)
         case key
-          when 0, :type  then type
-          when 1, :value then value
+          when 0, :type  then @type
+          when 1, :value then @value
           else nil
         end
       end
@@ -492,7 +506,7 @@ module SPARQL; module Grammar
         case value
           when Symbol   then value == @type
           when ::String then value.to_s == @value.to_s
-          else false
+          else value == @value
         end
       end
 
@@ -501,7 +515,13 @@ module SPARQL; module Grammar
       #
       # @return [Hash]
       def to_hash
-        {:type => type, :value => value}
+        {:type => @type, :value => @value}
+      end
+      
+      ##
+      # Returns type, if not nil, otherwise value
+      def representation
+        @type ? @type : @value
       end
 
       ##
@@ -509,7 +529,7 @@ module SPARQL; module Grammar
       #
       # @return [Array]
       def to_a
-        [type, value]
+        [@type, @value]
       end
 
       ##
