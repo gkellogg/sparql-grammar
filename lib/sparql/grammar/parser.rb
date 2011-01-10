@@ -8,7 +8,7 @@ module SPARQL; module Grammar
   class Parser
     include SPARQL::Grammar::Meta
 
-    START = 'http://www.w3.org/2000/10/swap/grammar/sparql#Query'
+    START = SPARQL_GRAMMAR.Query
 
     ##
     # Initializes a new parser instance.
@@ -20,6 +20,7 @@ module SPARQL; module Grammar
       @options = options.dup
       self.input = input if input
       @productions = []
+      @prod_data = []
     end
 
     ##
@@ -64,7 +65,8 @@ module SPARQL; module Grammar
         if todo_stack.last[:terms].nil?
           todo_stack.last[:terms] = []
           token = tokens.first
-          debug "parse token: #{token.inspect}, prod #{todo_stack.last[:prod]}"
+          @lineno = token.lineno if token
+          debug("parse token", "#{token.inspect}, prod #{todo_stack.last[:prod]}")
           
           # Got an opened production
           onStart(abbr(todo_stack.last[:prod]))
@@ -83,13 +85,14 @@ module SPARQL; module Grammar
           todo_stack.last[:terms] += sequence
         end
         
-        debug "parse: #{todo_stack.last.inspect}"
+        debug("parse", todo_stack.last.inspect)
         while !todo_stack.last[:terms].to_a.empty?
           term = todo_stack.last[:terms].shift
-          debug "parse tokens: #{tokens.inspect}"
+          debug("parse tokens", tokens)
           if tokens.map(&:representation).include?(term)
             token = accept(term)
-            debug "parse term(#{token.inspect}): #{term}"
+            @lineno = token.lineno if token
+            debug("parse", "term(#{token.inspect}): #{term}")
             if token
               onToken(abbr(term), token.value)
             else
@@ -97,7 +100,7 @@ module SPARQL; module Grammar
                 :production => todo_stack.last[:prod], :token => tokens.first)
             end
           else
-            debug "parse term(push): #{term}"
+            debug("parse", "term(push): #{term}")
             todo_stack << {:prod => term, :terms => nil}
             pushed = true
             break
@@ -121,19 +124,30 @@ module SPARQL; module Grammar
     
     # Start for production
     def onStart(prod)
-      progress ' ' * @productions.length + prod
+      handler = "#{prod}Start".to_sym
+      progress("#{handler}(#{respond_to?(handler)})", prod)
       @productions << prod
+      send(handler, prod) if respond_to?(handler)
     end
 
     # Finish of production
     def onFinish
       prod = @productions.pop()
-      progress ' ' * @productions.length + '/' + prod
+      handler = "#{prod}Finish".to_sym
+      progress("#{handler}(#{respond_to?(handler)})", "#{prod}: #{@prod_data.last.inspect}")
+      send(handler) if respond_to?(handler)
     end
 
     # A token
     def onToken(prod, token)
-      progress ' ' * @productions.length + "#{prod}(#{token.inspect})"
+      unless @productions.empty?
+        parentProd = @productions.last
+        handler = "#{parentProd}Token".to_sym
+        progress("#{handler}(#{respond_to?(handler)})", "#{prod}, #{token}: #{@prod_data.last.inspect}")
+        send(handler, prod, tok) if respond_to?(handler)
+      else
+        error("Token has no parent production")
+      end
     end
 
     ##
@@ -150,23 +164,23 @@ module SPARQL; module Grammar
     # @param [Hash] options
     # @option options [URI, #to_s] :production
     # @option options [Token] :token
-    def error(str, options = {})
-      $stderr.puts str
-      raise Error.new("Error on production #{options[:production]} with input #{options[:token].inspect} at line #{options[:token].lineno}: #{str}", options)
+    def error(node, message, options = {})
+      $stderr.puts("[#{@lineno}]#{' ' * @productions.length}#{node}: #{message}")
+      raise Error.new("Error on production #{options[:production]} with input #{options[:token].inspect} at line #{@lineno}: #{str}", options)
     end
 
     ##
     # Progress output when parsing
     # @param [String] str
-    def progress(str)
-      $stderr.puts(str) if @options[:progress]
+    def progress(node, message, options = {})
+      $stderr.puts("[#{@lineno}]#{' ' * @productions.length}#{node}: #{message}") if @options[:progress]
     end
 
     ##
     # Progress output when debugging
     # @param [String] str
-    def debug(str)
-      $stderr.puts(str) if $verbose
+    def debug(node, message, options = {})
+      $stderr.puts("[#{@lineno}]#{' ' * @productions.length}#{node}: #{message}") if $verbose
     end
 
     # XXX -- Following are for previous recursive-descent attempt
