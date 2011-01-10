@@ -57,5 +57,7 @@ module SPARQL
     def self.tokenize(query, options = {}, &block)
       Lexer.tokenize(query, options, &block)
     end
+    
+    class SPARQL_GRAMMAR < RDF::Vocabulary("http://www.w3.org/2000/10/swap/grammar/sparql#"); end
   end # Grammar
 end # SPARQL

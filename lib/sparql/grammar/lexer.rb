@@ -445,7 +445,7 @@ module SPARQL; module Grammar
     # @param  [Object] value
     # @return [Token]
     def token(type, value = nil)
-      type = :"http://www.w3.org/2000/10/swap/grammar/sparql##{type}" if type && !type.to_s.include?("/")
+      type = SPARQL_GRAMMAR[type].to_s.to_sym if type && !type.to_s.include?("/")
       Token.new(type, value, :lineno => lineno)
     end
 
