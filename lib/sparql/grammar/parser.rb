@@ -57,6 +57,7 @@ module SPARQL; module Grammar
 
     # Parse query
     def parse(prod = START)
+      prod = prod.to_s.to_sym unless prod.is_a?(Symbol)
       todo_stack = [{:prod => prod, :terms => nil}]
       while !todo_stack.empty?
         pushed = false
@@ -168,7 +169,7 @@ module SPARQL; module Grammar
       $stderr.puts(str) if $verbose
     end
 
-    # XXX -- Following are for previous recursive-ascent attempt
+    # XXX -- Following are for previous recursive-descent attempt
     # `[1] Query ::= Prologue (SelectQuery | ConstructQuery | DescribeQuery | AskQuery)`
     def parse_query
       result = [:query]
