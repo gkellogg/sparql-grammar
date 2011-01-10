@@ -16,7 +16,7 @@ describe SPARQL::Grammar::Parser do
         tests.each do |t|
           specify "#{t.name}" do
             #puts t.inspect
-            SPARQL::Grammar::Parser.new(Kernel.open(t.action))
+            SPARQL::Grammar::Parser.new(Kernel.open(t.action)).parse
           end
         end
       end
