@@ -290,11 +290,15 @@ module SPARQL; module Grammar
     end
 
     def match_token
-      match_var             ||
+      match_var1            ||
+      match_var2            ||
       match_iri_ref         ||
       match_pname_ln        ||
       match_pname_ns        ||
-      match_string          ||
+      match_string_long_1   ||
+      match_string_long_2   ||
+      match_string_1        ||
+      match_string_2        ||
       match_langtag         ||
       match_double          ||
       match_decimal         ||
@@ -308,11 +312,15 @@ module SPARQL; module Grammar
       match_operator
     end
 
-    def match_var
+    def match_var1
       if matched = scanner.scan(VAR1)
-        token(:VAR1, matched.to_s)
-      elsif matched = scanner.scan(VAR2)
-        token(:VAR2, matched.to_s)
+        token(:VAR1, scanner[1].to_s)
+      end
+    end
+
+    def match_var2
+      if matched = scanner.scan(VAR2)
+        token(:VAR2, scanner[1].to_s)
       end
     end
 
@@ -334,15 +342,27 @@ module SPARQL; module Grammar
       end
     end
 
-    def match_string
+    def match_string_long_1
       if matched = scanner.scan(STRING_LITERAL_LONG1)
-        token(:STRING_LITERAL_LONG1, self.class.unescape_string(matched))
-      elsif matched = scanner.scan(STRING_LITERAL_LONG2)
-        token(:STRING_LITERAL_LONG2, self.class.unescape_string(matched))
-      elsif matched = scanner.scan(STRING_LITERAL1)
-        token(:STRING_LITERAL1, self.class.unescape_string(matched))
-      elsif matched = scanner.scan(STRING_LITERAL2)
-        token(:STRING_LITERAL2, self.class.unescape_string(matched))
+        token(:STRING_LITERAL_LONG1, self.class.unescape_string(scanner[1]))
+      end
+    end
+
+    def match_string_long_2
+      if matched = scanner.scan(STRING_LITERAL_LONG2)
+        token(:STRING_LITERAL_LONG2, self.class.unescape_string(scanner[1]))
+      end
+    end
+
+    def match_string_1
+      if matched = scanner.scan(STRING_LITERAL1)
+        token(:STRING_LITERAL1, self.class.unescape_string(scanner[1]))
+      end
+    end
+
+    def match_string_2
+      if matched = scanner.scan(STRING_LITERAL2)
+        token(:STRING_LITERAL2, self.class.unescape_string(scanner[1]))
       end
     end
 
