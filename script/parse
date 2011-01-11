@@ -1,23 +1,25 @@
-#!/usr/bin/env ruby -s
+#!/usr/bin/env ruby
 require 'rubygems'
 $:.unshift(File.expand_path(File.join(File.dirname(__FILE__), "..", 'lib')))
 require 'sparql/grammar'
 require 'getoptlong'
 require 'open-uri'
 
-def run(input, base)
+def run(input, base, production)
   start = Time.new
   num = 0
-  puts  "#{input.read}---\n\n" unless $quiet
+  puts  "#{input.read}\n---\n\n" unless $quiet
   input.rewind
   if $quiet
     $stdout = StringIO.new
   end
-  parser = SPARQL::Grammar::Parser.new(input.read, :progress => true)
-  parser.parse
+  parser = SPARQL::Grammar::Parser.new(input.read, :progress => $progress)
+  res = parser.parse(production)
   if $quiet
     $stdout = STDOUT
     print "."
+  else
+    puts res.inspect
   end
   puts
   secs = Time.new - start
@@ -29,37 +31,41 @@ def run(input, base)
 end
 
 $verbose = false
+$progress = true
 $output_format = :ntriples
 $input_format = :n3
 base_uri  = "http://example.com"
 input = nil
+production = SPARQL::Grammar::SPARQL_GRAMMAR.Query
 
 opts = GetoptLong.new(
-  ["--debug", GetoptLong::NO_ARGUMENT],
   ["--verbose", GetoptLong::NO_ARGUMENT],
+  ["--progress", GetoptLong::NO_ARGUMENT],
   ["--quiet", GetoptLong::NO_ARGUMENT],
   ["--execute", "-e", GetoptLong::REQUIRED_ARGUMENT],
   ["--parse-only", GetoptLong::NO_ARGUMENT],
+  ["--production", GetoptLong::REQUIRED_ARGUMENT],
   ["--uri", GetoptLong::REQUIRED_ARGUMENT]
 )
 opts.each do |opt, arg|
   case opt
   when '--verbose' then $verbose = true
   when '--quiet' then $quiet = true
-  when '--debug' then ::RDF::N3::debug = true
+  when '--progress' then $progress = true
   when '--execute' then input = arg
   when '--uri' then base_uri = arg
+  when '--production' then production = arg.match(/http/) ? arg : SPARQL::Grammar::SPARQL_GRAMMAR[arg]
   when '--parse-only' then $parse_only = true
   end
 end
 
 if ARGV.empty?
   s = input ? input : $stdin.read
-  run(StringIO.new(s), base_uri)
+  run(StringIO.new(s), base_uri, production)
 else
   ARGV.each do |test_file|
     puts "parse #{test_file}"
-    run(Kernel.open(test_file), base_uri)
+    run(Kernel.open(test_file), base_uri, production)
   end
 end
 puts

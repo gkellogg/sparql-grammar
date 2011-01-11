@@ -1,7 +1,7 @@
 #SPARQL in Notation3
 # Context Free Grammar without tokenization
 #
-# Translated from sparql.ttl in ebnf form.
+# Translated from http://www.w3.org/2001/sw/DataAccess/rq23/parsers/sparql.ttl in ebnf form.
 # Generate sparql-selectors.n3 using:
 #
 #   python ../cwm.py sparql-bnf-rules.n3 bnf-token-rules.n3 --think --purge --data > sparql-selectors.n3

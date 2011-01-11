@@ -3,8 +3,9 @@ module SPARQL; module Grammar
   # A parser for the SPARQL 1.0 grammar.
   #
   # @see http://www.w3.org/TR/rdf-sparql-query/#grammar
-  # @see http://en.wikipedia.org/wiki/Parsing
-  # @see http://en.wikipedia.org/wiki/Recursive_descent_parser
+  # @see http://en.wikipedia.org/wiki/LR_parser
+  # @see http://www.w3.org/2000/10/swap/grammar/predictiveParser.py
+  # @see http://www.w3.org/2001/sw/DataAccess/rq23/parsers/sparql.ttl
   class Parser
     include SPARQL::Grammar::Meta
 
@@ -20,7 +21,6 @@ module SPARQL; module Grammar
       @options = options.dup
       self.input = input if input
       @productions = []
-      @prod_data = []
     end
 
     ##
@@ -56,17 +56,42 @@ module SPARQL; module Grammar
       end
     end
 
+    ##
+    # Returns `true` if the input string is syntactically valid.
+    #
+    # @return [Boolean]
+    def valid?
+      parse
+    rescue Error
+      false
+    end
+
     # Parse query
+    #
+    # The result is a SPARQL Algebra S-List. Productions return an array such as the following:
+    #
+    #   [:prefix, :foo, <http://example.com>]
+    #   [:prologue, [:prefix, :foo, <http://example.com>]]
+    #   [:prologue, [:base, <http://example.com>], [:prefix :foo <http://example.com>]]
+    #
+    # Algebra is based on the SPARQL Algebra notes
+    # @param [Symbol, #to_s] prod The starting production for the parser.
+    #   It may be a URI from the grammar, or a symbol representing the local_name portion of the grammar URI.
+    # @result [Array]
+    # @see http://www.w3.org/2001/sw/DataAccess/rq23/rq24-algebra.html
+    # @see http://axel.deri.ie/sparqltutorial/ESWC2007_SPARQL_Tutorial_unit2b.pdf
     def parse(prod = START)
+      @prod_data = [[]]
       prod = prod.to_s.split("#").last.to_sym unless prod.is_a?(Symbol)
       todo_stack = [{:prod => prod, :terms => nil}]
+
       while !todo_stack.empty?
         pushed = false
         if todo_stack.last[:terms].nil?
           todo_stack.last[:terms] = []
           token = tokens.first
           @lineno = token.lineno if token
-          debug("parse token", "#{token.inspect}, prod #{todo_stack.last[:prod]}")
+          debug("parse(token)", "#{token.inspect}, prod #{todo_stack.last[:prod]}, depth #{todo_stack.length}")
           
           # Got an opened production
           onStart(abbr(todo_stack.last[:prod]))
@@ -85,10 +110,10 @@ module SPARQL; module Grammar
           todo_stack.last[:terms] += sequence
         end
         
-        debug("parse", todo_stack.last.inspect)
+        debug("parse(terms)", "stack #{todo_stack.last.inspect}, depth #{todo_stack.length}")
         while !todo_stack.last[:terms].to_a.empty?
           term = todo_stack.last[:terms].shift
-          debug("parse tokens", tokens)
+          debug("parse tokens", tokens.inspect)
           if tokens.map(&:representation).include?(term)
             token = accept(term)
             @lineno = token.lineno if token
@@ -100,22 +125,28 @@ module SPARQL; module Grammar
                 :production => todo_stack.last[:prod], :token => tokens.first)
             end
           else
-            debug("parse", "term(push): #{term}")
             todo_stack << {:prod => term, :terms => nil}
+            debug("parse(push)", "stack #{term}, depth #{todo_stack.length}")
             pushed = true
             break
           end
         end
         
-        while !pushed && todo_stack.last[:terms].to_a.empty?
+        while !pushed && !todo_stack.empty? && todo_stack.last[:terms].to_a.empty?
+          debug("parse(pop)", "stack #{todo_stack.last.inspect}, depth #{todo_stack.length}")
           todo_stack.pop
           self.onFinish
         end
       end
       while !todo_stack.empty?
+        debug("parse(pop)", "stack #{todo_stack.last.inspect}, depth #{todo_stack.length}")
         todo_stack.pop
         self.onFinish
       end
+      
+      # The last thing on the @prod_data stack is the result
+      result = @prod_data.last.last
+      result
     end
     
     def abbr(prodURI)
@@ -124,38 +155,30 @@ module SPARQL; module Grammar
     
     # Start for production
     def onStart(prod)
-      handler = "#{prod}Start".to_sym
-      progress("#{handler}(#{respond_to?(handler)})", prod)
+      handler = prod.to_sym
+      progress("#{handler}(:start, #{respond_to?(handler)})", @prod_data.last.inspect)
       @productions << prod
-      send(handler, prod) if respond_to?(handler)
+      send(handler, :start, prod, nil) if respond_to?(handler)
     end
 
     # Finish of production
     def onFinish
       prod = @productions.pop()
-      handler = "#{prod}Finish".to_sym
-      progress("#{handler}(#{respond_to?(handler)})", "#{prod}: #{@prod_data.last.inspect}")
-      send(handler) if respond_to?(handler)
+      handler = prod.to_sym
+      progress("#{handler}(:finish, #{respond_to?(handler)})", "#{prod}: #{@prod_data.last.inspect}")
+      send(handler, :finish, prod, nil) if respond_to?(handler)
     end
 
     # A token
     def onToken(prod, token)
       unless @productions.empty?
         parentProd = @productions.last
-        handler = "#{parentProd}Token".to_sym
-        progress("#{handler}(#{respond_to?(handler)})", "#{prod}, #{token}: #{@prod_data.last.inspect}")
-        send(handler, prod, tok) if respond_to?(handler)
+        handler = parentProd.to_sym
+        progress("#{handler}(:token, #{respond_to?(handler)})", "#{prod}, #{token}: #{@prod_data.last.inspect}")
+        send(handler, :token, prod, token) if respond_to?(handler)
       else
         error("Token has no parent production")
       end
-    end
-
-    ##
-    # Returns `true` if the input string is syntactically valid.
-    #
-    # @return [Boolean]
-    def valid?
-      nil # TODO
     end
 
   protected
@@ -183,6 +206,79 @@ module SPARQL; module Grammar
       $stderr.puts("[#{@lineno}]#{' ' * @productions.length}#{node}: #{message}") if $verbose
     end
 
+    # [2] Prologue ::= BaseDecl? PrefixDecl*`
+    def Prologue(step, prod, token)
+      case step
+      when :start
+        @prod_data << [:prologue]
+      when :finish
+        data = @prod_data.pop
+        @prod_data.last << data if data != [:prologue]
+      end
+    end
+
+    # [3] BaseDecl ::= 'BASE' IRI_REF`
+    #
+    # @return [Array] In the form [:base, <uri>]
+    def BaseDecl(step, prod, token)
+      case step
+      when :start
+        @prod_data << [:base]
+      when :token
+        @prod_data.last << RDF::URI(token) if prod == "IRI_REF"
+      when :finish
+        data = @prod_data.pop
+        @prod_data.last << data if data != [:base]
+      end
+    end
+    
+    # [4] PrefixDecl := 'PREFIX' PNAME_NS IRI_REF";
+    #
+    # @return [Array] In the form [:prefix, "foo", <uri>]
+    def PrefixDecl(step, prod, token)
+      case step
+      when :start
+        @prod_data << [:prefix]
+      when :token
+        case prod
+        when "IRI_REF"
+          @prod_data.last << RDF::URI(token)
+        when "PNAME_NS"
+          @prod_data.last << (token && token.to_sym)
+        end
+      when :finish
+        data = @prod_data.pop
+        @prod_data.last << data if data != [:prefix]
+      end
+    end
+    
+    # SelectQuery ::= 'SELECT' ( 'DISTINCT' | 'REDUCED' )? ( Var+ | '*' ) DatasetClause* WhereClause
+
+    # [6] ConstructQuery ::= 'CONSTRUCT' ConstructTemplate DatasetClause* WhereClause SolutionModifier
+
+    # [7] DescribeQuery ::= 'DESCRIBE' ( VarOrIRIref+ | '*' ) DatasetClause* WhereClause? SolutionModifier
+
+    # `[8 AskQuery ::= 'ASK' DatasetClause* WhereClause
+
+    # [9] DatasetClause ::= 'FROM' (DefaultGraphClause | NamedGraphClause)
+
+    # [10] DefaultGraphClause ::= SourceSelector
+    def parse_default_graph_clause
+      (iri = parse_source_selector) ? [:default, iri] : fail # FIXME
+    end
+
+    # `[11] NamedGraphClause ::= 'NAMED' SourceSelector`
+    def parse_named_graph_clause
+      accept('NAMED') ? [:named, parse_source_selector] : fail # FIXME
+    end
+
+
+
+
+
+
+
+
     # XXX -- Following are for previous recursive-descent attempt
     # `[1] Query ::= Prologue (SelectQuery | ConstructQuery | DescribeQuery | AskQuery)`
     def parse_query
@@ -193,67 +289,6 @@ module SPARQL; module Grammar
       result << (parse_select_query || parse_construct_query || parse_describe_query || parse_ask_query)
       result.compact!
       result.size > 1 ? result : false
-    end
-
-    # `[2] Prologue ::= BaseDecl? PrefixDecl*`
-    def parse_prologue
-      result = [:prologue, parse_base_decl || nil, *parse_prefix_decls]
-      result.compact!
-      result.size > 1 ? result : false
-    end
-
-    # `[3] BaseDecl ::= 'BASE' IRI_REF`
-    def parse_base_decl
-      accept('BASE') ? [:base, parse_iri_ref] : fail
-    end
-
-    # `[4] PrefixDecl*`
-    def parse_prefix_decls
-      result = []
-      while decl = parse_prefix_decl
-        result << decl
-      end
-      result
-    end
-
-    # `[4] PrefixDecl ::= 'PREFIX' PNAME_NS IRI_REF`
-    def parse_prefix_decl
-      accept('PREFIX') ? [:prefix, parse_pname_ns, parse_iri_ref] : fail
-    end
-
-    # `[5] SelectQuery`
-    def parse_select_query
-      # TODO
-    end
-
-    # `[6] ConstructQuery`
-    def parse_construct_query
-      # TODO
-    end
-
-    # `[7] DescribeQuery`
-    def parse_describe_query
-      # TODO
-    end
-
-    # `[8] AskQuery`
-    def parse_ask_query
-      # TODO
-    end
-
-    # `[9] DatasetClause ::= 'FROM' (DefaultGraphClause | NamedGraphClause)`
-    def parse_dataset_clause
-      accept('FROM') ? (parse_default_graph_clause || parse_named_graph_clause) : fail # FIXME
-    end
-
-    # `[10] DefaultGraphClause ::= SourceSelector`
-    def parse_default_graph_clause
-      (iri = parse_source_selector) ? [:default, iri] : fail # FIXME
-    end
-
-    # `[11] NamedGraphClause ::= 'NAMED' SourceSelector`
-    def parse_named_graph_clause
-      accept('NAMED') ? [:named, parse_source_selector] : fail # FIXME
     end
 
     # `[12] SourceSelector ::= IRIref`

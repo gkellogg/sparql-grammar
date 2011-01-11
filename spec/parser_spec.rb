@@ -11,6 +11,26 @@ module ProductionRequirements
     end
   end
 
+  def it_generates_given(production, input, result)
+    it "generates #{present_results(result)} given #{input.inspect}" do
+      parser(production).call(input).should == result
+    end
+  end
+  
+  def present_results(array)
+    "[" +
+    array.map do |e|
+      case e
+      when Array      then present_results(e)
+      when Symbol     then ":#{e}"
+      when RDF::URI   then "<#{e}>"
+      when RDF::Node  then "_:#{e}"
+      else                 e.inspect
+      end
+    end.join(", ") +
+    "]"
+  end
+  
   # [44] Var
   def it_recognizes_var_using(production)
     it "recognizes the Var nonterminal" do
@@ -135,23 +155,14 @@ describe SPARQL::Grammar::Parser do
     with_production(:Prologue) do |production|
       it_rejects_empty_input_using production
 
-      it "recognizes a BaseDecl nonterminal" do
-        parser(production).call(%q(BASE <http://example.org/>)).should == [:prologue, [:base, RDF::URI('http://example.org/')]]
-      end
-
-      it "recognizes a PrefixDecl nonterminal" do
-        parser(production).call(%q(PREFIX : <foobar>)).should == [:prologue, [:prefix, nil, RDF::URI('foobar')]]
-        parser(production).call(%q(PREFIX foo: <bar>)).should == [:prologue, [:prefix, :foo, RDF::URI('bar')]]
-      end
-
-      it "recognizes a sequence of PrefixDecl nonterminals" do
-        input = %Q(PREFIX : <foobar>\nPREFIX foo: <bar>)
-        parser(production).call(input).should == [:prologue, [:prefix, nil, RDF::URI('foobar')], [:prefix, :foo, RDF::URI('bar')]]
-      end
-
-      it "recognizes a BaseDecl nonterminal followed by a PrefixDecl nonterminal" do
-        input = %Q(BASE <http://example.org/>\nPREFIX foo: <bar>)
-        parser(production).call(input).should == [:prologue, [:base, RDF::URI('http://example.org/')], [:prefix, :foo, RDF::URI('bar')]]
+      {
+        %q(BASE <http://example.org/>)                    => [:prologue, [:base, RDF::URI('http://example.org/')]],
+        %q(PREFIX : <foobar>)                             => [:prologue, [:prefix, nil, RDF::URI('foobar')]],
+        %q(PREFIX foo: <bar>)                             => [:prologue, [:prefix, :foo, RDF::URI('bar')]],
+        %Q(PREFIX : <foobar>\nPREFIX foo: <bar>)          => [:prologue, [:prefix, nil, RDF::URI('foobar')], [:prefix, :foo, RDF::URI('bar')]],
+        %Q(BASE <http://example.org/>\nPREFIX foo: <bar>) => [:prologue, [:base, RDF::URI('http://example.org/')], [:prefix, :foo, RDF::URI('bar')]]
+      }.each_pair do |input, result|
+        it_generates_given(production, input, result)
       end
     end
   end
@@ -160,8 +171,10 @@ describe SPARQL::Grammar::Parser do
     with_production(:BaseDecl) do |production|
       it_rejects_empty_input_using production
 
-      it "recognizes BASE declarations" do
-        parser(production).call(%q(BASE <http://example.org/>)).should == [:base, RDF::URI('http://example.org/')]
+      {
+        %q(BASE <http://example.org/>)                    => [:base, RDF::URI('http://example.org/')],
+      }.each_pair do |input, result|
+        it_generates_given(production, input, result)
       end
     end
   end
@@ -170,9 +183,11 @@ describe SPARQL::Grammar::Parser do
     with_production(:PrefixDecl) do |production|
       it_rejects_empty_input_using production
 
-      it "recognizes PREFIX declarations" do
-        parser(production).call(%q(PREFIX : <http://example.org/>)).should    == [:prefix, nil, RDF::URI('http://example.org/')]
-        parser(production).call(%q(PREFIX foo: <http://example.org/>)).should == [:prefix, :foo, RDF::URI('http://example.org/')]
+      {
+        %q(PREFIX : <foobar>)                             => [:prefix, nil, RDF::URI('foobar')],
+        %q(PREFIX foo: <bar>)                             => [:prefix, :foo, RDF::URI('bar')],
+      }.each_pair do |input, result|
+        it_generates_given(production, input, result)
       end
     end
   end
