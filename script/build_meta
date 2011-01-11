@@ -30,7 +30,10 @@ class PredictiveParser
 
   def parse(file)
     progress("Loading " + file)
+    save_verbose = $verbose
+    $verbose = false
     @graph = RDF::Graph.load(file)
+    $verbose = save_verbose
     progress("Loaded #{@graph.count} statements.")
   end
 
@@ -108,7 +111,7 @@ class PredictiveParser
       conditions = graph.query(:subject => branch, :predicate => BNF.condition).map(&:object)
       checkSelector(conditions, prod, sequence, options)
 
-      progress("    Conditions: #{conditions.to_a.map(&:to_s)}")
+      progress("    Conditions: #{conditions.to_a.map(&:to_s).join("|")}")
       conditions.each do |str1|
         checkCondition(str1, prodBranch, prod, options)
         prodBranch[str1] = options
@@ -150,7 +153,11 @@ class PredictiveParser
   end
 
   def litOrNot(value)
-    (value.is_a?(RDF::Literal) ? "" : ":") + value.to_s.dump
+    if value.is_a?(RDF::Literal)
+      value.to_s.dump
+    else
+      ":" + value.to_s.split("#").last
+    end
   end
   
   def outputBranchTable(io, indent = 0)

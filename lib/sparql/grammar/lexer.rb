@@ -445,7 +445,6 @@ module SPARQL; module Grammar
     # @param  [Object] value
     # @return [Token]
     def token(type, value = nil)
-      type = SPARQL_GRAMMAR[type].to_s.to_sym if type && !type.to_s.include?("/")
       Token.new(type, value, :lineno => lineno)
     end
 
@@ -454,7 +453,7 @@ module SPARQL; module Grammar
     #
     # @example Creating a new token
     #   token = SPARQL::Grammar::Lexer::Token.new(:LANGTAG, :en)
-    #   token.type   #=> :"http://www.w3.org/2000/10/swap/grammar/sparql#LANGTAG"
+    #   token.type   #=> :LANGTAG
     #   token.value  #=> "en"
     #
     # @see http://en.wikipedia.org/wiki/Lexical_analysis#Token

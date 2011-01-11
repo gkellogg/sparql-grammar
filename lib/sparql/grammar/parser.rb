@@ -58,7 +58,7 @@ module SPARQL; module Grammar
 
     # Parse query
     def parse(prod = START)
-      prod = prod.to_s.to_sym unless prod.is_a?(Symbol)
+      prod = prod.to_s.split("#").last.to_sym unless prod.is_a?(Symbol)
       todo_stack = [{:prod => prod, :terms => nil}]
       while !todo_stack.empty?
         pushed = false
