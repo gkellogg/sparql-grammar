@@ -16,9 +16,16 @@ module SPARQL; module Grammar
     #
     # @param  [String, #to_s]          input
     # @param  [Hash{Symbol => Object}] options
-    # @option option [Boolean] :progress Output parser progress
+    # @option options [Boolean] :progress
+    #   Debug output for parser progress
+    # @option options [Hash]     :prefixes     (Hash.new)
+    #   the prefix mappings to use (for acessing intermediate parser productions)
+    # @option options [#to_s]    :base_uri     (nil)
+    #   the base URI to use when resolving relative URIs (for acessing intermediate parser productions)
+    # @option options [#to_s]    :anon_base     ("gen0000")
+    #   Basis for generating anonymous Nodes
     def initialize(input = nil, options = {})
-      @options = options.dup
+      @options = {:anon_base => "gen0000"}.merge(options)
       self.input = input if input
       @productions = []
     end
@@ -81,7 +88,7 @@ module SPARQL; module Grammar
     # @see http://www.w3.org/2001/sw/DataAccess/rq23/rq24-algebra.html
     # @see http://axel.deri.ie/sparqltutorial/ESWC2007_SPARQL_Tutorial_unit2b.pdf
     def parse(prod = START)
-      @prod_data = [[]]
+      @prod_data = [{}]
       prod = prod.to_s.split("#").last.to_sym unless prod.is_a?(Symbol)
       todo_stack = [{:prod => prod, :terms => nil}]
 
@@ -99,12 +106,12 @@ module SPARQL; module Grammar
           
           cur_prod = todo_stack.last[:prod]
           prod_branch = BRANCHES[cur_prod.to_sym]
-          error("No branches found for '#{abbr(cur_prod)}'",
+          error("parse", "No branches found for '#{abbr(cur_prod)}'",
             :production => cur_prod, :token => token) if prod_branch.nil?
           sequence = prod_branch[token.representation]
           if sequence.nil?
             expected = prod_branch.values.uniq.map {|u| u.map {|v| abbr(v).inspect}.join(",")}
-            error("Found '#{token.inspect}' when parsing a #{abbr(cur_prod)}. expected #{expected.join(' | ')}",
+            error("parse", "Found '#{token.inspect}' when parsing a #{abbr(cur_prod)}. expected #{expected.join(' | ')}",
               :production => cur_prod, :token => token)
           end
           todo_stack.last[:terms] += sequence
@@ -121,7 +128,7 @@ module SPARQL; module Grammar
             if token
               onToken(abbr(term), token.value)
             else
-              error("Found '#{word}...'; #{term} expected",
+              error("parse", "Found '#{word}...'; #{term} expected",
                 :production => todo_stack.last[:prod], :token => tokens.first)
             end
           else
@@ -145,27 +152,104 @@ module SPARQL; module Grammar
       end
       
       # The last thing on the @prod_data stack is the result
-      result = @prod_data.last.last
-      result
+      result = @prod_data.last
+      if result.is_a?(Hash) && !result.empty?
+        key = result.keys.first
+        [key] + result[key]  # Creates [:BGP, [:triple], ...]
+      end
     end
     
-    def abbr(prodURI)
-      prodURI.to_s.split('#').last
+    ##
+    # Returns the URI prefixes currently defined for this parser.
+    #
+    # @example
+    #   parser.prefixes[:dc]  #=> RDF::URI('http://purl.org/dc/terms/')
+    #
+    # @return [Hash{Symbol => RDF::URI}]
+    # @since  0.3.0
+    def prefixes
+      @options[:prefixes] ||= {}
     end
-    
+
+    ##
+    # Defines the given URI prefixes for this parser.
+    #
+    # @example
+    #   parser.prefixes = {
+    #     :dc => RDF::URI('http://purl.org/dc/terms/'),
+    #   }
+    #
+    # @param  [Hash{Symbol => RDF::URI}] prefixes
+    # @return [Hash{Symbol => RDF::URI}]
+    # @since  0.3.0
+    def prefixes=(prefixes)
+      @options[:prefixes] = prefixes
+    end
+
+    ##
+    # Defines the given named URI prefix for this parser.
+    #
+    # @example Defining a URI prefix
+    #   parser.prefix :dc, RDF::URI('http://purl.org/dc/terms/')
+    #
+    # @example Returning a URI prefix
+    #   parser.prefix(:dc)    #=> RDF::URI('http://purl.org/dc/terms/')
+    #
+    # @overload prefix(name, uri)
+    #   @param  [Symbol, #to_s]   name
+    #   @param  [RDF::URI, #to_s] uri
+    #
+    # @overload prefix(name)
+    #   @param  [Symbol, #to_s]   name
+    #
+    # @return [RDF::URI]
+    def prefix(name, uri = nil)
+      name = name.to_s.empty? ? nil : (name.respond_to?(:to_sym) ? name.to_sym : name.to_s.to_sym)
+      uri.nil? ? prefixes[name] : prefixes[name] = uri
+    end
+
+    ##
+    # Returns the Base URI defined for the parser,
+    # as specified or when parsing a BASE prologue element.
+    #
+    # @example
+    #   parser.base  #=> RDF::URI('http://example.com/')
+    #
+    # @return [HRDF::URI]
+    def base_uri
+      @options[:base_uri]
+    end
+
+    ##
+    # Set the Base URI to use for this parser.
+    #
+    # @param  [RDF::URI, #to_s] uri
+    #
+    # @example
+    #   parser.base_uri = RDF::URI('http://purl.org/dc/terms/')
+    #
+    # @return [RDF::URI]
+    def base_uri=(uri)
+      @options[:base_uri] = uri
+    end
+
+  protected
+
     # Start for production
     def onStart(prod)
       handler = prod.to_sym
-      progress("#{handler}(:start, #{respond_to?(handler)})", @prod_data.last.inspect)
+      progress("#{handler}(:start, #{respond_to?(handler)}):#{@prod_data.length}", ($verbose ? @prod_data.last.inspect : @prod_data.last.keys.inspect))
       @productions << prod
       send(handler, :start, prod, nil) if respond_to?(handler)
+      #puts @prod_data.inspect
     end
 
     # Finish of production
     def onFinish
       prod = @productions.pop()
       handler = prod.to_sym
-      progress("#{handler}(:finish, #{respond_to?(handler)})", "#{prod}: #{@prod_data.last.inspect}")
+      progress("#{handler}(:finish, #{respond_to?(handler)}):#{@prod_data.length}", ($verbose ? @prod_data.last.inspect : @prod_data.last.keys.inspect))
+      #puts @prod_data.inspect
       send(handler, :finish, prod, nil) if respond_to?(handler)
     end
 
@@ -174,22 +258,21 @@ module SPARQL; module Grammar
       unless @productions.empty?
         parentProd = @productions.last
         handler = parentProd.to_sym
-        progress("#{handler}(:token, #{respond_to?(handler)})", "#{prod}, #{token}: #{@prod_data.last.inspect}")
+        progress("#{handler}(:token, #{respond_to?(handler)})", "#{token}: #{$verbose ? @prod_data.last.inspect : @prod_data.last.keys.inspect}")
         send(handler, :token, prod, token) if respond_to?(handler)
       else
-        error("Token has no parent production")
+        error("#{handler}(:token, #{respond_to?(handler)})", "Token has no parent production", :production => prod)
       end
     end
-
-  protected
 
     # @param [String] str Error string
     # @param [Hash] options
     # @option options [URI, #to_s] :production
     # @option options [Token] :token
     def error(node, message, options = {})
+      node ||= options[:production]
       $stderr.puts("[#{@lineno}]#{' ' * @productions.length}#{node}: #{message}")
-      raise Error.new("Error on production #{options[:production]} with input #{options[:token].inspect} at line #{@lineno}: #{str}", options)
+      raise Error.new("Error on production #{options[:production].inspect}#{' with input ' + options[:token].inspect if options[:token]} at line #{@lineno}: #{message}", options)
     end
 
     ##
@@ -206,29 +289,12 @@ module SPARQL; module Grammar
       $stderr.puts("[#{@lineno}]#{' ' * @productions.length}#{node}: #{message}") if $verbose
     end
 
-    # [2] Prologue ::= BaseDecl? PrefixDecl*`
-    def Prologue(step, prod, token)
-      case step
-      when :start
-        @prod_data << [:prologue]
-      when :finish
-        data = @prod_data.pop
-        @prod_data.last << data if data != [:prologue]
-      end
-    end
-
     # [3] BaseDecl ::= 'BASE' IRI_REF`
     #
     # @return [Array] In the form [:base, <uri>]
     def BaseDecl(step, prod, token)
-      case step
-      when :start
-        @prod_data << [:base]
-      when :token
-        @prod_data.last << RDF::URI(token) if prod == "IRI_REF"
-      when :finish
-        data = @prod_data.pop
-        @prod_data.last << data if data != [:base]
+      if step == :token && prod == "IRI_REF"
+        self.base_uri = uri(token)
       end
     end
     
@@ -238,21 +304,21 @@ module SPARQL; module Grammar
     def PrefixDecl(step, prod, token)
       case step
       when :start
-        @prod_data << [:prefix]
+        @prod_data << {}
       when :token
         case prod
         when "IRI_REF"
-          @prod_data.last << RDF::URI(token)
+          @prod_data.last[:uri] = uri(self.base_uri, token)
         when "PNAME_NS"
-          @prod_data.last << (token && token.to_sym)
+          @prod_data.last[:prefix] = (token && token.to_sym)
         end
       when :finish
         data = @prod_data.pop
-        @prod_data.last << data if data != [:prefix]
+        self.prefix(data[:prefix], data[:uri]) if data[:uri]
       end
     end
     
-    # SelectQuery ::= 'SELECT' ( 'DISTINCT' | 'REDUCED' )? ( Var+ | '*' ) DatasetClause* WhereClause
+    # [5] SelectQuery ::= 'SELECT' ( 'DISTINCT' | 'REDUCED' )? ( Var+ | '*' ) DatasetClause* WhereClause
 
     # [6] ConstructQuery ::= 'CONSTRUCT' ConstructTemplate DatasetClause* WhereClause SolutionModifier
 
@@ -263,359 +329,379 @@ module SPARQL; module Grammar
     # [9] DatasetClause ::= 'FROM' (DefaultGraphClause | NamedGraphClause)
 
     # [10] DefaultGraphClause ::= SourceSelector
-    def parse_default_graph_clause
-      (iri = parse_source_selector) ? [:default, iri] : fail # FIXME
-    end
 
-    # `[11] NamedGraphClause ::= 'NAMED' SourceSelector`
-    def parse_named_graph_clause
-      accept('NAMED') ? [:named, parse_source_selector] : fail # FIXME
-    end
+    # [11] NamedGraphClause ::= 'NAMED' SourceSelector`
 
-
-
-
-
-
-
-
-    # XXX -- Following are for previous recursive-descent attempt
-    # `[1] Query ::= Prologue (SelectQuery | ConstructQuery | DescribeQuery | AskQuery)`
-    def parse_query
-      result = [:query]
-      if (decls = parse_prologue) && decls.size > 1
-        result += decls[1..-1]
-      end
-      result << (parse_select_query || parse_construct_query || parse_describe_query || parse_ask_query)
-      result.compact!
-      result.size > 1 ? result : false
-    end
-
-    # `[12] SourceSelector ::= IRIref`
-    def parse_source_selector
-      parse_iriref
-    end
-
-    # `[13] WhereClause`
-    def parse_where_clause
-      # TODO
-    end
-
-    # `[14] SolutionModifier`
-    def parse_solution_modifier
-      # TODO
-    end
-
-    # `[15] LimitOffsetClauses`
-    def parse_limit_offset_clauses
-      # TODO
-    end
-
-    # `[16] OrderClause`
-    def parse_order_clause
-      # TODO
-    end
-
-    # `[17] OrderCondition`
-    def parse_order_condition
-      # TODO
-    end
-
-    # `[18] LimitClause ::= 'LIMIT' INTEGER`
-    def parse_limit_clause
-      case
-        when accept('LIMIT') && token = accept(:NumericLiteral)
-          [:limit, token.value] # TODO: enforce the integer constraint
-        else fail
+    # [12]    SourceSelector ::= IRIref
+    # [13]    WhereClause ::= 'WHERE'? GroupGraphPattern
+    # [14]    SolutionModifier ::= OrderClause? LimitOffsetClauses?
+    # [15]    LimitOffsetClauses ::= ( LimitClause OffsetClause? | OffsetClause LimitClause? )
+    # [16]    OrderClause ::= 'ORDER' 'BY' OrderCondition+
+    # [17]    OrderCondition ::= ( ( ASC' | 'DESC' ) BrackettedExpression )
+    #                          | ( Constraint | Var )
+    # [18]    LimitClause ::= 'LIMIT' INTEGER
+    # [19]    OffsetClause ::= 'OFFSET' INTEGER
+    # [20]    GroupGraphPattern ::= '{' TriplesBlock? ( ( GraphPatternNotTriples | Filter ) '.'? TriplesBlock? )* '}'
+    # [21]    TriplesBlock ::= TriplesSameSubject ( '.' TriplesBlock? )?
+    def TriplesBlock(step, prod, token)
+      case step
+      when :start
+        @prod_data << {}
+      when :finish
+        data = @prod_data.pop
+        if data[:triple]
+          triples = data[:triple].map {|v| [:triple, v[:subject], v[:predicate], v[:object]]}
+          add_prod_data(:BGP, triples)
+        end
+        
+        # Append triples from ('.' TriplesBlock? )? 
+        if data[:BGP]
+          add_prod_data(:BGP, data[:BGP])
+        end
       end
     end
 
-    # `[19] OffsetClause ::= 'OFFSET' INTEGER`
-    def parse_offset_clause
-      case
-        when accept('OFFSET') && token = accept(:NumericLiteral)
-          [:offset, token.value] # TODO: enforce the integer constraint
-        else fail
+    # [22]    GraphPatternNotTriples ::= OptionalGraphPattern | GroupOrUnionGraphPattern | GraphGraphPattern
+    # [23]    OptionalGraphPattern ::= 'OPTIONAL' GroupGraphPattern
+    # [24]    GraphGraphPattern ::= 'GRAPH' VarOrIRIref GroupGraphPattern
+    # [25]    GroupOrUnionGraphPattern ::= GroupGraphPattern ( 'UNION' GroupGraphPattern )*
+    # [26]    Filter ::= 'FILTER' Constraint
+    # [27]    Constraint ::= BrackettedExpression | BuiltInCall | FunctionCall
+    # [28]    FunctionCall ::= IRIref ArgList
+    # [29]    ArgList ::= ( NIL | '(' Expression ( ',' Expression )* ')' )
+    # [30]    ConstructTemplate ::= '{' ConstructTriples? '}'
+    # [31]    ConstructTriples ::= TriplesSameSubject ( '.' ConstructTriples? )?
+    # [32]    TriplesSameSubject ::= VarOrTerm PropertyListNotEmpty | TriplesNode PropertyList
+    def TriplesSameSubject(step, prod, token)
+      case step
+      when :start
+        @prod_data << {}
+      when :finish
+        data = @prod_data.pop
+        add_prod_data(:triple, data[:triple])
       end
     end
 
-    # `[20] GroupGraphPattern`
-    def parse_group_graph_pattern
-      # TODO
+    # [33]    PropertyListNotEmpty ::= Verb ObjectList ( ';' ( Verb ObjectList )? )*
+    def PropertyListNotEmpty(step, prod, token)
+      case step
+      when :start
+        subject = @prod_data.last[:VarOrTerm] || @prod_data.last[:TriplesNode] || @prod_data.last[:GraphNode]
+        error(nil, "Expected VarOrTerm or TriplesNode or GraphNode", :production => :PropertyListNotEmpty) unless subject
+        @prod_data << {:Subject => subject}
+      when :finish
+        data = @prod_data.pop
+        add_prod_data(:triple, data[:triple])
+      end
     end
 
-    # `[21] TriplesBlock`
-    def parse_triples_block
-      # TODO
+    # [34]    PropertyList ::= PropertyListNotEmpty?
+    # [35]    ObjectList ::= Object ( ',' Object )*
+    def ObjectList(step, prod, token)
+      case step
+      when :start
+        # Called after Verb. The prod_data stack should have Subject and Verb elements
+        error(nil, "Expected Subject", :production => :ObjectList) unless @prod_data.last.has_key?(:Subject)
+        error(nil, "Expected Verb", :production => :ObjectList) unless @prod_data.last.has_key?(:Verb)
+        @prod_data << {:Subject => @prod_data.last[:Subject], :Verb => @prod_data.last[:Verb].last}
+      when :finish
+        data = @prod_data.pop
+        add_prod_data(:triple, data[:triple])
+      end
     end
 
-    # `[22] GraphPatternNotTriples`
-    def parse_graph_pattern_not_triples
-      # TODO
+    # [36]    Object ::= GraphNode
+    def Object(step, prod, token)
+      case step
+      when :start
+        # Called after ObjectList. The prod_data stack should have Subject and Verb elements
+        error(nil, "Expected Subject", :production => :Object) unless @prod_data.last.has_key?(:Subject)
+        error(nil, "Expected Verb", :production => :Object) unless @prod_data.last.has_key?(:Verb)
+        @prod_data << {}
+      when :finish
+        data = @prod_data.pop
+        object = data[:VarOrTerm] || data[:TriplesNode] || data[:GraphNode]
+        add_triple(:Object, :subject => @prod_data.last[:Subject], :predicate => @prod_data.last[:Verb], :object => object)
+        add_prod_data(:triple, data[:triple])
+      end
     end
 
-    # `[23] OptionalGraphPattern`
-    def parse_optional_graph_pattern
-      # TODO
+    # [37]    Verb ::= VarOrIRIref | 'a'
+    def Verb(step, prod, token)
+      case step
+      when :start
+        @prod_data << {}
+      when :token
+        add_prod_data(:Verb, RDF.type) if token == "a"
+      when :finish
+        @prod_data.pop.values.each {|v| add_prod_data(:Verb, v)}
+      end
     end
 
-    # `[24] GraphGraphPattern`
-    def parse_graph_graph_pattern
-      # TODO
+    # [38]    TriplesNode ::= Collection | BlankNodePropertyList
+    #
+    # Allocate Blank Node for () or []
+    def TriplesNode(step, prod, token)
+      case step
+      when :start
+        @prod_data << { :TriplesNode => gen_node() }
+      when :finish
+        data = @prod_data.pop
+        add_prod_data(:triple, data[:triple])
+        add_prod_data(:TriplesNode, data[:TriplesNode])
+      end
     end
 
-    # `[25] GroupOrUnionGraphPattern`
-    def parse_group_or_union_graph_pattern
-      # TODO
+    # [39]    BlankNodePropertyList ::= '[' PropertyListNotEmpty ']'
+    # [40]    Collection ::= '(' GraphNode+ ')'
+    def Collection(step, prod, token)
+      case step
+      when :start
+        @prod_data << {:Collection => @prod_data.last[:TriplesNode]}
+      when :finish
+        data = @prod_data.pop
+        
+        # Add any triples generated from deeper productions
+        add_prod_data(:triple, data[:triple])
+        
+        # Create list items for each element in data[:GraphNode]
+        first = col = data[:Collection]
+        list = data[:GraphNode].flatten.compact
+        last = list.pop
+
+        list.each do |r|
+          add_triple(:Collection, :subject => first, :predicate => RDF["first"], :object => r)
+          rest = gen_node()
+          add_triple(:Collection, :subject => first, :predicate => RDF["rest"], :object => rest)
+          first = rest
+        end
+        
+        if last
+          add_triple(:Collection, :subject => first, :predicate => RDF["first"], :object => last)
+        end
+        add_triple(:Collection, :subject => first, :predicate => RDF["rest"], :object => RDF["nil"])
+      end
     end
 
-    # `[26] Filter`
-    def parse_filter
-      # TODO
+    # [41]    GraphNode ::= VarOrTerm | TriplesNode
+    def GraphNode(step, prod, token)
+      case step
+      when :start
+        @prod_data << {}
+      when :finish
+        data = @prod_data.pop
+        term = data[:VarOrTerm] || data[:TriplesNode]
+        add_prod_data(:triple, data[:triple])
+        add_prod_data(:GraphNode, term)
+      end
     end
 
-    # `[27] Constraint`
-    def parse_constraint
-      # TODO
+    # [42]    VarOrTerm ::= Var | GraphTerm
+    def VarOrTerm(step, prod, token)
+      case step
+      when :start
+        @prod_data << {}
+      when :finish
+        @prod_data.pop.values.each {|v| add_prod_data(:VarOrTerm, v)}
+      end
     end
 
-    # `[28] FunctionCall`
-    def parse_function_call
-      # TODO
+    # [43]    VarOrIRIref ::= Var | IRIref
+    # [44]    Var ::= VAR1 | VAR2
+    def Var(step, prod, token)
+      case step
+      when :token
+        case prod
+        when "VAR1", "VAR2"
+          add_prod_data(:Var, RDF::Query::Variable.new(token))
+        end
+      end
     end
 
-    # `[29] ArgList`
-    def parse_arg_list
-      # TODO
+    # [45]    GraphTerm ::= IRIref | RDFLiteral | NumericLiteral | BooleanLiteral | BlankNode | NIL
+    def GraphTerm(step, prod, token)
+      case step
+      when :start
+        @prod_data << {}
+      when :token
+        case prod
+        when "BooleanLiteral"
+          add_prod_data(:literal, RDF::Literal.new(token, :datatype => RDF::XSD.boolean))
+        end
+      when :finish
+        @prod_data.pop.values.each {|v| add_prod_data(:GraphTerm, v)}
+      end
     end
 
-    # `[30] ConstructTemplate`
-    def parse_construct_template
-      # TODO
+    # [46]    Expression ::= ConditionalOrExpression
+    # [47]    ConditionalOrExpression ::= ConditionalAndExpression ( '||' ConditionalAndExpression )*
+    # [48]    ConditionalAndExpression ::= ValueLogical ( '&&' ValueLogical )*
+    # [49]    ValueLogical ::= RelationalExpression
+    # [50]    RelationalExpression ::= NumericExpression ( '=' NumericExpression | '!=' NumericExpression | '<' NumericExpression | '>' NumericExpression | '<=' NumericExpression | '>=' NumericExpression )?
+    # [51]    NumericExpression ::= AdditiveExpression
+    # [52]    AdditiveExpression ::= MultiplicativeExpression ( '+' MultiplicativeExpression | '-' MultiplicativeExpression | NumericLiteralPositive | NumericLiteralNegative )*
+    # [53]    MultiplicativeExpression ::= UnaryExpression ( '*' UnaryExpression | '/' UnaryExpression )*
+    # [54]    UnaryExpression ::= '!' PrimaryExpression
+    #                           | '+' PrimaryExpression
+    #                           | '-' PrimaryExpression
+    #                           | PrimaryExpression
+    # [55]    PrimaryExpression ::= BrackettedExpression | BuiltInCall | IRIrefOrFunction | RDFLiteral | NumericLiteral | BooleanLiteral | Var
+    # [56]    BrackettedExpression ::= '(' Expression ')'
+    # [57]    BuiltInCall ::= 'STR' '(' Expression ')'
+    #                       | 'LANG' '(' Expression ')'
+    #                       | 'LANGMATCHES' '(' Expression ',' Expression ')'
+    #                       | 'DATATYPE' '(' Expression ')'
+    #                       | 'BOUND' '(' Var ')'
+    #                       | 'sameTerm' '(' Expression ',' Expression ')'
+    #                       | 'isIRI' '(' Expression ')'
+    #                       | 'isURI' '(' Expression ')'
+    #                       | 'isBLANK' '(' Expression ')'
+    #                       | 'isLITERAL' '(' Expression ')'
+    #                       | RegexExpression
+    # [58]    RegexExpression ::= 'REGEX' '(' Expression ',' Expression ( ',' Expression )? ')'
+    # [59]    IRIrefOrFunction ::= IRIref ArgList?
+    # [60]    RDFLiteral ::= String ( LANGTAG | ( '^^' IRIref ) )?
+    def RDFLiteral(step, prod, token)
+      case step
+      when :start
+        @prod_data << {}
+      when :token
+        case prod
+        when "LANGTAG"
+          add_prod_data(:language, uri(token))
+        end
+      when :finish
+        lit = @prod_data.pop
+        str = lit.delete(:string)
+        lit[:datatype] = lit.delete(:iri) if lit[:iri]
+        add_prod_data(:literal, RDF::Literal.new(str, lit))
+      end
     end
 
-    # `[31] ConstructTriples`
-    def parse_construct_triples
-      # TODO
+    # [61]    NumericLiteral ::= NumericLiteralUnsigned | NumericLiteralPositive | NumericLiteralNegative
+    # [62]    NumericLiteralUnsigned ::= INTEGER | DECIMAL | DOUBLE
+    def NumericLiteralUnsigned(step, prod, token)
+      case step
+      when :token
+        case prod
+        when "INTEGER"
+          add_prod_data(:literal, RDF::Literal.new(token, :datatype => RDF::XSD.integer))
+        when "DECIMAL"
+          add_prod_data(:literal, RDF::Literal.new(token, :datatype => RDF::XSD.decimal))
+        when "DOUBLE"
+          add_prod_data(:literal, RDF::Literal.new(token, :datatype => RDF::XSD.double))
+        end
+      end
     end
 
-    # `[32] TriplesSameSubject`
-    def parse_triples_same_subject
-      # TODO
+    # [63]    NumericLiteralPositive ::= INTEGER_POSITIVE | DECIMAL_POSITIVE | DOUBLE_POSITIVE
+    # [64]    NumericLiteralNegative ::= INTEGER_NEGATIVE | DECIMAL_NEGATIVE | DOUBLE_NEGATIVE
+    def NumericLiteralNegative(step, prod, token)
+      case step
+      when :start
+        @prod_data << {}
+      when :finish
+        add_prod_data(:literal, -@prod_data.pop.values.flatten.last)
+      end
     end
 
-    # `[33] PropertyListNotEmpty`
-    def parse_property_list_not_empty
-      # TODO
+    # [65]    BooleanLiteral ::= 'true' | 'false'
+    # [66]    String ::= STRING_LITERAL1 | STRING_LITERAL2 | STRING_LITERAL_LONG1 | STRING_LITERAL_LONG2
+    def String(step, prod, token)
+      case step
+      when :token
+        case prod
+        when "STRING_LITERAL1", "STRING_LITERAL2", "STRING_LITERAL_LONG1", "STRING_LITERAL_LONG2"
+          add_prod_data(:string, token)
+        end
+      end
     end
 
-    # `[34] PropertyList`
-    def parse_property_list
-      # TODO
+    # [67]    IRIref ::= IRI_REF | PrefixedName
+    def IRIref(step, prod, token)
+      case step
+      when :start
+        @prod_data << {}
+      when :token
+        case prod
+        when "IRI_REF"
+          add_prod_data(:iri, uri(self.base_uri, token))
+        end
+      when :finish
+        data = @prod_data.pop
+        add_prod_data(:IRIref, data[:iri]) if data.has_key?(:iri)
+      end
     end
 
-    # `[35] ObjectList`
-    def parse_object_list
-      # TODO
+    # [68]    PrefixedName ::= PNAME_LN | PNAME_NS
+    def PrefixedName(step, prod, token)
+      case step
+      when :start
+        @prod_data << {}
+      when :token
+        case prod
+        when "PNAME_NS"
+          add_prod_data(:PrefixedName, ns(nil, token))
+        when "PNAME_LN"
+          add_prod_data(:PrefixedName, ns(*token))
+        end
+      when :finish
+        data = @prod_data.pop
+        add_prod_data(:iri, data[:PrefixedName])
+      end
     end
 
-    # `[36] Object`
-    def parse_object
-      # TODO
+    # [69]    BlankNode ::= BLANK_NODE_LABEL | ANON
+    def BlankNode(step, prod, token)
+      case step
+      when :token
+        case prod
+        when "BLANK_NODE_LABEL"
+          add_prod_data(:BlankNode, gen_node(token))
+        when "ANON"
+          add_prod_data(:BlankNode, gen_node())
+        end
+      end
     end
 
-    # `[37] Verb`
-    def parse_verb
-      # TODO
-    end
-
-    # `[38] TriplesNode`
-    def parse_triples_node
-      # TODO
-    end
-
-    # `[39] BlankNodePropertyList`
-    def parse_blank_node_property_list
-      # TODO
-    end
-
-    # `[40] Collection`
-    def parse_collection
-      # TODO
-    end
-
-    # `[41] GraphNode`
-    def parse_graph_node
-      # TODO
-    end
-
-    # `[42] VarOrTerm`
-    def parse_var_or_term
-      # TODO
-    end
-
-    # `[43] VarOrIRIref`
-    def parse_var_or_iriref
-      # TODO
-    end
-
-    # `[44] Var ::= VAR1 | VAR2`
-    def parse_var
-      (token = accept(:Var)) ? RDF::Query::Variable.new(token.value) : fail
-    end
-
-    # `[45] GraphTerm`
-    def parse_graph_term
-      # TODO
-    end
-
-    # `[46] Expression`
-    def parse_expression
-      # TODO
-    end
-
-    # `[47] ConditionalOrExpression`
-    def parse_conditional_or_expression
-      # TODO
-    end
-
-    # `[48] ConditionalAndExpression`
-    def parse_conditional_and_expression
-      # TODO
-    end
-
-    # `[49] ValueLogical`
-    def parse_value_logical
-      # TODO
-    end
-
-    # `[50] RelationalExpression`
-    def parse_relational_expression
-      # TODO
-    end
-
-    # `[51] NumericExpression`
-    def parse_numeric_expression
-      # TODO
-    end
-
-    # `[52] AdditiveExpression`
-    def parse_additive_expression
-      # TODO
-    end
-
-    # `[53] MultiplicativeExpression`
-    def parse_multiplicative_expression
-      # TODO
-    end
-
-    # `[54] UnaryExpression`
-    def parse_unary_expression
-      # TODO
-    end
-
-    # `[55] PrimaryExpression`
-    def parse_primary_expression
-      # TODO
-    end
-
-    # `[56] BrackettedExpression`
-    def parse_bracketted_expression
-      # TODO
-    end
-
-    # `[57] BuiltInCall`
-    def parse_built_in_call
-      # TODO
-    end
-
-    # `[58] RegexExpression`
-    def parse_regex_expression
-      # TODO
-    end
-
-    # `[59] IRIrefOrFunction`
-    def parse_iriref_or_function
-      # TODO
-    end
-
-    # `[60] RDFLiteral`
-    def parse_rdf_literal
-      # TODO
-    end
-
-    # `[61] NumericLiteral ::= NumericLiteralUnsigned | NumericLiteralPositive | NumericLiteralNegative`
-    def parse_numeric_literal
-      (token = accept(:NumericLiteral)) ? RDF::Literal(token.value) : fail
-    end
-
-    # `[62] NumericLiteralUnsigned ::= INTEGER | DECIMAL | DOUBLE`
-    def parse_numeric_literal_unsigned
-      parse_numeric_literal
-    end
-
-    # `[63] NumericLiteralPositive ::= INTEGER_POSITIVE | DECIMAL_POSITIVE | DOUBLE_POSITIVE`
-    def parse_numeric_literal_positive
-      parse_numeric_literal # TODO: enforce the sign constraint
-    end
-
-    # `[64] NumericLiteralNegative ::= INTEGER_NEGATIVE | DECIMAL_NEGATIVE | DOUBLE_NEGATIVE`
-    def parse_numeric_literal_negative
-      parse_numeric_literal # TODO: enforce the sign constraint
-    end
-
-    # `[65] BooleanLiteral ::= 'true' | 'false'`
-    def parse_boolean_literal
-      (token = accept(:BooleanLiteral)) ? RDF::Literal(token.value) : fail
-    end
-
-    # `[66] String ::= STRING_LITERAL1 | STRING_LITERAL2 | STRING_LITERAL_LONG1 | STRING_LITERAL_LONG2`
-    def parse_string
-      (token = accept(:String)) ? RDF::Literal(token.value) : fail
-    end
-
-    # `[67] IRIref ::= IRI_REF | PrefixedName`
-    def parse_iriref
-      parse_iri_ref || parse_prefixed_name
-    end
-
-    # `[68] PrefixedName ::= PNAME_LN | PNAME_NS`
-    def parse_prefixed_name
-      parse_pname_ln || parse_pname_ns
-    end
-
-    # `[69] BlankNode ::= BLANK_NODE_LABEL | ANON`
-    def parse_blank_node
-      (token = accept(:BlankNode)) ? RDF::Node(token.value) : fail
-    end
-
-    # `[70] IRI_REF ::= '<' ([^<>"{}|^\`\]-[#x00-#x20])* '>'`
-    def parse_iri_ref
-      (token = accept(:IRI_REF)) ? RDF::URI(token.value) : fail # TODO: handle relative URLs here?
-    end
-
-    # `[71] PNAME_NS ::= PN_PREFIX? ':'`
-    def parse_pname_ns
-      (token = accept(:PNAME_NS)) ? token.value : fail # FIXME
-    end
-
-    # `[72] PNAME_LN ::= PNAME_NS PN_LOCAL`
-    def parse_pname_ln
-      (token = accept(:PNAME_LN)) ? token.value : fail # FIXME
-    end
-
-    # `[76] LANGTAG ::= '@' [a-zA-Z]+ ('-' [a-zA-Z0-9]+)*`
-    def parse_langtag
-      (token = accept(:LANGTAG)) ? token.value : fail
-    end
-
-    # `[92] NIL ::= '(' WS* ')'`
-    def parse_nil()
-      (token = accept(:NIL)) ? RDF.nil : fail
-    end
+    # [70]    IRI_REF  ::= '<' ([^<>"{}|^`\]-[#x00-#x20])* '>'
+    # [71]    PNAME_NS ::= PN_PREFIX? ':'
+    # [72]    PNAME_LN ::= PNAME_NS PN_LOCAL
+    # [73]    BLANK_NODE_LABEL ::= '_:' PN_LOCAL
+    # [74]    VAR1 ::= '?' VARNAME
+    # [75]    VAR2 ::= '$' VARNAME
+    # [76]    LANGTAG ::= '@' [a-zA-Z]+ ('-' [a-zA-Z0-9]+)*
+    # [77]    INTEGER ::= [0-9]+
+    # [78]    DECIMAL ::= [0-9]+ '.' [0-9]* | '.' [0-9]+
+    # [79]    DOUBLE ::= [0-9]+ '.' [0-9]* EXPONENT | '.' ([0-9])+ EXPONENT | ([0-9])+ EXPONENT
+    # [80]    INTEGER_POSITIVE ::= '+' INTEGER
+    # [81]    DECIMAL_POSITIVE ::= '+' DECIMAL
+    # [82]    DOUBLE_POSITIVE ::= +' DOUBLE
+    # [83]    INTEGER_NEGATIVE ::= '-' INTEGER
+    # [84]    DECIMAL_NEGATIVE ::= '-' DECIMAL
+    # [85]    DOUBLE_NEGATIVE ::= '-' DOUBLE
+    # [86]    EXPONENT ::= [eE] [+-]? [0-9]+
+    # [87]    STRING_LITERAL1 ::= "'" ( ([^#x27#x5C#xA#xD]) | ECHAR )* "'"
+    # [88]    STRING_LITERAL2 ::= '"' ( ([^#x22#x5C#xA#xD]) | ECHAR )* '"'
+    # [89]    STRING_LITERAL_LONG1 ::= "'''" ( ( "'" | "''" )? ( [^'\] | ECHAR ) )* "'''"
+    # [90]    STRING_LITERAL_LONG2 ::= '"""' ( ( '"' | '""' )? ( [^"\] | ECHAR ) )* '"""'
+    # [91]    ECHAR ::= '\' [tbnrf\"']
+    # [92]    NIL ::= '(' WS* ')'
+    # [93]    WS ::= #x20 | #x9 | #xD | #xA
+    # [94]    ANON ::= '[' WS* ']'
+    # [95]    PN_CHARS_BASE ::= [A-Z] | [a-z] | [#x00C0-#x00D6] | [#x00D8-#x00F6] | [#x00F8-#x02FF] | [#x0370-#x037D] | [#x037F-#x1FFF] | [#x200C-#x200D] | [#x2070-#x218F] | [#x2C00-#x2FEF] | [#x3001-#xD7FF] | [#xF900-#xFDCF] | [#xFDF0-#xFFFD] | [#x10000-#xEFFFF]
+    # [96]    PN_CHARS_U ::= PN_CHARS_BASE | '_'
+    # [97]    VARNAME ::= ( PN_CHARS_U | [0-9] ) ( PN_CHARS_U | [0-9] | #x00B7 | [#x0300-#x036F] | [#x203F-#x2040] )*
+    # [98]    PN_CHARS ::= PN_CHARS_U | '-' | [0-9] | #x00B7 | [#x0300-#x036F] | [#x203F-#x2040]
+    # [99]    PN_PREFIX ::= PN_CHARS_BASE ((PN_CHARS|'.')* PN_CHARS)?
+    # [100]   PN_LOCAL ::= ( PN_CHARS_U | [0-9] ) ((PN_CHARS|'.')* PN_CHARS)?
 
   private
 
+    def abbr(prodURI)
+      prodURI.to_s.split('#').last
+    end
+  
     ##
     # @param  [Symbol, String] type_or_value
     # @return [Token]
@@ -631,6 +717,69 @@ module SPARQL; module Grammar
       false
     end
     alias_method :fail!, :fail
+
+    # Add values to production data, values aranged as an array
+    def add_prod_data(sym, values)
+      case values
+      when Array
+        debug "add_prod_data(#{sym})", "#{@prod_data.last[sym].inspect} += #{values.inspect}"
+        @prod_data.last[sym] ||= []
+        @prod_data.last[sym] += values
+      when nil
+        return
+      else
+        debug "add_prod_data(#{sym})", "#{@prod_data.last[sym].inspect} << #{values.inspect}"
+        @prod_data.last[sym] ||= []
+        @prod_data.last[sym] << values
+      end
+    end
+    
+    # Generate a BNode identifier
+    def gen_node(id = nil)
+      unless id
+        id = @options[:anon_base] = @options[:anon_base].succ
+      end
+      RDF::Node.new(id)
+    end
+    
+    # Create URIs
+    def uri(value, append = nil)
+      value = RDF::URI.new(value)
+      value = value.join(append) if append
+      #value.validate! if validate? && value.respond_to?(:validate)
+      #value.canonicalize! if canonicalize?
+      #value = RDF::URI.intern(value) if intern?
+      value
+    end
+    
+    def ns(prefix, suffix)
+      base = prefix(prefix).to_s
+      suffix = suffix.to_s.sub(/^\#/, "") if base.index("#")
+      debug("ns", "base: '#{base}', suffix: '#{suffix}'")
+      uri(base + suffix.to_s)
+    end
+    
+    # add a statement
+    #
+    # @param [String] production:: Production generating triple
+    # @param [RDF::Term] subject:: the subject of the statement
+    # @param [RDF::Term] predicate:: the predicate of the statement
+    # @param [RDF::Term, Node, Literal] object:: the object of the statement
+    def add_triple(production, options)
+      progress(production, "[:triple, #{options[:subject]}, #{options[:predicate]}, #{options[:object]}]")
+      triples = {}
+      options.each_pair do |r, v|
+        if v.is_a?(Array) && v.flatten.length == 1
+          v = v.flatten.first
+        end
+        unless v.is_a?(RDF::Term)
+          error("add_triple", "Expected #{r} to be a resource, but it was #{v.inspect}",
+            :production => production) 
+        end
+        triples[r] = v
+      end
+      add_prod_data(:triple, triples)
+    end
 
     instance_methods.each { |method| public method } # DEBUG
 
