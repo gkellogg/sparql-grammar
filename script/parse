@@ -5,7 +5,7 @@ require 'sparql/grammar'
 require 'getoptlong'
 require 'open-uri'
 
-def run(input, base, production)
+def run(input, parser_options)
   start = Time.new
   num = 0
   puts  "#{input.read}\n---\n\n" unless $quiet
@@ -13,13 +13,13 @@ def run(input, base, production)
   if $quiet
     $stdout = StringIO.new
   end
-  parser = SPARQL::Grammar::Parser.new(input.read, :progress => $progress)
-  res = parser.parse(production)
+  parser = SPARQL::Grammar::Parser.new(input.read, parser_options)
+  res = parser.parse(parser_options[:production])
   if $quiet
     $stdout = STDOUT
     print "."
   else
-    puts res.inspect
+    puts present_results(res, parser_options)
   end
   puts
   secs = Time.new - start
@@ -30,13 +30,49 @@ def run(input, base, production)
 #  raise e
 end
 
+def present_results(array, options = {})
+  level = options[:level].to_i
+  "#{'  ' * level}[" +
+  array.map do |e|
+    e.to_s
+    case e
+    when Array                then present_results(e, options.merge(:level => level + 1))
+    when Symbol               then ":#{e}"
+    when RDF::Node            then e.to_s
+    when RDF::Query::Variable then e.to_s
+    when RDF::Literal        then RDF::NTriples::Writer.new.format_value(e)
+    when RDF::URI
+      if options[:prefixes] && (start = options[:prefixes].values.detect {|v| e.to_s.index(v) == 0})
+        prefix = options[:prefixes].invert[start].to_s
+        "#{prefix}:#{e.to_s.sub(start, '')}"
+      elsif options[:base_uri] && e.to_s.index(options[:base_uri]) == 0
+        "<#{e.to_s.sub(options[:base_uri], '')}>"
+      else
+        "<#{e}>"
+      end
+    else                           e.inspect
+    end
+  end.join(" ") +
+  "]\n"
+end
+
 $verbose = false
-$progress = true
 $output_format = :ntriples
 $input_format = :n3
-base_uri  = "http://example.com"
 input = nil
-production = SPARQL::Grammar::SPARQL_GRAMMAR.Query
+
+parser_options = {
+  :progress   => false,
+  :base_uri   => "http://example.com/",
+  :production => SPARQL::Grammar::SPARQL_GRAMMAR.Query,
+  :prefixes   => {},
+}
+
+# Use a standard prefixes
+RDF::Vocabulary.each do |v|
+  prefix = v.__name__.to_s.split('::').last.downcase
+  parser_options[:prefixes][prefix] = v.to_uri
+end
 
 opts = GetoptLong.new(
   ["--verbose", GetoptLong::NO_ARGUMENT],
@@ -51,21 +87,21 @@ opts.each do |opt, arg|
   case opt
   when '--verbose' then $verbose = true
   when '--quiet' then $quiet = true
-  when '--progress' then $progress = true
+  when '--progress' then parser_options[:progress] = true
   when '--execute' then input = arg
-  when '--uri' then base_uri = arg
-  when '--production' then production = arg.match(/http/) ? arg : SPARQL::Grammar::SPARQL_GRAMMAR[arg]
+  when '--uri' then parser_options[:base_uri] = arg
+  when '--production' then parser_options[:production] = arg.match(/http/) ? arg : SPARQL::Grammar::SPARQL_GRAMMAR[arg]
   when '--parse-only' then $parse_only = true
   end
 end
 
 if ARGV.empty?
   s = input ? input : $stdin.read
-  run(StringIO.new(s), base_uri, production)
+  run(StringIO.new(s), parser_options)
 else
   ARGV.each do |test_file|
     puts "parse #{test_file}"
-    run(Kernel.open(test_file), base_uri, production)
+    run(Kernel.open(test_file), parser_options)
   end
 end
 puts
