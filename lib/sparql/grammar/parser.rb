@@ -152,7 +152,7 @@ module SPARQL; module Grammar
       end
       
       # The last thing on the @prod_data stack is the result
-      result = @prod_data.last
+      result = prod_data
       if result.is_a?(Hash) && !result.empty?
         key = result.keys.first
         [key] + result[key]  # Creates [:BGP, [:triple], ...]
@@ -235,36 +235,248 @@ module SPARQL; module Grammar
 
   protected
 
+    # Handlers used to define actions for each productions.
+    # If a context is defined, create a producation data element and add to the @prod_data stack
+    # If entries are defined, pass production data to :start and/or :finish handlers
+    def contexts(production)
+      case production
+      when :PrefixDecl
+        # [4] PrefixDecl := 'PREFIX' PNAME_NS IRI_REF";
+        {
+          :finish => lambda { |data| self.prefix(data[:prefix], data[:iri]) if data[:iri] }
+        }
+      when :TriplesBlock
+        # [21]    TriplesBlock ::= TriplesSameSubject ( '.' TriplesBlock? )?
+        {
+          :finish => lambda { |data|
+            if data[:triple]
+              triples = data[:triple].map {|v| [:triple, v[:subject], v[:predicate], v[:object]]}
+              add_prod_data(:BGP, triples)
+            end
+        
+            # Append triples from ('.' TriplesBlock? )? 
+            if data[:BGP]
+              add_prod_data(:BGP, data[:BGP])
+            end
+          }
+        }
+      when :TriplesSameSubject
+        # [32]    TriplesSameSubject ::= VarOrTerm PropertyListNotEmpty | TriplesNode PropertyList
+        {
+          :finish => lambda { |data| add_prod_data(:triple, data[:triple]) }
+        }
+      when :PropertyListNotEmpty
+        # [33]    PropertyListNotEmpty ::= Verb ObjectList ( ';' ( Verb ObjectList )? )*
+        {
+          :start => lambda {|data|
+            subject = prod_data[:VarOrTerm] || prod_data[:TriplesNode] || prod_data[:GraphNode]
+            error(nil, "Expected VarOrTerm or TriplesNode or GraphNode", :production => :PropertyListNotEmpty) unless subject
+            data[:Subject] = subject
+          },
+          :finish => lambda {|data| add_prod_data(:triple, data[:triple])}
+        }
+      when :ObjectList
+        # [35]    ObjectList ::= Object ( ',' Object )*
+        {
+          :start => lambda { |data|
+            # Called after Verb. The prod_data stack should have Subject and Verb elements
+            error(nil, "Expected Subject", :production => :ObjectList) unless prod_data.has_key?(:Subject)
+            error(nil, "Expected Verb", :production => :ObjectList) unless prod_data.has_key?(:Verb)
+            data[:Subject] = prod_data[:Subject]
+            data[:Verb] = prod_data[:Verb].last
+          },
+          :finish => lambda { |data| add_prod_data(:triple, data[:triple]) }
+        }
+      when :Object
+        # [36]    Object ::= GraphNode
+        {
+          :finish => lambda { |data|
+            object = data[:VarOrTerm] || data[:TriplesNode] || data[:GraphNode]
+            add_triple(:Object, :subject => prod_data[:Subject], :predicate => prod_data[:Verb], :object => object)
+            add_prod_data(:triple, data[:triple])
+          }
+        }
+      when :Verb
+        {
+          :finish => lambda { |data| data.values.each {|v| add_prod_data(:Verb, v)} }
+        }
+      when :TriplesNode
+        # [38]    TriplesNode ::= Collection | BlankNodePropertyList
+        #
+        # Allocate Blank Node for () or []
+        {
+          :start => lambda { |data| data[:TriplesNode] = gen_node() },
+          :finish => lambda { |data| 
+            add_prod_data(:triple, data[:triple])
+            add_prod_data(:TriplesNode, data[:TriplesNode])
+          }
+        }
+      when :Collection
+        # [40]    Collection ::= '(' GraphNode+ ')'
+        {
+          :start => lambda { |data| data[:Collection] = prod_data[:TriplesNode]},
+          :finish => lambda { |data| expand_collection(data) }
+        }
+      when :GraphNode
+        # [41]    GraphNode ::= VarOrTerm | TriplesNode
+        {
+          :finish => lambda { |data|
+            term = data[:VarOrTerm] || data[:TriplesNode]
+            add_prod_data(:triple, data[:triple])
+            add_prod_data(:GraphNode, term)
+          }
+        }
+      when :VarOrTerm
+        # [42]    VarOrTerm ::= Var | GraphTerm
+        {
+          :finish => lambda { |data| data.values.each {|v| add_prod_data(:VarOrTerm, v)} }
+        }
+      when :GraphTerm
+        # [45]    GraphTerm ::= IRIref | RDFLiteral | NumericLiteral | BooleanLiteral | BlankNode | NIL
+        {
+          :finish => lambda { |data| data.values.each {|v| add_prod_data(:GraphTerm, v)} }
+        }
+      when :RDFLiteral
+        # [60]    RDFLiteral ::= String ( LANGTAG | ( '^^' IRIref ) )?
+        {
+          :finish => lambda { |data|
+            lit = data.dup
+            str = lit.delete(:string)
+            lit[:datatype] = lit.delete(:iri) if lit[:iri]
+            add_prod_data(:literal, RDF::Literal.new(str, lit))
+          }
+        }
+      when :NumericLiteralNegative
+        # [64]    NumericLiteralNegative ::= INTEGER_NEGATIVE | DECIMAL_NEGATIVE | DOUBLE_NEGATIVE
+        {
+          :finish => lambda { |data| add_prod_data(:literal, -data.values.flatten.last) }
+        }
+      when :IRIref
+        # [67]    IRIref ::= IRI_REF | PrefixedName
+        {
+          :finish => lambda { |data| add_prod_data(:IRIref, data[:iri]) if data.has_key?(:iri) }
+        }
+      when :PrefixedName
+        # [68]    PrefixedName ::= PNAME_LN | PNAME_NS
+        {
+          :finish => lambda { |data| add_prod_data(:iri, data[:PrefixedName]) }
+        }
+      end
+    end
+
     # Start for production
     def onStart(prod)
-      handler = prod.to_sym
-      progress("#{handler}(:start, #{respond_to?(handler)}):#{@prod_data.length}", ($verbose ? @prod_data.last.inspect : @prod_data.last.keys.inspect))
+      context = contexts(prod.to_sym)
       @productions << prod
-      send(handler, :start, prod, nil) if respond_to?(handler)
+      if context
+        # Create a new production data element, potentially allowing handler to customize before pushing on the @prod_data stack
+        progress("#{prod}(:start):#{@prod_data.length}", ($verbose ? prod_data.inspect : prod_data.keys.inspect))
+        data = {}
+        context[:start].call(data) if context.has_key?(:start)
+        @prod_data << data
+      else
+        progress("#{prod}(:start, skip):#{@prod_data.length}", '')
+      end
       #puts @prod_data.inspect
     end
 
     # Finish of production
     def onFinish
       prod = @productions.pop()
-      handler = prod.to_sym
-      progress("#{handler}(:finish, #{respond_to?(handler)}):#{@prod_data.length}", ($verbose ? @prod_data.last.inspect : @prod_data.last.keys.inspect))
-      #puts @prod_data.inspect
-      send(handler, :finish, prod, nil) if respond_to?(handler)
+      context = contexts(prod.to_sym)
+      if context
+        # Pop production data element from stack, potentially allowing handler to use it
+        data = @prod_data.pop
+        progress("#{prod}(:finish):#{@prod_data.length}", ($verbose ? prod_data.inspect : prod_data.keys.inspect))
+        context[:finish].call(data) if context.has_key?(:finish)
+      else
+        progress("#{prod}(:finish, skip):#{@prod_data.length}", '')
+      end
     end
 
+    # Handlers for individual tokens based on production
+    def token_productions(parent_production, production)
+      case parent_production
+        # [3] BaseDecl ::= 'BASE' IRI_REF`
+      when :BaseDecl
+        case production
+        when :IRI_REF
+          lambda { |token| self.base_uri = uri(token) }
+        end
+      when :PrefixDecl
+        # [4] PrefixDecl := 'PREFIX' PNAME_NS IRI_REF";
+        case production
+        when :IRI_REF
+          lambda { |token| prod_data[:iri] = uri(self.base_uri, token) }
+        when :PNAME_NS
+          lambda { |token| prod_data[:prefix] = uri(token && token.to_sym) }
+        end
+      else
+        case production
+        when :a
+          # [37]    Verb ::= VarOrIRIref | 'a'
+          lambda { |token| add_prod_data(:Verb, RDF.type) }
+        when :VAR1, :VAR2
+          # [44]    Var ::= VAR1 | VAR2
+          lambda { |token| add_prod_data(:Var, RDF::Query::Variable.new(token)) }
+        when :BooleanLiteral
+          # [45]    GraphTerm ::= IRIref | RDFLiteral | NumericLiteral | BooleanLiteral | BlankNode | NIL
+          lambda { |token|
+            add_prod_data(:literal, RDF::Literal.new(token, :datatype => RDF::XSD.boolean))
+          }
+        when :LANGTAG
+          # [60]    RDFLiteral ::= String ( LANGTAG | ( '^^' IRIref ) )?
+          lambda { |token| add_prod_data(:language, token) }
+        when :INTEGER
+          # [62]    NumericLiteralUnsigned ::= INTEGER | DECIMAL | DOUBLE
+          lambda { |token| add_prod_data(:literal, RDF::Literal.new(token, :datatype => RDF::XSD.integer)) }
+        when :DECIMAL
+          # [62]    NumericLiteralUnsigned ::= INTEGER | DECIMAL | DOUBLE
+          lambda { |token| add_prod_data(:literal, RDF::Literal.new(token, :datatype => RDF::XSD.decimal)) }
+        when :DOUBLE
+          # [62]    NumericLiteralUnsigned ::= INTEGER | DECIMAL | DOUBLE
+          lambda { |token| add_prod_data(:literal, RDF::Literal.new(token, :datatype => RDF::XSD.double)) }
+        when :STRING_LITERAL1, :STRING_LITERAL2, :STRING_LITERAL_LONG1, :STRING_LITERAL_LONG2
+          # [66]    String ::= STRING_LITERAL1 | STRING_LITERAL2 | STRING_LITERAL_LONG1 | STRING_LITERAL_LONG2
+          lambda { |token| add_prod_data(:string, token) }
+        when :IRI_REF
+          # [67]    IRIref ::= IRI_REF | PrefixedName
+          lambda { |token| add_prod_data(:iri, uri(self.base_uri, token)) }
+        when :PNAME_NS
+          # [68]    PrefixedName ::= PNAME_LN | PNAME_NS
+          lambda { |token| add_prod_data(:PrefixedName, ns(nil, token)) }
+        when :PNAME_LN
+          # [68]    PrefixedName ::= PNAME_LN | PNAME_NS
+          lambda { |token| add_prod_data(:PrefixedName, ns(*token)) }
+        when :BLANK_NODE_LABEL
+          # [69]    BlankNode ::= BLANK_NODE_LABEL | ANON
+          lambda { |token| add_prod_data(:BlankNode, gen_node(token)) }
+        when :ANON
+          # [69]    BlankNode ::= BLANK_NODE_LABEL | ANON
+          lambda { |token| add_prod_data(:BlankNode, gen_node()) }
+        end
+      end
+    end
+    
     # A token
     def onToken(prod, token)
       unless @productions.empty?
         parentProd = @productions.last
-        handler = parentProd.to_sym
-        progress("#{handler}(:token, #{respond_to?(handler)})", "#{token}: #{$verbose ? @prod_data.last.inspect : @prod_data.last.keys.inspect}")
-        send(handler, :token, prod, token) if respond_to?(handler)
+        token_production = token_productions(parentProd.to_sym, prod.to_sym)
+        if token_production
+          progress("#{parentProd}(:token)", "#{token}: #{$verbose ? prod_data.inspect : prod_data.keys.inspect}")
+          token_production.call(token)
+        else
+          progress("#{parentProd}(:token, skip)", token)
+        end
       else
-        error("#{handler}(:token, #{respond_to?(handler)})", "Token has no parent production", :production => prod)
+        error("#{parentProd}(:token)", "Token has no parent production", :production => prod)
       end
     end
 
+    # Current ProdData element
+    def prod_data; @prod_data.last; end
+    
     # @param [String] str Error string
     # @param [Hash] options
     # @option options [URI, #to_s] :production
@@ -289,49 +501,13 @@ module SPARQL; module Grammar
       $stderr.puts("[#{@lineno}]#{' ' * @productions.length}#{node}: #{message}") if $verbose
     end
 
-    # [3] BaseDecl ::= 'BASE' IRI_REF`
-    #
-    # @return [Array] In the form [:base, <uri>]
-    def BaseDecl(step, prod, token)
-      if step == :token && prod == "IRI_REF"
-        self.base_uri = uri(token)
-      end
-    end
-    
-    # [4] PrefixDecl := 'PREFIX' PNAME_NS IRI_REF";
-    #
-    # @return [Array] In the form [:prefix, "foo", <uri>]
-    def PrefixDecl(step, prod, token)
-      case step
-      when :start
-        @prod_data << {}
-      when :token
-        case prod
-        when "IRI_REF"
-          @prod_data.last[:uri] = uri(self.base_uri, token)
-        when "PNAME_NS"
-          @prod_data.last[:prefix] = (token && token.to_sym)
-        end
-      when :finish
-        data = @prod_data.pop
-        self.prefix(data[:prefix], data[:uri]) if data[:uri]
-      end
-    end
-    
     # [5] SelectQuery ::= 'SELECT' ( 'DISTINCT' | 'REDUCED' )? ( Var+ | '*' ) DatasetClause* WhereClause
-
     # [6] ConstructQuery ::= 'CONSTRUCT' ConstructTemplate DatasetClause* WhereClause SolutionModifier
-
     # [7] DescribeQuery ::= 'DESCRIBE' ( VarOrIRIref+ | '*' ) DatasetClause* WhereClause? SolutionModifier
-
     # `[8 AskQuery ::= 'ASK' DatasetClause* WhereClause
-
     # [9] DatasetClause ::= 'FROM' (DefaultGraphClause | NamedGraphClause)
-
     # [10] DefaultGraphClause ::= SourceSelector
-
     # [11] NamedGraphClause ::= 'NAMED' SourceSelector`
-
     # [12]    SourceSelector ::= IRIref
     # [13]    WhereClause ::= 'WHERE'? GroupGraphPattern
     # [14]    SolutionModifier ::= OrderClause? LimitOffsetClauses?
@@ -343,24 +519,6 @@ module SPARQL; module Grammar
     # [19]    OffsetClause ::= 'OFFSET' INTEGER
     # [20]    GroupGraphPattern ::= '{' TriplesBlock? ( ( GraphPatternNotTriples | Filter ) '.'? TriplesBlock? )* '}'
     # [21]    TriplesBlock ::= TriplesSameSubject ( '.' TriplesBlock? )?
-    def TriplesBlock(step, prod, token)
-      case step
-      when :start
-        @prod_data << {}
-      when :finish
-        data = @prod_data.pop
-        if data[:triple]
-          triples = data[:triple].map {|v| [:triple, v[:subject], v[:predicate], v[:object]]}
-          add_prod_data(:BGP, triples)
-        end
-        
-        # Append triples from ('.' TriplesBlock? )? 
-        if data[:BGP]
-          add_prod_data(:BGP, data[:BGP])
-        end
-      end
-    end
-
     # [22]    GraphPatternNotTriples ::= OptionalGraphPattern | GroupOrUnionGraphPattern | GraphGraphPattern
     # [23]    OptionalGraphPattern ::= 'OPTIONAL' GroupGraphPattern
     # [24]    GraphGraphPattern ::= 'GRAPH' VarOrIRIref GroupGraphPattern
@@ -372,167 +530,42 @@ module SPARQL; module Grammar
     # [30]    ConstructTemplate ::= '{' ConstructTriples? '}'
     # [31]    ConstructTriples ::= TriplesSameSubject ( '.' ConstructTriples? )?
     # [32]    TriplesSameSubject ::= VarOrTerm PropertyListNotEmpty | TriplesNode PropertyList
-    def TriplesSameSubject(step, prod, token)
-      case step
-      when :start
-        @prod_data << {}
-      when :finish
-        data = @prod_data.pop
-        add_prod_data(:triple, data[:triple])
-      end
-    end
-
     # [33]    PropertyListNotEmpty ::= Verb ObjectList ( ';' ( Verb ObjectList )? )*
-    def PropertyListNotEmpty(step, prod, token)
-      case step
-      when :start
-        subject = @prod_data.last[:VarOrTerm] || @prod_data.last[:TriplesNode] || @prod_data.last[:GraphNode]
-        error(nil, "Expected VarOrTerm or TriplesNode or GraphNode", :production => :PropertyListNotEmpty) unless subject
-        @prod_data << {:Subject => subject}
-      when :finish
-        data = @prod_data.pop
-        add_prod_data(:triple, data[:triple])
-      end
-    end
-
     # [34]    PropertyList ::= PropertyListNotEmpty?
     # [35]    ObjectList ::= Object ( ',' Object )*
-    def ObjectList(step, prod, token)
-      case step
-      when :start
-        # Called after Verb. The prod_data stack should have Subject and Verb elements
-        error(nil, "Expected Subject", :production => :ObjectList) unless @prod_data.last.has_key?(:Subject)
-        error(nil, "Expected Verb", :production => :ObjectList) unless @prod_data.last.has_key?(:Verb)
-        @prod_data << {:Subject => @prod_data.last[:Subject], :Verb => @prod_data.last[:Verb].last}
-      when :finish
-        data = @prod_data.pop
-        add_prod_data(:triple, data[:triple])
-      end
-    end
-
     # [36]    Object ::= GraphNode
-    def Object(step, prod, token)
-      case step
-      when :start
-        # Called after ObjectList. The prod_data stack should have Subject and Verb elements
-        error(nil, "Expected Subject", :production => :Object) unless @prod_data.last.has_key?(:Subject)
-        error(nil, "Expected Verb", :production => :Object) unless @prod_data.last.has_key?(:Verb)
-        @prod_data << {}
-      when :finish
-        data = @prod_data.pop
-        object = data[:VarOrTerm] || data[:TriplesNode] || data[:GraphNode]
-        add_triple(:Object, :subject => @prod_data.last[:Subject], :predicate => @prod_data.last[:Verb], :object => object)
-        add_prod_data(:triple, data[:triple])
-      end
-    end
-
     # [37]    Verb ::= VarOrIRIref | 'a'
-    def Verb(step, prod, token)
-      case step
-      when :start
-        @prod_data << {}
-      when :token
-        add_prod_data(:Verb, RDF.type) if token == "a"
-      when :finish
-        @prod_data.pop.values.each {|v| add_prod_data(:Verb, v)}
-      end
-    end
-
     # [38]    TriplesNode ::= Collection | BlankNodePropertyList
-    #
-    # Allocate Blank Node for () or []
-    def TriplesNode(step, prod, token)
-      case step
-      when :start
-        @prod_data << { :TriplesNode => gen_node() }
-      when :finish
-        data = @prod_data.pop
-        add_prod_data(:triple, data[:triple])
-        add_prod_data(:TriplesNode, data[:TriplesNode])
-      end
-    end
-
     # [39]    BlankNodePropertyList ::= '[' PropertyListNotEmpty ']'
     # [40]    Collection ::= '(' GraphNode+ ')'
-    def Collection(step, prod, token)
-      case step
-      when :start
-        @prod_data << {:Collection => @prod_data.last[:TriplesNode]}
-      when :finish
-        data = @prod_data.pop
-        
-        # Add any triples generated from deeper productions
-        add_prod_data(:triple, data[:triple])
-        
-        # Create list items for each element in data[:GraphNode]
-        first = col = data[:Collection]
-        list = data[:GraphNode].flatten.compact
-        last = list.pop
+    #
+    # Take collection of objects and create RDF Collection using rdf:first, rdf:rest and rdf:nil
+    def expand_collection(data)
+      # Add any triples generated from deeper productions
+      add_prod_data(:triple, data[:triple])
+      
+      # Create list items for each element in data[:GraphNode]
+      first = col = data[:Collection]
+      list = data[:GraphNode].flatten.compact
+      last = list.pop
 
-        list.each do |r|
-          add_triple(:Collection, :subject => first, :predicate => RDF["first"], :object => r)
-          rest = gen_node()
-          add_triple(:Collection, :subject => first, :predicate => RDF["rest"], :object => rest)
-          first = rest
-        end
-        
-        if last
-          add_triple(:Collection, :subject => first, :predicate => RDF["first"], :object => last)
-        end
-        add_triple(:Collection, :subject => first, :predicate => RDF["rest"], :object => RDF["nil"])
+      list.each do |r|
+        add_triple(:Collection, :subject => first, :predicate => RDF["first"], :object => r)
+        rest = gen_node()
+        add_triple(:Collection, :subject => first, :predicate => RDF["rest"], :object => rest)
+        first = rest
       end
+      
+      if last
+        add_triple(:Collection, :subject => first, :predicate => RDF["first"], :object => last)
+      end
+      add_triple(:Collection, :subject => first, :predicate => RDF["rest"], :object => RDF["nil"])
     end
 
     # [41]    GraphNode ::= VarOrTerm | TriplesNode
-    def GraphNode(step, prod, token)
-      case step
-      when :start
-        @prod_data << {}
-      when :finish
-        data = @prod_data.pop
-        term = data[:VarOrTerm] || data[:TriplesNode]
-        add_prod_data(:triple, data[:triple])
-        add_prod_data(:GraphNode, term)
-      end
-    end
-
     # [42]    VarOrTerm ::= Var | GraphTerm
-    def VarOrTerm(step, prod, token)
-      case step
-      when :start
-        @prod_data << {}
-      when :finish
-        @prod_data.pop.values.each {|v| add_prod_data(:VarOrTerm, v)}
-      end
-    end
-
     # [43]    VarOrIRIref ::= Var | IRIref
     # [44]    Var ::= VAR1 | VAR2
-    def Var(step, prod, token)
-      case step
-      when :token
-        case prod
-        when "VAR1", "VAR2"
-          add_prod_data(:Var, RDF::Query::Variable.new(token))
-        end
-      end
-    end
-
-    # [45]    GraphTerm ::= IRIref | RDFLiteral | NumericLiteral | BooleanLiteral | BlankNode | NIL
-    def GraphTerm(step, prod, token)
-      case step
-      when :start
-        @prod_data << {}
-      when :token
-        case prod
-        when "BooleanLiteral"
-          add_prod_data(:literal, RDF::Literal.new(token, :datatype => RDF::XSD.boolean))
-        end
-      when :finish
-        @prod_data.pop.values.each {|v| add_prod_data(:GraphTerm, v)}
-      end
-    end
-
     # [46]    Expression ::= ConditionalOrExpression
     # [47]    ConditionalOrExpression ::= ConditionalAndExpression ( '||' ConditionalAndExpression )*
     # [48]    ConditionalAndExpression ::= ValueLogical ( '&&' ValueLogical )*
@@ -560,110 +593,10 @@ module SPARQL; module Grammar
     #                       | RegexExpression
     # [58]    RegexExpression ::= 'REGEX' '(' Expression ',' Expression ( ',' Expression )? ')'
     # [59]    IRIrefOrFunction ::= IRIref ArgList?
-    # [60]    RDFLiteral ::= String ( LANGTAG | ( '^^' IRIref ) )?
-    def RDFLiteral(step, prod, token)
-      case step
-      when :start
-        @prod_data << {}
-      when :token
-        case prod
-        when "LANGTAG"
-          add_prod_data(:language, uri(token))
-        end
-      when :finish
-        lit = @prod_data.pop
-        str = lit.delete(:string)
-        lit[:datatype] = lit.delete(:iri) if lit[:iri]
-        add_prod_data(:literal, RDF::Literal.new(str, lit))
-      end
-    end
-
     # [61]    NumericLiteral ::= NumericLiteralUnsigned | NumericLiteralPositive | NumericLiteralNegative
-    # [62]    NumericLiteralUnsigned ::= INTEGER | DECIMAL | DOUBLE
-    def NumericLiteralUnsigned(step, prod, token)
-      case step
-      when :token
-        case prod
-        when "INTEGER"
-          add_prod_data(:literal, RDF::Literal.new(token, :datatype => RDF::XSD.integer))
-        when "DECIMAL"
-          add_prod_data(:literal, RDF::Literal.new(token, :datatype => RDF::XSD.decimal))
-        when "DOUBLE"
-          add_prod_data(:literal, RDF::Literal.new(token, :datatype => RDF::XSD.double))
-        end
-      end
-    end
-
     # [63]    NumericLiteralPositive ::= INTEGER_POSITIVE | DECIMAL_POSITIVE | DOUBLE_POSITIVE
     # [64]    NumericLiteralNegative ::= INTEGER_NEGATIVE | DECIMAL_NEGATIVE | DOUBLE_NEGATIVE
-    def NumericLiteralNegative(step, prod, token)
-      case step
-      when :start
-        @prod_data << {}
-      when :finish
-        add_prod_data(:literal, -@prod_data.pop.values.flatten.last)
-      end
-    end
-
     # [65]    BooleanLiteral ::= 'true' | 'false'
-    # [66]    String ::= STRING_LITERAL1 | STRING_LITERAL2 | STRING_LITERAL_LONG1 | STRING_LITERAL_LONG2
-    def String(step, prod, token)
-      case step
-      when :token
-        case prod
-        when "STRING_LITERAL1", "STRING_LITERAL2", "STRING_LITERAL_LONG1", "STRING_LITERAL_LONG2"
-          add_prod_data(:string, token)
-        end
-      end
-    end
-
-    # [67]    IRIref ::= IRI_REF | PrefixedName
-    def IRIref(step, prod, token)
-      case step
-      when :start
-        @prod_data << {}
-      when :token
-        case prod
-        when "IRI_REF"
-          add_prod_data(:iri, uri(self.base_uri, token))
-        end
-      when :finish
-        data = @prod_data.pop
-        add_prod_data(:IRIref, data[:iri]) if data.has_key?(:iri)
-      end
-    end
-
-    # [68]    PrefixedName ::= PNAME_LN | PNAME_NS
-    def PrefixedName(step, prod, token)
-      case step
-      when :start
-        @prod_data << {}
-      when :token
-        case prod
-        when "PNAME_NS"
-          add_prod_data(:PrefixedName, ns(nil, token))
-        when "PNAME_LN"
-          add_prod_data(:PrefixedName, ns(*token))
-        end
-      when :finish
-        data = @prod_data.pop
-        add_prod_data(:iri, data[:PrefixedName])
-      end
-    end
-
-    # [69]    BlankNode ::= BLANK_NODE_LABEL | ANON
-    def BlankNode(step, prod, token)
-      case step
-      when :token
-        case prod
-        when "BLANK_NODE_LABEL"
-          add_prod_data(:BlankNode, gen_node(token))
-        when "ANON"
-          add_prod_data(:BlankNode, gen_node())
-        end
-      end
-    end
-
     # [70]    IRI_REF  ::= '<' ([^<>"{}|^`\]-[#x00-#x20])* '>'
     # [71]    PNAME_NS ::= PN_PREFIX? ':'
     # [72]    PNAME_LN ::= PNAME_NS PN_LOCAL
@@ -722,15 +655,15 @@ module SPARQL; module Grammar
     def add_prod_data(sym, values)
       case values
       when Array
-        debug "add_prod_data(#{sym})", "#{@prod_data.last[sym].inspect} += #{values.inspect}"
-        @prod_data.last[sym] ||= []
-        @prod_data.last[sym] += values
+        debug "add_prod_data(#{sym})", "#{prod_data[sym].inspect} += #{values.inspect}"
+        prod_data[sym] ||= []
+        prod_data[sym] += values
       when nil
         return
       else
-        debug "add_prod_data(#{sym})", "#{@prod_data.last[sym].inspect} << #{values.inspect}"
-        @prod_data.last[sym] ||= []
-        @prod_data.last[sym] << values
+        debug "add_prod_data(#{sym})", "#{prod_data[sym].inspect} << #{values.inspect}"
+        prod_data[sym] ||= []
+        prod_data[sym] << values
       end
     end
     
