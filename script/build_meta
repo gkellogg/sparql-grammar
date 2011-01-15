@@ -182,7 +182,7 @@ end
 
 $verbose = false
 $debug = false
-grammarFile = File.expand_path(File.join(File.dirname(__FILE__), "../lib/sparql/grammar/parser/sparql-selectors.n3"))
+grammarFile = File.expand_path(File.join(File.dirname(__FILE__), "../etc/sparql-selectors.n3"))
 start = SPARQL.Query
 output = STDOUT
 
