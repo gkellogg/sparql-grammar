@@ -310,6 +310,23 @@ describe SPARQL::Grammar::Parser do
     with_production(:Query) do |production|
       it_rejects_empty_input_using production
 
+      {
+        "BASE <foo/> SELECT * WHERE { <a> <b> <c> }" =>
+          [:base, RDF::URI("foo/"),
+            [:BGP, [:triple, RDF::URI("foo/a"), RDF::URI("foo/b"), RDF::URI("foo/c")]]],
+        "PREFIX : <http://example.com/> SELECT * WHERE { :a :b :c }" =>
+          [:prefix, [[:":", RDF::URI("http://example.com/")]],
+            [:BGP, [:triple, RDF::URI("http://example.com/a"), RDF::URI("http://example.com/b"), RDF::URI("http://example.com/c")]]],
+        "PREFIX : <foo#> PREFIX bar: <bar#> SELECT * WHERE { :a :b bar:c }" =>
+          [:prefix, [[:":", RDF::URI("foo#")], [:"bar:", RDF::URI("bar#")]],
+            [:BGP, [:triple, RDF::URI("foo#a"), RDF::URI("foo#b"), RDF::URI("bar#c")]]],
+        "BASE <http://baz/> PREFIX : <http://foo#> PREFIX bar: <http://bar#> SELECT * WHERE { <a> :b bar:c }" =>
+          [:base, RDF::URI("http://baz/"), [:prefix, [[:":", RDF::URI("http://foo#")], [:"bar:", RDF::URI("http://bar#")]],
+            [:BGP, [:triple, RDF::URI("http://baz/a"), RDF::URI("http://foo#b"), RDF::URI("http://bar#c")]]]],
+      }.each_pair do |input, result|
+        given_it_generates(production, input, result)
+      end
+
       SIMPLE_BGP.each_pair do |input, result|
         given_it_generates(production, "SELECT * WHERE {#{input}}", result,
           :prefixes => {nil => "http://example.com/", :rdf => RDF.to_uri.to_s},
@@ -327,12 +344,16 @@ describe SPARQL::Grammar::Parser do
         p.base_uri.should == RDF::URI('http://example.org/')
       end
 
+      given_it_generates(production, %q(BASE <http://example.org/>), [:BaseDecl, RDF::URI("http://example.org/")])
+
       it "sets prefix : to 'foobar' given 'PREFIX : <foobar>'" do
         p = parser.call(%q(PREFIX : <foobar>))
         p.parse(production)
         p.prefix(nil).should == 'foobar'
         p.prefixes[nil].should == 'foobar'
       end
+
+      given_it_generates(production, %q(PREFIX : <foobar>), [:PrefixDecl, [[:":", RDF::URI("foobar")]]])
 
       it "sets prefix foo: to 'bar' given 'PREFIX foo: <bar>'" do
         p = parser.call(%q(PREFIX foo: <bar>))
@@ -342,6 +363,12 @@ describe SPARQL::Grammar::Parser do
         p.prefixes[:foo].should == 'bar'
       end
 
+      given_it_generates(production, %q(PREFIX foo: <bar>), [:PrefixDecl, [[:"foo:", RDF::URI("bar")]]])
+
+      given_it_generates(production, %q(PREFIX : <foobar> PREFIX foo: <bar>),
+        [:PrefixDecl, [
+          [:":", RDF::URI("foobar")],
+          [:"foo:", RDF::URI("bar")]]]);
     end
   end
 

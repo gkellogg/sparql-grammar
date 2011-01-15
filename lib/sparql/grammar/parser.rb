@@ -262,8 +262,8 @@ module SPARQL; module Grammar
         # [2]     Prologue                  ::=       BaseDecl? PrefixDecl*
         {
           :finish => lambda { |data|
-            add_prod_data(:PrefixDecl, data[:PrefixDecl])
             add_prod_data(:BaseDecl, data[:BaseDecl])
+            add_prod_data(:PrefixDecl, [data[:PrefixDecl]]) if data[:PrefixDecl]
           }
         }
       when :BaseDecl
@@ -280,7 +280,7 @@ module SPARQL; module Grammar
           :finish => lambda { |data|
             if data[:iri]
               self.prefix(data[:prefix], data[:iri].last)
-              add_prod_data(:prefix, [data[:prefix], data[:iri].last])
+              add_prod_data(:PrefixDecl, [["#{data[:prefix]}:".to_sym, data[:iri].last]])
             end
           }
         }
@@ -559,11 +559,14 @@ module SPARQL; module Grammar
 
         # Wrap in :base or :prefix or just use key
         if data[:PrefixDecl] && data[:BaseDecl]
-          add_prod_data(:base, [data[:BaseDecl], [:prefix, data[:PrefixDecl], [key, sxp]]])
+          add_prod_data(:base, data[:BaseDecl])
+          add_prod_data(:base, [[:prefix] + data[:PrefixDecl] + [[key] + sxp]])
         elsif data[:PrefixDecl]
-          add_prod_data(:prefix, [data[:PrefixDecl], [key, sxp]])
+          add_prod_data(:prefix, data[:PrefixDecl])
+          add_prod_data(:prefix, [[key] + sxp])
         elsif data[:BaseDecl]
-          add_prod_data(:base, [data[:BaseDecl], [key, sxp]])
+          add_prod_data(:base, data[:BaseDecl])
+          add_prod_data(:base, [[key] + sxp])
         else
           add_prod_data(key, sxp)
         end
