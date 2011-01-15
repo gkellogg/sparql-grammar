@@ -154,7 +154,7 @@ class PredictiveParser
 
   def litOrNot(value)
     if value.is_a?(RDF::Literal)
-      value.to_s.dump
+      value.to_s == "a" ? "a".dump : value.to_s.upcase.dump
     else
       ":" + value.to_s.split("#").last
     end
