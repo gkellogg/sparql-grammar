@@ -26,8 +26,10 @@ module SPARQL; module Grammar
     #   Basis for generating anonymous Nodes
     # @option options [Boolean] :resolve_iris (false)
     #   Resolve prefix and relative IRIs, otherwise output as symbols
+    # @option options [Boolean]  :validate     (false)
+    #   whether to validate the parsed statements and values
     def initialize(input = nil, options = {})
-      @options = {:anon_base => "gen0000"}.merge(options)
+      @options = {:anon_base => "gen0000", :validate => false}.merge(options)
       self.input = input if input
       @productions = []
     end
@@ -235,6 +237,15 @@ module SPARQL; module Grammar
       @options[:base_uri] = uri
     end
 
+    ##
+    # Returns `true` if parsed statements and values should be validated.
+    #
+    # @return [Boolean] `true` or `false`
+    # @since  0.3.0
+    def validate?
+      @options[:validate]
+    end
+
   protected
 
     # Handlers used to define actions for each productions.
@@ -242,19 +253,56 @@ module SPARQL; module Grammar
     # If entries are defined, pass production data to :start and/or :finish handlers
     def contexts(production)
       case production
+      when :Query
+        # [1]     Query                     ::=       Prologue ( SelectQuery | ConstructQuery | DescribeQuery | AskQuery )
+        {
+          :finish => lambda { |data| finalize_query(data) }
+        }
+      when :Prologue
+        # [2]     Prologue                  ::=       BaseDecl? PrefixDecl*
+        {
+          :finish => lambda { |data|
+            add_prod_data(:PrefixDecl, data[:PrefixDecl])
+            add_prod_data(:BaseDecl, data[:BaseDecl])
+          }
+        }
       when :BaseDecl
         # [3]     BaseDecl      ::=       'BASE' IRI_REF
         {
-          :finish => lambda { |data| self.base_uri = uri(data[:iri])}
+          :finish => lambda { |data|
+            self.base_uri = uri(data[:iri].last)
+            add_prod_data(:BaseDecl, data[:iri].last)
+          }
         }
       when :PrefixDecl
         # [4] PrefixDecl := 'PREFIX' PNAME_NS IRI_REF";
         {
           :finish => lambda { |data|
             if data[:iri]
-              self.prefix(data[:prefix], data[:iri])
-              add_prod_data(:prefix, [:prefix, data[:prefix], data[:iri]])
+              self.prefix(data[:prefix], data[:iri].last)
+              add_prod_data(:prefix, [data[:prefix], data[:iri].last])
             end
+          }
+        }
+      when :SelectQuery
+        # [5]     SelectQuery               ::=       'SELECT' ( 'DISTINCT' | 'REDUCED' )? ( Var+ | '*' ) DatasetClause* WhereClause SolutionModifier
+        {
+          :finish => lambda { |data|
+            add_prod_data(:BGP, data[:BGP])
+          }
+        }
+      when :WhereClause
+        # [13]    WhereClause               ::=       'WHERE'? GroupGraphPattern
+        {
+          :finish => lambda { |data|
+            add_prod_data(:BGP, data[:BGP])
+          }
+        }
+      when :GroupGraphPattern
+        # [20]    GroupGraphPattern         ::=       '{' TriplesBlock? ( ( GraphPatternNotTriples | Filter ) '.'? TriplesBlock? )* '}'
+        {
+          :finish => lambda { |data|
+            add_prod_data(:BGP, data[:BGP])
           }
         }
       when :TriplesBlock
@@ -282,7 +330,7 @@ module SPARQL; module Grammar
         {
           :start => lambda {|data|
             subject = prod_data[:VarOrTerm] || prod_data[:TriplesNode] || prod_data[:GraphNode]
-            error(nil, "Expected VarOrTerm or TriplesNode or GraphNode", :production => :PropertyListNotEmpty) unless subject
+            error(nil, "Expected VarOrTerm or TriplesNode or GraphNode", :production => :PropertyListNotEmpty) if validate? && !subject
             data[:Subject] = subject
           },
           :finish => lambda {|data| add_prod_data(:triple, data[:triple])}
@@ -292,10 +340,16 @@ module SPARQL; module Grammar
         {
           :start => lambda { |data|
             # Called after Verb. The prod_data stack should have Subject and Verb elements
-            error(nil, "Expected Subject", :production => :ObjectList) unless prod_data.has_key?(:Subject)
-            error(nil, "Expected Verb", :production => :ObjectList) unless prod_data.has_key?(:Verb)
-            data[:Subject] = prod_data[:Subject]
-            data[:Verb] = prod_data[:Verb].last
+            if prod_data.has_key?(:Subject)
+              data[:Subject] = prod_data[:Subject]
+            else
+              error(nil, "Expected Subject", :production => :ObjectList) if validate?
+            end
+            if prod_data.has_key?(:Verb)
+              data[:Verb] = prod_data[:Verb].to_a.last
+            else
+              error(nil, "Expected Verb", :production => :ObjectList) if validate?
+            end
           },
           :finish => lambda { |data| add_prod_data(:triple, data[:triple]) }
         }
@@ -304,8 +358,10 @@ module SPARQL; module Grammar
         {
           :finish => lambda { |data|
             object = data[:VarOrTerm] || data[:TriplesNode] || data[:GraphNode]
-            add_triple(:Object, :subject => prod_data[:Subject], :predicate => prod_data[:Verb], :object => object)
-            add_prod_data(:triple, data[:triple])
+            if object
+              add_triple(:Object, :subject => prod_data[:Subject], :predicate => prod_data[:Verb], :object => object)
+              add_prod_data(:triple, data[:triple])
+            end
           }
         }
       when :Verb
@@ -352,10 +408,13 @@ module SPARQL; module Grammar
         # [60]    RDFLiteral ::= String ( LANGTAG | ( '^^' IRIref ) )?
         {
           :finish => lambda { |data|
-            lit = data.dup
-            str = lit.delete(:string)
-            lit[:datatype] = lit.delete(:iri) if lit[:iri]
-            add_prod_data(:literal, RDF::Literal.new(str, lit))
+            if data[:string]
+              lit = data.dup
+              str = lit.delete(:string).last 
+              lit[:datatype] = lit.delete(:IRIref).last if lit[:IRIref]
+              lit[:language] = lit.delete(:language).last if lit[:language]
+              add_prod_data(:literal, RDF::Literal.new(str, lit)) if str
+            end
           }
         }
       when :NumericLiteralNegative
@@ -429,6 +488,8 @@ module SPARQL; module Grammar
         lambda { |token| add_prod_data(:iri, uri(self.base_uri, token)) }
       when :LANGTAG
         lambda { |token| add_prod_data(:language, token) }
+      when :NIL
+        lambda { |token| add_prod_data(:NIL, RDF["nil"]) }
       when :PNAME_LN
         lambda { |token| add_prod_data(:PrefixedName, ns(*token)) }
       when :PNAME_NS
@@ -446,16 +507,15 @@ module SPARQL; module Grammar
     # A token
     def onToken(prod, token)
       unless @productions.empty?
-        parentProd = @productions.last
         token_production = token_productions(prod.to_sym)
         if token_production
-          progress("#{parentProd}(:token)", "#{token}: #{$verbose ? prod_data.inspect : prod_data.keys.inspect}")
           token_production.call(token)
+          progress("#{prod}(:token)", "#{token}: #{$verbose ? prod_data.inspect : prod_data.keys.inspect}")
         else
-          progress("#{parentProd}(:token, skip)", token)
+          progress("#{prod}(:token, skip)", token)
         end
       else
-        error("#{parentProd}(:token)", "Token has no parent production", :production => prod)
+        error("#{prod}(:token)", "Token has no parent production", :production => prod)
       end
     end
 
@@ -486,6 +546,31 @@ module SPARQL; module Grammar
       $stderr.puts("[#{@lineno}]#{' ' * @productions.length}#{node}: #{message}") if $verbose
     end
 
+    # [1]     Query                     ::=       Prologue ( SelectQuery | ConstructQuery | DescribeQuery | AskQuery )
+    #
+    # Generate an S-Exp for the final query
+    # Inputs are :BaseDecl, :PrefixDecl, and :Query
+    def finalize_query(data)
+      %w(
+        BGP Union Join LeftJoin Filter
+        ToList OrderBy Project Distinct Slice
+      ).map(&:to_sym).each do |key|
+        next unless sxp = data[key]
+
+        # Wrap in :base or :prefix or just use key
+        if data[:PrefixDecl] && data[:BaseDecl]
+          add_prod_data(:base, [data[:BaseDecl], [:prefix, data[:PrefixDecl], [key, sxp]]])
+        elsif data[:PrefixDecl]
+          add_prod_data(:prefix, [data[:PrefixDecl], [key, sxp]])
+        elsif data[:BaseDecl]
+          add_prod_data(:base, [data[:BaseDecl], [key, sxp]])
+        else
+          add_prod_data(key, sxp)
+        end
+        return
+      end
+    end
+
     # [40]    Collection ::= '(' GraphNode+ ')'
     #
     # Take collection of objects and create RDF Collection using rdf:first, rdf:rest and rdf:nil
@@ -496,7 +581,7 @@ module SPARQL; module Grammar
       
       # Create list items for each element in data[:GraphNode]
       first = col = data[:Collection]
-      list = data[:GraphNode].flatten.compact
+      list = data[:GraphNode].to_a.flatten.compact
       last = list.pop
 
       list.each do |r|
@@ -538,14 +623,14 @@ module SPARQL; module Grammar
     def add_prod_data(sym, values)
       case values
       when Array
-        debug "add_prod_data(#{sym})", "#{prod_data[sym].inspect} += #{values.inspect}"
         prod_data[sym] ||= []
+        debug "add_prod_data(#{sym})", "#{prod_data[sym].inspect} += #{values.inspect}"
         prod_data[sym] += values
       when nil
         return
       else
-        debug "add_prod_data(#{sym})", "#{prod_data[sym].inspect} << #{values.inspect}"
         prod_data[sym] ||= []
+        debug "add_prod_data(#{sym})", "#{prod_data[sym].inspect} << #{values.inspect}"
         prod_data[sym] << values
       end
     end
@@ -588,9 +673,9 @@ module SPARQL; module Grammar
         if v.is_a?(Array) && v.flatten.length == 1
           v = v.flatten.first
         end
-        unless v.is_a?(RDF::Term)
+        if validate? && !v.is_a?(RDF::Term)
           error("add_triple", "Expected #{r} to be a resource, but it was #{v.inspect}",
-            :production => production) 
+            :production => production)
         end
         triples[r] = v
       end
