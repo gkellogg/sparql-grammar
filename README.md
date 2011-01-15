@@ -42,17 +42,17 @@ Implementation Notes
 The parser is driven through a rules table contained in lib/sparql/grammar/parser/meta.rb. This includes
 branch rules to indicate productions to be taken based on a current production.
 
-The meta.rb file is generated from lib/rdf/n3/reader/sparql-selectors.n3 which is the result of parsing
+The meta.rb file is generated from etc/sparql-selectors.n3 which is the result of parsing
 http://www.w3.org/2000/10/swap/grammar/sparql.n3 (along with bnf-token-rules.n3) using cwm using the following command sequence:
 
     cwm ../grammar/sparql.n3 bnf-token-rules.n3 --think --purge --data > sparql-selectors.n3
 
-sparql-selectors.n3 is itself used to generate meta.rb using script/build_meta.
+sparql-selectors.n3 is itself used to generate lib/sparql/grammar/parser/meta.rb using script/build_meta.
 
 Note that The SWAP version of sparql.n3 is an older version of the grammar with the newest in http://www.w3.org/2001/sw/DataAccess/rq23/parsers/sparql.ttl,
-which uses the EBNF form. Sparql.n3 file has been updated by hand to be consistent with the sparql.ttl version.
-A future direction will be to generate rules from sparql.ttl to generate branch tables similar to those
-expresed in meta.rb, but this requires rules not currently available.
+which uses the EBNF form. Sparql.n3 file has been updated by hand to be consistent with the etc/sparql.ttl version.
+A future direction will be to generate rules from etc/sparql.ttl to generate branch tables similar to those
+expressed in meta.rb, but this requires rules not currently available.
 
 Dependencies
 ------------
