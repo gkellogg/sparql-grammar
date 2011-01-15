@@ -53,6 +53,12 @@ module SPARQL; module Grammar
     attr_reader   :tokens
 
     ##
+    # The internal S-Exp of the result.
+    #
+    # @return [Array]
+    attr_accessor :result
+
+    ##
     # @param  [String, #to_s] input
     # @return [void]
     def input=(input)
@@ -156,10 +162,10 @@ module SPARQL; module Grammar
       end
       
       # The last thing on the @prod_data stack is the result
-      result = prod_data
-      if result.is_a?(Hash) && !result.empty?
-        key = result.keys.first
-        [key] + result[key]  # Creates [:BGP, [:triple], ...]
+      @result = prod_data
+      if @result.is_a?(Hash) && !@result.empty?
+        key = @result.keys.first
+        @result = [key] + result[key]  # Creates [:BGP, [:triple], ...]
       end
     end
     
@@ -320,6 +326,19 @@ module SPARQL; module Grammar
             end
           }
         }
+      when :FunctionCall
+        # [28]    FunctionCall              ::=       IRIref ArgList
+        {
+          :finish => lambda { |data|
+            # Function is (func arg1 arg2 ...)
+            add_prod_data(:Function, [data[:IRIref] + data[:ArgList]])
+          }
+        }
+      when :ArgList
+        # [29]    ArgList                   ::=       ( NIL | '(' Expression ( ',' Expression )* ')' )
+        {
+          :finish => lambda { |data| data.values.each {|v| add_prod_data(:ArgList, v)} }
+        }
       when :TriplesSameSubject
         # [32]    TriplesSameSubject ::= VarOrTerm PropertyListNotEmpty | TriplesNode PropertyList
         {
@@ -365,6 +384,7 @@ module SPARQL; module Grammar
           }
         }
       when :Verb
+        # [37]    Verb ::=       VarOrIRIref | 'a'
         {
           :finish => lambda { |data| data.values.each {|v| add_prod_data(:Verb, v)} }
         }
@@ -404,6 +424,51 @@ module SPARQL; module Grammar
         {
           :finish => lambda { |data| data.values.each {|v| add_prod_data(:GraphTerm, v)} }
         }
+      when :Expression
+        # [46]    Expression                ::=       ConditionalOrExpression
+        {
+          :finish => lambda { |data| data.values.each {|v| add_prod_data(:Expression, v)} }
+        }
+      when :BuiltInCall
+        # [57] BuiltInCall ::= 'STR' '(' Expression ')'
+        #                    | 'LANG' '(' Expression ')'
+        #                    | 'LANGMATCHES' '(' Expression ',' Expression ')'
+        #                    | 'DATATYPE' '(' Expression ')'
+        #                    | 'BOUND' '(' Var ')'
+        #                    | 'sameTerm' '(' Expression ',' Expression ')'
+        #                    | 'isIRI' '(' Expression ')'
+        #                    | 'isURI' '(' Expression ')'
+        #                    | 'isBLANK' '(' Expression ')'
+        #                    | 'isLITERAL' '(' Expression ')'
+        #                    | RegexExpression
+        {
+          :finish => lambda { |data|
+            if data[:REGEX]
+              add_prod_data(:BuiltInCall, [:REGEX] + data[:REGEX])
+            elsif data[:BOUND]
+              add_prod_data(:BuiltInCall, [:BOUND] + data[:Var])
+            elsif data[:BuiltInCall]
+              add_prod_data(:BuiltInCall, data[:BuiltInCall] + data[:Expression])
+            end
+          }
+        }
+      when :RegexExpression
+        # [58]    RegexExpression           ::=       'REGEX' '(' Expression ',' Expression ( ',' Expression )? ')'
+        {
+          :finish => lambda { |data| add_prod_data(:REGEX, data[:Expression]) }
+        }
+      when :IRIrefOrFunction
+        # [59]    IRIrefOrFunction          ::=       IRIref ArgList?
+        {
+          :finish => lambda { |data|
+            if data.has_key?(:ArgList)
+              # Function is (func arg1 arg2 ...)
+              add_prod_data(:Function, [data[:IRIref] + data[:ArgList]])
+            else
+              add_prod_data(:IRIref, data[:IRIref])
+            end
+          }
+        }
       when :RDFLiteral
         # [60]    RDFLiteral ::= String ( LANGTAG | ( '^^' IRIref ) )?
         {
@@ -441,12 +506,12 @@ module SPARQL; module Grammar
       @productions << prod
       if context
         # Create a new production data element, potentially allowing handler to customize before pushing on the @prod_data stack
-        progress("#{prod}(:start):#{@prod_data.length}", ($verbose ? prod_data.inspect : prod_data.keys.inspect))
+        progress("#{prod}(:start):#{@prod_data.length}", prod_data.inspect)
         data = {}
         context[:start].call(data) if context.has_key?(:start)
         @prod_data << data
       else
-        progress("#{prod}(:start, skip):#{@prod_data.length}", '')
+        progress("#{prod}(:start)", '')
       end
       #puts @prod_data.inspect
     end
@@ -458,10 +523,10 @@ module SPARQL; module Grammar
       if context
         # Pop production data element from stack, potentially allowing handler to use it
         data = @prod_data.pop
-        progress("#{prod}(:finish):#{@prod_data.length}", ($verbose ? prod_data.inspect : prod_data.keys.inspect))
         context[:finish].call(data) if context.has_key?(:finish)
+        progress("#{prod}(:finish):#{@prod_data.length}", prod_data.inspect, :depth => (@productions.length + 1))
       else
-        progress("#{prod}(:finish, skip):#{@prod_data.length}", '')
+        progress("#{prod}(:finish)", '', :depth => (@productions.length + 1))
       end
     end
 
@@ -478,6 +543,10 @@ module SPARQL; module Grammar
         lambda { |token|
           add_prod_data(:literal, RDF::Literal.new(token, :datatype => RDF::XSD.boolean))
         }
+      when :BOUND
+        lambda { |token| add_prod_data(:BOUND, :BOUND) }
+      when :DATATYPE
+        lambda { |token| add_prod_data(:BuiltInCall, :DATATYPE) }
       when :DECIMAL
         lambda { |token| add_prod_data(:literal, RDF::Literal.new(token, :datatype => RDF::XSD.decimal)) }
       when :DOUBLE
@@ -486,6 +555,18 @@ module SPARQL; module Grammar
         lambda { |token| add_prod_data(:literal, RDF::Literal.new(token, :datatype => RDF::XSD.integer)) }
       when :IRI_REF
         lambda { |token| add_prod_data(:iri, uri(self.base_uri, token)) }
+      when :ISBLANK
+        lambda { |token| add_prod_data(:BuiltInCall, :isBLANK) }
+      when :ISLITERAL
+        lambda { |token| add_prod_data(:BuiltInCall, :isLITERAL) }
+      when :ISIRI
+        lambda { |token| add_prod_data(:BuiltInCall, :isIRI) }
+      when :ISURI
+        lambda { |token| add_prod_data(:BuiltInCall, :isURI) }
+      when :LANG
+        lambda { |token| add_prod_data(:BuiltInCall, :LANG) }
+      when :LANGMATCHES
+        lambda { |token| add_prod_data(:BuiltInCall, :LANGMATCHES) }
       when :LANGTAG
         lambda { |token| add_prod_data(:language, token) }
       when :NIL
@@ -497,6 +578,10 @@ module SPARQL; module Grammar
           add_prod_data(:PrefixedName, ns(nil, token))    # [68]    PrefixedName ::= PNAME_LN | PNAME_NS
           prod_data[:prefix] = uri(token && token.to_sym) # [4] PrefixDecl := 'PREFIX' PNAME_NS IRI_REF";
         }
+      when :STR
+        lambda { |token| add_prod_data(:BuiltInCall, :STR) }
+      when :SAMETERM
+        lambda { |token| add_prod_data(:BuiltInCall, :sameTerm) }
       when :STRING_LITERAL1, :STRING_LITERAL2, :STRING_LITERAL_LONG1, :STRING_LITERAL_LONG2
         lambda { |token| add_prod_data(:string, token) }
       when :VAR1, :VAR2       # [44]    Var ::= VAR1 | VAR2
@@ -510,12 +595,10 @@ module SPARQL; module Grammar
         token_production = token_productions(prod.to_sym)
         if token_production
           token_production.call(token)
-          progress("#{prod}(:token)", "#{token}: #{$verbose ? prod_data.inspect : prod_data.keys.inspect}")
+          progress("#{prod}(:token)", "#{token}: #{prod_data.inspect}", :depth => (@productions.length + 1))
         else
-          progress("#{prod}(:token, skip)", token)
+          progress("#{prod}(:token)", token, :depth => (@productions.length + 1))
         end
-      else
-        error("#{prod}(:token)", "Token has no parent production", :production => prod)
       end
     end
 
@@ -527,8 +610,9 @@ module SPARQL; module Grammar
     # @option options [URI, #to_s] :production
     # @option options [Token] :token
     def error(node, message, options = {})
+      depth = options[:depth] || @productions.length
       node ||= options[:production]
-      $stderr.puts("[#{@lineno}]#{' ' * @productions.length}#{node}: #{message}")
+      $stderr.puts("[#{@lineno}]#{' ' * depth}#{node}: #{message}")
       raise Error.new("Error on production #{options[:production].inspect}#{' with input ' + options[:token].inspect if options[:token]} at line #{@lineno}: #{message}", options)
     end
 
@@ -536,14 +620,16 @@ module SPARQL; module Grammar
     # Progress output when parsing
     # @param [String] str
     def progress(node, message, options = {})
-      $stderr.puts("[#{@lineno}]#{' ' * @productions.length}#{node}: #{message}") if @options[:progress]
+      depth = options[:depth] || @productions.length
+      $stderr.puts("[#{@lineno}]#{' ' * depth}#{node}: #{message}") if @options[:progress]
     end
 
     ##
     # Progress output when debugging
     # @param [String] str
     def debug(node, message, options = {})
-      $stderr.puts("[#{@lineno}]#{' ' * @productions.length}#{node}: #{message}") if $verbose
+      depth = options[:depth] || @productions.length
+      $stderr.puts("[#{@lineno}]#{' ' * depth}#{node}: #{message}") if $verbose
     end
 
     # [1]     Query                     ::=       Prologue ( SelectQuery | ConstructQuery | DescribeQuery | AskQuery )

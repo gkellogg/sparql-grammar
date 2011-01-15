@@ -17,6 +17,11 @@ module ProductionRequirements
     end
   end
   
+  # [28] FunctionCall
+  def it_recognizes_function_using(production)
+    given_it_generates(production, %q(<foo>("bar")), [:Function, [RDF::URI("foo"), RDF::Literal("bar")]])
+  end
+  
   # [44] Var
   def it_recognizes_var_using(production)
     it "recognizes the Var nonterminal" do
@@ -62,7 +67,7 @@ module ProductionRequirements
   # [67] IRIref
   def it_recognizes_iriref_using(production)
     it "recognizes the IRIref nonterminal" do
-#      parser(production).call(%q(<http://example.org/>)).should == RDF::URI('http://example.org/')
+      parser(production).call(%q(<http://example.org/>)).last.should == RDF::URI('http://example.org/')
       pending("test prefixed names")
     end
   end
@@ -436,7 +441,7 @@ describe SPARQL::Grammar::Parser do
       it_rejects_empty_input_using production
 
       it "recognizes default graph clauses" do
-#        parser(production).call(%q(<http://example.org/foaf/aliceFoaf>)).should == [:default, RDF::URI('http://example.org/foaf/aliceFoaf')]
+        pending {parser(production).call(%q(<http://example.org/foaf/aliceFoaf>)).last.should == [:default, RDF::URI('http://example.org/foaf/aliceFoaf')]}
       end
     end
   end
@@ -450,7 +455,7 @@ describe SPARQL::Grammar::Parser do
       end
 
       it "recognizes named graph clauses" do
-#        parser(production).call(%q(NAMED <http://example.org/alice>)).should == [:named, RDF::URI('http://example.org/alice')]
+        pending {parser(production).call(%q(NAMED <http://example.org/alice>)).should == [:named, RDF::URI('http://example.org/alice')]}
       end
     end
   end
@@ -502,7 +507,7 @@ describe SPARQL::Grammar::Parser do
   describe "when matching the [18] LimitClause production rule" do
     with_production(:LimitClause) do |production|
       it "recognizes LIMIT clauses" do
-#        parser(production).call(%q(LIMIT 10)).should == [:limit, 10]
+        pending {parser(production).call(%q(LIMIT 10)).should == [:limit, 10]}
       end
     end
   end
@@ -510,7 +515,7 @@ describe SPARQL::Grammar::Parser do
   describe "when matching the [19] OffsetClause production rule" do
     with_production(:OffsetClause) do |production|
       it "recognizes OFFSET clauses" do
-#        parser(production).call(%q(OFFSET 10)).should == [:offset, 10]
+        pending {parser(production).call(%q(OFFSET 10)).should == [:offset, 10]}
       end
     end
   end
@@ -581,15 +586,17 @@ describe SPARQL::Grammar::Parser do
 
   describe "when matching the [28] FunctionCall production rule" do
     with_production(:FunctionCall) do |production|
-      it_rejects_empty_input_using production
-      pending("TODO")
+      it_recognizes_function_using production
     end
   end
 
   describe "when matching the [29] ArgList production rule" do
     with_production(:ArgList) do |production|
-      it_rejects_empty_input_using production
-      pending("TODO")
+      it_recognizes_nil_using production
+      
+      given_it_generates(production, %q(()), [:ArgList, RDF["nil"]])
+      given_it_generates(production, %q(("foo")), [:ArgList, RDF::Literal("foo")])
+      given_it_generates(production, %q(("foo", "bar")), [:ArgList, RDF::Literal("foo"), RDF::Literal("bar")])
     end
   end
 
@@ -650,7 +657,7 @@ describe SPARQL::Grammar::Parser do
       end
 
       it "recognizes the 'a' lexeme" do
-#        parser(production).call(%q(a)).should == RDF.type
+        parser(production).call(%q(a)).should == [:Verb, RDF.type]
       end
     end
   end
@@ -801,23 +808,50 @@ describe SPARQL::Grammar::Parser do
   end
 
   describe "when matching the [57] BuiltInCall production rule" do
+    # [57] BuiltInCall ::= 'STR' '(' Expression ')'
+    #                    | 'LANG' '(' Expression ')'
+    #                    | 'LANGMATCHES' '(' Expression ',' Expression ')'
+    #                    | 'DATATYPE' '(' Expression ')'
+    #                    | 'BOUND' '(' Var ')'
+    #                    | 'sameTerm' '(' Expression ',' Expression ')'
+    #                    | 'isIRI' '(' Expression ')'
+    #                    | 'isURI' '(' Expression ')'
+    #                    | 'isBLANK' '(' Expression ')'
+    #                    | 'isLITERAL' '(' Expression ')'
+    #                    | RegexExpression
     with_production(:BuiltInCall) do |production|
       it_rejects_empty_input_using production
-      pending("TODO")
+
+      given_it_generates(production, %q(STR ("foo")), [:BuiltInCall, :STR, RDF::Literal("foo")])
+      given_it_generates(production, %q(LANG ("foo")), [:BuiltInCall, :LANG, RDF::Literal("foo")])
+      given_it_generates(production, %q(LANGMATCHES ("foo", "bar")), [:BuiltInCall, :LANGMATCHES, RDF::Literal("foo"), RDF::Literal("bar")])
+      given_it_generates(production, %q(DATATYPE ("foo")), [:BuiltInCall, :DATATYPE, RDF::Literal("foo")])
+      given_it_generates(production, %q(sameTerm ("foo", "bar")), [:BuiltInCall, :sameTerm, RDF::Literal("foo"), RDF::Literal("bar")])
+      given_it_generates(production, %q(isIRI ("foo")), [:BuiltInCall, :isIRI, RDF::Literal("foo")])
+      given_it_generates(production, %q(isURI ("foo")), [:BuiltInCall, :isURI, RDF::Literal("foo")])
+      given_it_generates(production, %q(isBLANK ("foo")), [:BuiltInCall, :isBLANK, RDF::Literal("foo")])
+      given_it_generates(production, %q(isLITERAL ("foo")), [:BuiltInCall, :isLITERAL, RDF::Literal("foo")])
+      given_it_generates(production, %q(BOUND (?foo)), [:BuiltInCall, :BOUND, RDF::Query::Variable.new("foo")])
+      given_it_generates(production, %q(REGEX ("foo", "bar")), [:BuiltInCall, :REGEX, RDF::Literal("foo"), RDF::Literal("bar")])
     end
   end
 
   describe "when matching the [58] RegexExpression production rule" do
     with_production(:RegexExpression) do |production|
       it_rejects_empty_input_using production
-      pending("TODO")
+      
+      it "regects REGEX with single expression" do
+        lambda { parser(production).call(%q(REGEX ("foo"))) }.should raise_error
+      end
+
+      given_it_generates(production, %q(REGEX ("foo", "bar")), [:REGEX, RDF::Literal("foo"), RDF::Literal("bar")])
     end
   end
 
   describe "when matching the [59] IRIrefOrFunction production rule" do
     with_production(:IRIrefOrFunction) do |production|
-      it_rejects_empty_input_using production
-      pending("TODO")
+      it_recognizes_function_using production
+      it_recognizes_iriref_using production
     end
   end
 
