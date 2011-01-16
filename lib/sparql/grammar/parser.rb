@@ -432,6 +432,50 @@ module SPARQL; module Grammar
         {
           :finish => lambda { |data| data.values.each {|v| add_prod_data(:Expression, v)} }
         }
+      when :ConditionalOrExpression
+        # [47]    ConditionalOrExpression   ::=       ConditionalAndExpression ( '||' ConditionalAndExpression )*
+        {
+          :finish => lambda { |data|
+            if data[:_OR]
+              add_prod_data(:Expression, [[data[:_OR].first] + data[:Expression] + [data[:_OR].last]])
+            else
+              add_prod_data(:Expression, data[:Expression])
+            end
+          }
+        }
+      when :_OR_ConditionalAndExpression
+        # This part handles the operator and the rhs of a ConditionalAndExpression
+        {
+          :finish => lambda { |data|
+            if data[:_OR]
+              add_prod_data(:_OR, data[:ConditionalOrExpression] + [[data[:_OR].first] + data[:Expression] + [data[:_OR].last]])
+            elsif data[:ConditionalOrExpression]
+              add_prod_data(:_OR, data[:ConditionalOrExpression] + data[:Expression])
+            end
+          }
+        }
+      when :ConditionalAndExpression
+        # [48]    ConditionalAndExpression  ::=       ValueLogical ( '&&' ValueLogical )*
+        {
+          :finish => lambda { |data|
+            if data[:_AND]
+              add_prod_data(:Expression, [[data[:_AND].first] + data[:Expression] + [data[:_AND].last]])
+            else
+              add_prod_data(:Expression, data[:Expression])
+            end
+          }
+        }
+      when :_AND_ValueLogical_Star
+        # This part handles the operator and the rhs of a ConditionalAndExpression
+        {
+          :finish => lambda { |data|
+            if data[:_AND]
+              add_prod_data(:_AND, data[:ConditionalAndExpression] + [[data[:_AND].first] + data[:Expression] + [data[:_AND].last]])
+            elsif data[:ConditionalAndExpression]
+              add_prod_data(:_AND, data[:ConditionalAndExpression] + data[:Expression])
+            end
+          }
+        }
       when :RelationalExpression
         # [50] RelationalExpression ::= NumericExpression (
         #                                   '=' NumericExpression
@@ -728,6 +772,10 @@ module SPARQL; module Grammar
           lambda { |token| add_prod_data(:MultiplicativeExpression, production) }
         when :"=", :"!=", :"<", :">", :"<=", :">="
           lambda { |token| add_prod_data(:RelationalExpression, production) }
+        when :"&&"
+          lambda { |token| add_prod_data(:ConditionalAndExpression, production) }
+        when :"||"
+          lambda { |token| add_prod_data(:ConditionalOrExpression, production) }
         end
       end
     end

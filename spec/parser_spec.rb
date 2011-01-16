@@ -744,28 +744,35 @@ describe SPARQL::Grammar::Parser do
 
   describe "when matching the [47] ConditionalOrExpression production rule" do
     with_production(:ConditionalOrExpression) do |production|
-      it_rejects_empty_input_using production
-      pending("TODO")
+      # [47]    ConditionalOrExpression   ::=       ConditionalAndExpression ( '||' ConditionalAndExpression )*
+      
+      # E && E
+      given_it_generates(production, %q(1 && 2), [:Expression, [:"&&", RDF::Literal(1), RDF::Literal(2)]])
+      
+      # E || E
+      given_it_generates(production, %q(1 || 2), [:Expression, [:"||", RDF::Literal(1), RDF::Literal(2)]])
     end
   end
 
   describe "when matching the [48] ConditionalAndExpression production rule" do
     with_production(:ConditionalAndExpression) do |production|
-      it_rejects_empty_input_using production
-      pending("TODO")
-    end
+      # [48]    ConditionalAndExpression  ::=       ValueLogical ( '&&' ValueLogical )*
+      
+      # Relational
+      given_it_generates(production, %q(1 = 2), [:Expression, [:"=", RDF::Literal(1), RDF::Literal(2)]])
+      
+      # E && E
+      given_it_generates(production, %q(1 && 2), [:Expression, [:"&&", RDF::Literal(1), RDF::Literal(2)]])
+     end
   end
 
   describe "when matching the [49] ValueLogical production rule" do
     with_production(:ValueLogical) do |production|
-      it_rejects_empty_input_using production
-      pending("TODO")
-    end
+     end
   end
 
   describe "when matching the [50] RelationalExpression production rule" do
     with_production(:RelationalExpression) do |production|
-      it_rejects_empty_input_using production
       # [50] RelationalExpression ::= NumericExpression (
       #                                   '=' NumericExpression
       #                                 | '!=' NumericExpression
