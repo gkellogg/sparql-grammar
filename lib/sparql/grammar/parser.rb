@@ -16,8 +16,6 @@ module SPARQL; module Grammar
     #
     # @param  [String, #to_s]          input
     # @param  [Hash{Symbol => Object}] options
-    # @option options [Boolean] :progress
-    #   Debug output for parser progress
     # @option options [Hash]     :prefixes     (Hash.new)
     #   the prefix mappings to use (for acessing intermediate parser productions)
     # @option options [#to_s]    :base_uri     (nil)
@@ -28,6 +26,11 @@ module SPARQL; module Grammar
     #   Resolve prefix and relative IRIs, otherwise output as symbols
     # @option options [Boolean]  :validate     (false)
     #   whether to validate the parsed statements and values
+    # @option options [Boolean] :progress
+    #   Show progress of parser productions
+    # @option options [Boolean] :debug
+    #   Detailed debug output
+    # @return [SPARQL::Grammar::Parser]
     def initialize(input = nil, options = {})
       @options = {:anon_base => "gen0000", :validate => false}.merge(options)
       self.input = input if input
@@ -838,7 +841,7 @@ module SPARQL; module Grammar
     # @param [String] str
     def debug(node, message, options = {})
       depth = options[:depth] || @productions.length
-      $stderr.puts("[#{@lineno}]#{' ' * depth}#{node}: #{message}") if $verbose
+      $stderr.puts("[#{@lineno}]#{' ' * depth}#{node}: #{message}") if @options[:debug]
     end
 
     # [1]     Query                     ::=       Prologue ( SelectQuery | ConstructQuery | DescribeQuery | AskQuery )
