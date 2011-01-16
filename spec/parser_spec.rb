@@ -13,13 +13,18 @@ module ProductionRequirements
 
   def given_it_generates(production, input, result, options = {})
     it "given #{input.inspect} it generates #{present_results(result, options)}" do
-      parser(production, options).call(input).should == result
+      if options[:last]
+        # Only look at end of production
+        parser(production, options).call(input).last.should == result
+      else
+        parser(production, options).call(input).should == result
+      end
     end
   end
   
   # [28] FunctionCall
   def it_recognizes_function_using(production)
-    given_it_generates(production, %q(<foo>("bar")), [:Function, [RDF::URI("foo"), RDF::Literal("bar")]])
+    given_it_generates(production, %q(<foo>("bar")), [RDF::URI("foo"), RDF::Literal("bar")], :last => true)
   end
   
   # [44] Var
@@ -781,29 +786,51 @@ describe SPARQL::Grammar::Parser do
 
   describe "when matching the [53] MultiplicativeExpression production rule" do
     with_production(:MultiplicativeExpression) do |production|
+      # [53] MultiplicativeExpression ::= UnaryExpression ( '*' UnaryExpression | '/' UnaryExpression )*
       it_rejects_empty_input_using production
-      pending("TODO")
+      
+      # Unary Expression
+      given_it_generates(production, %q(! "foo"), [:Expression, [:"!", RDF::Literal("foo")]])
+      given_it_generates(production, %q(+ 1), [:Expression, [:"+", RDF::Literal(1)]])
+      given_it_generates(production, %q(- 1), [:Expression, [:"-", RDF::Literal(1)]])
+      given_it_generates(production, %q("foo"),   [:Expression, RDF::Literal("foo")])
+      
+      # E */ E
+      given_it_generates(production, %q(1 * 2), [:Expression, [:"*", RDF::Literal(1), RDF::Literal(2)]])
+      given_it_generates(production, %q(1 / 2), [:Expression, [:"/", RDF::Literal(1), RDF::Literal(2)]])
+      
+      # E */ E */ E
+      given_it_generates(production, %q("1" * "2" * "3"), [:Expression, [:"*", RDF::Literal("1"), [:"*", RDF::Literal("2"), RDF::Literal("3")]]])
+      given_it_generates(production, %q("1" * "2" / "3"), [:Expression, [:"*", RDF::Literal("1"), [:"/", RDF::Literal("2"), RDF::Literal("3")]]])
     end
   end
 
   describe "when matching the [54] UnaryExpression production rule" do
     with_production(:UnaryExpression) do |production|
-      it_rejects_empty_input_using production
-      pending("TODO")
+      # [54] UnaryExpression ::=  '!' PrimaryExpression | '+' PrimaryExpression | '-' PrimaryExpression | PrimaryExpression
+      given_it_generates(production, %q(! "foo"), [:Expression, [:"!", RDF::Literal("foo")]])
+      given_it_generates(production, %q(+ 1), [:Expression, [:"+", RDF::Literal(1)]])
+      given_it_generates(production, %q(- 1), [:Expression, [:"-", RDF::Literal(1)]])
+      given_it_generates(production, %q("foo"),   [:Expression, RDF::Literal("foo")])
     end
   end
 
   describe "when matching the [55] PrimaryExpression production rule" do
+    # [55] PrimaryExpression ::= BrackettedExpression | BuiltInCall | IRIrefOrFunction | RDFLiteral | NumericLiteral | BooleanLiteral | Var
     with_production(:PrimaryExpression) do |production|
-      it_rejects_empty_input_using production
-      pending("TODO")
+      given_it_generates(production, %q(("foo")), [:Expression, RDF::Literal("foo")]) # BrackettedExpression
+      it_recognizes_function_using production
+      it_recognizes_iriref_using production
+      it_recognizes_rdf_literal_using production
+      it_recognizes_numeric_literal_using production
+      it_recognizes_boolean_literal_using production
+      it_recognizes_var_using production
     end
   end
 
   describe "when matching the [56] BrackettedExpression production rule" do
     with_production(:BrackettedExpression) do |production|
-      it_rejects_empty_input_using production
-      pending("TODO")
+      given_it_generates(production, %q(("foo")), [:Expression, RDF::Literal("foo")])
     end
   end
 

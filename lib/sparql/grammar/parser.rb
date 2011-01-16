@@ -119,6 +119,7 @@ module SPARQL; module Grammar
           error("parse", "No branches found for '#{abbr(cur_prod)}'",
             :production => cur_prod, :token => token) if prod_branch.nil?
           sequence = prod_branch[token.representation]
+          debug("parse(production)", "cur_prod #{cur_prod}, token #{token.representation.inspect} prod_branch #{prod_branch.keys.inspect}, sequence #{sequence.inspect}")
           if sequence.nil?
             expected = prod_branch.values.uniq.map {|u| u.map {|v| abbr(v).inspect}.join(",")}
             error("parse", "Found '#{token.inspect}' when parsing a #{abbr(cur_prod)}. expected #{expected.join(' | ')}",
@@ -130,7 +131,7 @@ module SPARQL; module Grammar
         debug("parse(terms)", "stack #{todo_stack.last.inspect}, depth #{todo_stack.length}")
         while !todo_stack.last[:terms].to_a.empty?
           term = todo_stack.last[:terms].shift
-          debug("parse tokens", tokens.inspect)
+          debug("parse tokens(#{term})", tokens.inspect)
           if tokens.map(&:representation).include?(term)
             token = accept(term)
             @lineno = token.lineno if token
@@ -422,12 +423,78 @@ module SPARQL; module Grammar
       when :GraphTerm
         # [45]    GraphTerm ::= IRIref | RDFLiteral | NumericLiteral | BooleanLiteral | BlankNode | NIL
         {
-          :finish => lambda { |data| data.values.each {|v| add_prod_data(:GraphTerm, v)} }
+          :finish => lambda { |data|
+            add_prod_data(:GraphTerm, data[:IRIref] || data[:literal] || data[:BlankNode] || data[:NIL])
+          }
         }
       when :Expression
-        # [46]    Expression                ::=       ConditionalOrExpression
+        # [46] Expression ::=       ConditionalOrExpression
         {
           :finish => lambda { |data| data.values.each {|v| add_prod_data(:Expression, v)} }
+        }
+      when :AdditiveExpression
+        # [52]    AdditiveExpression ::= MultiplicativeExpression (
+        #                                  '+' MultiplicativeExpression
+        #                                | '-' MultiplicativeExpression
+        #                                | NumericLiteralPositive
+        #                                | NumericLiteralNegative )*
+        # 
+      when :MultiplicativeExpression
+        # [53]    MultiplicativeExpression  ::=       UnaryExpression ( '*' UnaryExpression | '/' UnaryExpression )*
+        {
+          :finish => lambda { |data|
+            if data[:_Mul_Div]
+              add_prod_data(:Expression, [[data[:_Mul_Div].first] + data[:Expression] + [data[:_Mul_Div].last]])
+            else
+              add_prod_data(:Expression, data[:Expression])
+            end
+          }
+        }
+      when :_Mul_Div_UnaryExpression_Star # ( '*' UnaryExpression | '/' UnaryExpression )*
+        # This part handls the operator and the rhs of a MultiplicativeExpression
+        {
+          :finish => lambda { |data|
+            if data [:_Mul_Div]
+              add_prod_data(:_Mul_Div, data[:MultiplicativeExpression] + [[data[:_Mul_Div].first] + data[:Expression] + [data[:_Mul_Div].last]])
+            elsif data[:MultiplicativeExpression]
+              add_prod_data(:_Mul_Div, data[:MultiplicativeExpression] + data[:Expression])
+            end
+          }
+        }
+      when :UnaryExpression
+        # [54] UnaryExpression ::=  '!' PrimaryExpression | '+' PrimaryExpression | '-' PrimaryExpression | PrimaryExpression
+        {
+          :finish => lambda { |data|
+            case data[:UnaryExpression]
+            when [:"!"], [:"+"]
+              add_prod_data(:Expression, [data[:UnaryExpression] + data[:Expression]])
+            when [:"-"]
+              add_prod_data(:Expression, [data[:UnaryExpression] + data[:Expression]])
+            else
+              add_prod_data(:Expression, data[:Expression])
+            end
+          }
+        }
+      when :PrimaryExpression
+        # [55] PrimaryExpression ::= BrackettedExpression | BuiltInCall | IRIrefOrFunction | RDFLiteral | NumericLiteral | BooleanLiteral | Var
+        {
+          :finish => lambda { |data|
+            if data[:Expression]
+              add_prod_data(:Expression, data[:Expression])
+            elsif data[:BuiltInCall]
+              add_prod_data(:Expression, data[:BuiltInCall])
+            elsif data[:IRIref]
+              add_prod_data(:Expression, data[:IRIref])
+            elsif data[:Function]
+              add_prod_data(:Expression, data[:Function])
+            elsif data[:literal]
+              add_prod_data(:Expression, data[:literal])
+            elsif data[:Var]
+              add_prod_data(:Expression, data[:Var])
+            end
+            
+            add_prod_data(:UnaryExpression, data[:UnaryExpression]) # Keep track of this for parent UnaryExpression production
+          }
         }
       when :BuiltInCall
         # [57] BuiltInCall ::= 'STR' '(' Expression ')'
@@ -482,10 +549,21 @@ module SPARQL; module Grammar
             end
           }
         }
+      when :NumericLiteralPositive
+        # [63]    NumericLiteralPositive    ::=       INTEGER_POSITIVE | DECIMAL_POSITIVE | DOUBLE_POSITIVE
+        {
+          :finish => lambda { |data|
+            add_prod_data(:literal, data.values.flatten.last)
+            add_prod_data(:UnaryExpression, data[:UnaryExpression]) # Keep track of this for parent UnaryExpression production
+          }
+        }
       when :NumericLiteralNegative
         # [64]    NumericLiteralNegative ::= INTEGER_NEGATIVE | DECIMAL_NEGATIVE | DOUBLE_NEGATIVE
         {
-          :finish => lambda { |data| add_prod_data(:literal, -data.values.flatten.last) }
+          :finish => lambda { |data|
+            add_prod_data(:literal, -data.values.flatten.last)
+            add_prod_data(:UnaryExpression, data[:UnaryExpression]) # Keep track of this for parent UnaryExpression production
+          }
         }
       when :IRIref
         # [67]    IRIref ::= IRI_REF | PrefixedName
@@ -531,74 +609,98 @@ module SPARQL; module Grammar
     end
 
     # Handlers for individual tokens based on production
-    def token_productions(production)
-      case production
-      when :a
-        lambda { |token| add_prod_data(:Verb, RDF.type) }
-      when :ANON
-        lambda { |token| add_prod_data(:BlankNode, gen_node()) }
-      when :BLANK_NODE_LABEL
-        lambda { |token| add_prod_data(:BlankNode, gen_node(token)) }
-      when :BooleanLiteral
-        lambda { |token|
-          add_prod_data(:literal, RDF::Literal.new(token, :datatype => RDF::XSD.boolean))
-        }
-      when :BOUND
-        lambda { |token| add_prod_data(:BOUND, :BOUND) }
-      when :DATATYPE
-        lambda { |token| add_prod_data(:BuiltInCall, :DATATYPE) }
-      when :DECIMAL
-        lambda { |token| add_prod_data(:literal, RDF::Literal.new(token, :datatype => RDF::XSD.decimal)) }
-      when :DOUBLE
-        lambda { |token| add_prod_data(:literal, RDF::Literal.new(token, :datatype => RDF::XSD.double)) }
-      when :INTEGER
-        lambda { |token| add_prod_data(:literal, RDF::Literal.new(token, :datatype => RDF::XSD.integer)) }
-      when :IRI_REF
-        lambda { |token| add_prod_data(:iri, uri(self.base_uri, token)) }
-      when :ISBLANK
-        lambda { |token| add_prod_data(:BuiltInCall, :isBLANK) }
-      when :ISLITERAL
-        lambda { |token| add_prod_data(:BuiltInCall, :isLITERAL) }
-      when :ISIRI
-        lambda { |token| add_prod_data(:BuiltInCall, :isIRI) }
-      when :ISURI
-        lambda { |token| add_prod_data(:BuiltInCall, :isURI) }
-      when :LANG
-        lambda { |token| add_prod_data(:BuiltInCall, :LANG) }
-      when :LANGMATCHES
-        lambda { |token| add_prod_data(:BuiltInCall, :LANGMATCHES) }
-      when :LANGTAG
-        lambda { |token| add_prod_data(:language, token) }
-      when :NIL
-        lambda { |token| add_prod_data(:NIL, RDF["nil"]) }
-      when :PNAME_LN
-        lambda { |token| add_prod_data(:PrefixedName, ns(*token)) }
-      when :PNAME_NS
-        lambda { |token|
-          add_prod_data(:PrefixedName, ns(nil, token))    # [68]    PrefixedName ::= PNAME_LN | PNAME_NS
-          prod_data[:prefix] = uri(token && token.to_sym) # [4] PrefixDecl := 'PREFIX' PNAME_NS IRI_REF";
-        }
-      when :STR
-        lambda { |token| add_prod_data(:BuiltInCall, :STR) }
-      when :SAMETERM
-        lambda { |token| add_prod_data(:BuiltInCall, :sameTerm) }
-      when :STRING_LITERAL1, :STRING_LITERAL2, :STRING_LITERAL_LONG1, :STRING_LITERAL_LONG2
-        lambda { |token| add_prod_data(:string, token) }
-      when :VAR1, :VAR2       # [44]    Var ::= VAR1 | VAR2
-        lambda { |token| add_prod_data(:Var, RDF::Query::Variable.new(token)) }
+    def token_productions(parent_production, production)
+      case parent_production
+      when :AdditiveExpression
+        case production
+        when :"+", :"-"
+          lambda { |token| add_prod_data(:AdditiveExpression, production) }
+        end
+      when :UnaryExpression
+        case production
+        when :"!", :"+", :"-"
+          lambda { |token| add_prod_data(:UnaryExpression, production) }
+        end
+      when :NumericLiteralPositive, :NumericLiteralNegative, :NumericLiteral
+        case production
+        when :"+", :"-"
+          lambda { |token| add_prod_data(:NumericLiteral, production) }
+        end
+      else
+        # Generic tokens that don't depend on a particular production
+        case production
+        when :a
+          lambda { |token| add_prod_data(:Verb, RDF.type) }
+        when :ANON
+          lambda { |token| add_prod_data(:BlankNode, gen_node()) }
+        when :BLANK_NODE_LABEL
+          lambda { |token| add_prod_data(:BlankNode, gen_node(token)) }
+        when :BooleanLiteral
+          lambda { |token|
+            add_prod_data(:literal, RDF::Literal.new(token, :datatype => RDF::XSD.boolean))
+          }
+        when :BOUND
+          lambda { |token| add_prod_data(:BOUND, :BOUND) }
+        when :DATATYPE
+          lambda { |token| add_prod_data(:BuiltInCall, :DATATYPE) }
+        when :DECIMAL
+          lambda { |token| add_prod_data(:literal, RDF::Literal.new(token, :datatype => RDF::XSD.decimal)) }
+        when :DOUBLE
+          lambda { |token| add_prod_data(:literal, RDF::Literal.new(token, :datatype => RDF::XSD.double)) }
+        when :INTEGER
+          lambda { |token| add_prod_data(:literal, RDF::Literal.new(token, :datatype => RDF::XSD.integer)) }
+        when :IRI_REF
+          lambda { |token| add_prod_data(:iri, uri(self.base_uri, token)) }
+        when :ISBLANK
+          lambda { |token| add_prod_data(:BuiltInCall, :isBLANK) }
+        when :ISLITERAL
+          lambda { |token| add_prod_data(:BuiltInCall, :isLITERAL) }
+        when :ISIRI
+          lambda { |token| add_prod_data(:BuiltInCall, :isIRI) }
+        when :ISURI
+          lambda { |token| add_prod_data(:BuiltInCall, :isURI) }
+        when :LANG
+          lambda { |token| add_prod_data(:BuiltInCall, :LANG) }
+        when :LANGMATCHES
+          lambda { |token| add_prod_data(:BuiltInCall, :LANGMATCHES) }
+        when :LANGTAG
+          lambda { |token| add_prod_data(:language, token) }
+        when :NIL
+          lambda { |token| add_prod_data(:NIL, RDF["nil"]) }
+        when :PNAME_LN
+          lambda { |token| add_prod_data(:PrefixedName, ns(*token)) }
+        when :PNAME_NS
+          lambda { |token|
+            add_prod_data(:PrefixedName, ns(nil, token))    # [68]    PrefixedName ::= PNAME_LN | PNAME_NS
+            prod_data[:prefix] = uri(token && token.to_sym) # [4] PrefixDecl := 'PREFIX' PNAME_NS IRI_REF";
+          }
+        when :STR
+          lambda { |token| add_prod_data(:BuiltInCall, :STR) }
+        when :SAMETERM
+          lambda { |token| add_prod_data(:BuiltInCall, :sameTerm) }
+        when :STRING_LITERAL1, :STRING_LITERAL2, :STRING_LITERAL_LONG1, :STRING_LITERAL_LONG2
+          lambda { |token| add_prod_data(:string, token) }
+        when :VAR1, :VAR2       # [44]    Var ::= VAR1 | VAR2
+          lambda { |token| add_prod_data(:Var, RDF::Query::Variable.new(token)) }
+        when :"*", :"/"
+          lambda { |token| add_prod_data(:MultiplicativeExpression, production) }
+        end
       end
     end
     
     # A token
     def onToken(prod, token)
       unless @productions.empty?
-        token_production = token_productions(prod.to_sym)
+        parentProd = @productions.last
+        token_production = token_productions(parentProd.to_sym, prod.to_sym)
         if token_production
           token_production.call(token)
-          progress("#{prod}(:token)", "#{token}: #{prod_data.inspect}", :depth => (@productions.length + 1))
+          progress("#{prod}<#{parentProd}(:token)", "#{token}: #{prod_data.inspect}", :depth => (@productions.length + 1))
         else
-          progress("#{prod}(:token)", token, :depth => (@productions.length + 1))
+          progress("#{prod}<#{parentProd}(:token)", token, :depth => (@productions.length + 1))
         end
+      else
+        error("#{parentProd}(:token)", "Token has no parent production", :production => prod)
       end
     end
 
