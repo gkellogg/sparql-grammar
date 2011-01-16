@@ -35,7 +35,7 @@
                 cfg:eof,
                 :PropertyList,
                 :_AND_ValueLogical_Star,
-                :_Add_Sub_MultiplicativeExpression_NumericLiteralPositive_NumericLiteralNegative_Opt,
+                :_Add_Sub_MultiplicativeExpression_Opt,
                 :_COMMA_Expression_Opt,
                 :_COMMA_Expression_Star,
                 :_COMMA_Object_Star,
@@ -621,7 +621,7 @@
       ( :LimitOffsetClauses )
          a rul:Used .
       ( :MultiplicativeExpression
-        :_Add_Sub_MultiplicativeExpression_NumericLiteralPositive_NumericLiteralNegative_Opt )
+        :_Add_Sub_MultiplicativeExpression_Opt )
          a rul:Used .
       ( :NIL )
          a rul:Used .
@@ -797,7 +797,7 @@
          cfg:branch  [
              cfg:branchTail  (
             :MultiplicativeExpression
-            :_Add_Sub_MultiplicativeExpression_NumericLiteralPositive_NumericLiteralNegative_Opt );
+            :_Add_Sub_MultiplicativeExpression_Opt );
              cfg:condition "!",
                     "(",
                     "+",
@@ -828,7 +828,7 @@
                     :VAR2;
              cfg:sequence  (
             :MultiplicativeExpression
-            :_Add_Sub_MultiplicativeExpression_NumericLiteralPositive_NumericLiteralNegative_Opt ) ];
+            :_Add_Sub_MultiplicativeExpression_Opt ) ];
          cfg:canPrecede ")",
                 ",",
                 :_AND_ValueLogical_Star,
@@ -895,7 +895,7 @@
          cfg:mustBeOneSequence  (
          (
             :MultiplicativeExpression
-            :_Add_Sub_MultiplicativeExpression_NumericLiteralPositive_NumericLiteralNegative_Opt ) ) .
+            :_Add_Sub_MultiplicativeExpression_Opt ) ) .
     
     :ArgList     cfg:TEST "(",
                 :NIL;
@@ -920,7 +920,7 @@
                 "}",
                 cfg:eof,
                 :_AND_ValueLogical_Star,
-                :_Add_Sub_MultiplicativeExpression_NumericLiteralPositive_NumericLiteralNegative_Opt,
+                :_Add_Sub_MultiplicativeExpression_Opt,
                 :_COMMA_Expression_Opt,
                 :_COMMA_Expression_Star,
                 :_Compare_NumericExpression_Opt,
@@ -1069,7 +1069,7 @@
                 "}",
                 :PropertyListNotEmpty,
                 :_AND_ValueLogical_Star,
-                :_Add_Sub_MultiplicativeExpression_NumericLiteralPositive_NumericLiteralNegative_Opt,
+                :_Add_Sub_MultiplicativeExpression_Opt,
                 :_COMMA_Expression_Opt,
                 :_COMMA_Expression_Star,
                 :_COMMA_Object_Star,
@@ -1100,7 +1100,7 @@
                 "}",
                 cfg:eof,
                 :_AND_ValueLogical_Star,
-                :_Add_Sub_MultiplicativeExpression_NumericLiteralPositive_NumericLiteralNegative_Opt,
+                :_Add_Sub_MultiplicativeExpression_Opt,
                 :_COMMA_Expression_Opt,
                 :_COMMA_Expression_Star,
                 :_Compare_NumericExpression_Opt,
@@ -1270,7 +1270,7 @@
                 "}",
                 cfg:eof,
                 :_AND_ValueLogical_Star,
-                :_Add_Sub_MultiplicativeExpression_NumericLiteralPositive_NumericLiteralNegative_Opt,
+                :_Add_Sub_MultiplicativeExpression_Opt,
                 :_COMMA_Expression_Opt,
                 :_COMMA_Expression_Star,
                 :_Compare_NumericExpression_Opt,
@@ -1814,7 +1814,7 @@
                 "}",
                 :PropertyListNotEmpty,
                 :_AND_ValueLogical_Star,
-                :_Add_Sub_MultiplicativeExpression_NumericLiteralPositive_NumericLiteralNegative_Opt,
+                :_Add_Sub_MultiplicativeExpression_Opt,
                 :_COMMA_Expression_Opt,
                 :_COMMA_Expression_Star,
                 :_COMMA_Object_Star,
@@ -1836,7 +1836,7 @@
                 "}",
                 :PropertyListNotEmpty,
                 :_AND_ValueLogical_Star,
-                :_Add_Sub_MultiplicativeExpression_NumericLiteralPositive_NumericLiteralNegative_Opt,
+                :_Add_Sub_MultiplicativeExpression_Opt,
                 :_COMMA_Expression_Opt,
                 :_COMMA_Expression_Star,
                 :_COMMA_Object_Star,
@@ -2388,7 +2388,7 @@
                 cfg:eof,
                 :PropertyListNotEmpty,
                 :_AND_ValueLogical_Star,
-                :_Add_Sub_MultiplicativeExpression_NumericLiteralPositive_NumericLiteralNegative_Opt,
+                :_Add_Sub_MultiplicativeExpression_Opt,
                 :_COMMA_Expression_Opt,
                 :_COMMA_Expression_Star,
                 :_COMMA_Object_Star,
@@ -2417,7 +2417,7 @@
                 :SolutionModifier,
                 :WhereClause,
                 :_AND_ValueLogical_Star,
-                :_Add_Sub_MultiplicativeExpression_NumericLiteralPositive_NumericLiteralNegative_Opt,
+                :_Add_Sub_MultiplicativeExpression_Opt,
                 :_ArgList_Opt,
                 :_COMMA_Expression_Opt,
                 :_COMMA_Expression_Star,
@@ -2464,7 +2464,7 @@
                 :SolutionModifier,
                 :WhereClause,
                 :_AND_ValueLogical_Star,
-                :_Add_Sub_MultiplicativeExpression_NumericLiteralPositive_NumericLiteralNegative_Opt,
+                :_Add_Sub_MultiplicativeExpression_Opt,
                 :_ArgList_Opt,
                 :_COMMA_Expression_Opt,
                 :_COMMA_Expression_Star,
@@ -2506,7 +2506,7 @@
          cfg:canPrecede ")",
                 ",",
                 :_AND_ValueLogical_Star,
-                :_Add_Sub_MultiplicativeExpression_NumericLiteralPositive_NumericLiteralNegative_Opt,
+                :_Add_Sub_MultiplicativeExpression_Opt,
                 :_COMMA_Expression_Opt,
                 :_COMMA_Expression_Star,
                 :_Compare_NumericExpression_Opt,
@@ -2530,7 +2530,7 @@
                 "}",
                 :PropertyListNotEmpty,
                 :_AND_ValueLogical_Star,
-                :_Add_Sub_MultiplicativeExpression_NumericLiteralPositive_NumericLiteralNegative_Opt,
+                :_Add_Sub_MultiplicativeExpression_Opt,
                 :_COMMA_Expression_Opt,
                 :_COMMA_Expression_Star,
                 :_COMMA_Object_Star,
@@ -2634,7 +2634,7 @@
          cfg:canPrecede ")",
                 ",",
                 :_AND_ValueLogical_Star,
-                :_Add_Sub_MultiplicativeExpression_NumericLiteralPositive_NumericLiteralNegative_Opt,
+                :_Add_Sub_MultiplicativeExpression_Opt,
                 :_COMMA_Expression_Opt,
                 :_COMMA_Expression_Star,
                 :_Compare_NumericExpression_Opt,
@@ -2708,7 +2708,7 @@
                 cfg:eof,
                 :PropertyListNotEmpty,
                 :_AND_ValueLogical_Star,
-                :_Add_Sub_MultiplicativeExpression_NumericLiteralPositive_NumericLiteralNegative_Opt,
+                :_Add_Sub_MultiplicativeExpression_Opt,
                 :_COMMA_Expression_Opt,
                 :_COMMA_Expression_Star,
                 :_COMMA_Object_Star,
@@ -2878,7 +2878,7 @@
                 "}",
                 :PropertyListNotEmpty,
                 :_AND_ValueLogical_Star,
-                :_Add_Sub_MultiplicativeExpression_NumericLiteralPositive_NumericLiteralNegative_Opt,
+                :_Add_Sub_MultiplicativeExpression_Opt,
                 :_COMMA_Expression_Opt,
                 :_COMMA_Expression_Star,
                 :_COMMA_Object_Star,
@@ -2923,7 +2923,7 @@
                 "}",
                 :PropertyListNotEmpty,
                 :_AND_ValueLogical_Star,
-                :_Add_Sub_MultiplicativeExpression_NumericLiteralPositive_NumericLiteralNegative_Opt,
+                :_Add_Sub_MultiplicativeExpression_Opt,
                 :_COMMA_Expression_Opt,
                 :_COMMA_Expression_Star,
                 :_COMMA_Object_Star,
@@ -2958,7 +2958,7 @@
                 "}",
                 :PropertyListNotEmpty,
                 :_AND_ValueLogical_Star,
-                :_Add_Sub_MultiplicativeExpression_NumericLiteralPositive_NumericLiteralNegative_Opt,
+                :_Add_Sub_MultiplicativeExpression_Opt,
                 :_COMMA_Expression_Opt,
                 :_COMMA_Expression_Star,
                 :_COMMA_Object_Star,
@@ -3005,7 +3005,7 @@
                 "}",
                 :PropertyListNotEmpty,
                 :_AND_ValueLogical_Star,
-                :_Add_Sub_MultiplicativeExpression_NumericLiteralPositive_NumericLiteralNegative_Opt,
+                :_Add_Sub_MultiplicativeExpression_Opt,
                 :_COMMA_Expression_Opt,
                 :_COMMA_Expression_Star,
                 :_COMMA_Object_Star,
@@ -3342,7 +3342,7 @@
                 :SolutionModifier,
                 :WhereClause,
                 :_AND_ValueLogical_Star,
-                :_Add_Sub_MultiplicativeExpression_NumericLiteralPositive_NumericLiteralNegative_Opt,
+                :_Add_Sub_MultiplicativeExpression_Opt,
                 :_ArgList_Opt,
                 :_COMMA_Expression_Opt,
                 :_COMMA_Expression_Star,
@@ -3374,7 +3374,7 @@
                 :SolutionModifier,
                 :WhereClause,
                 :_AND_ValueLogical_Star,
-                :_Add_Sub_MultiplicativeExpression_NumericLiteralPositive_NumericLiteralNegative_Opt,
+                :_Add_Sub_MultiplicativeExpression_Opt,
                 :_ArgList_Opt,
                 :_COMMA_Expression_Opt,
                 :_COMMA_Expression_Star,
@@ -3446,7 +3446,7 @@
                 :SolutionModifier,
                 :WhereClause,
                 :_AND_ValueLogical_Star,
-                :_Add_Sub_MultiplicativeExpression_NumericLiteralPositive_NumericLiteralNegative_Opt,
+                :_Add_Sub_MultiplicativeExpression_Opt,
                 :_ArgList_Opt,
                 :_COMMA_Expression_Opt,
                 :_COMMA_Expression_Star,
@@ -3544,7 +3544,7 @@
          cfg:canPrecede ")",
                 ",",
                 :_AND_ValueLogical_Star,
-                :_Add_Sub_MultiplicativeExpression_NumericLiteralPositive_NumericLiteralNegative_Opt,
+                :_Add_Sub_MultiplicativeExpression_Opt,
                 :_COMMA_Expression_Opt,
                 :_COMMA_Expression_Star,
                 :_Compare_NumericExpression_Opt,
@@ -3800,7 +3800,7 @@
                 "}",
                 :PropertyListNotEmpty,
                 :_AND_ValueLogical_Star,
-                :_Add_Sub_MultiplicativeExpression_NumericLiteralPositive_NumericLiteralNegative_Opt,
+                :_Add_Sub_MultiplicativeExpression_Opt,
                 :_COMMA_Expression_Opt,
                 :_COMMA_Expression_Star,
                 :_COMMA_Object_Star,
@@ -3849,7 +3849,7 @@
                 "}",
                 cfg:eof,
                 :_AND_ValueLogical_Star,
-                :_Add_Sub_MultiplicativeExpression_NumericLiteralPositive_NumericLiteralNegative_Opt,
+                :_Add_Sub_MultiplicativeExpression_Opt,
                 :_COMMA_Expression_Opt,
                 :_COMMA_Expression_Star,
                 :_Compare_NumericExpression_Opt,
@@ -3983,7 +3983,7 @@
                 "}",
                 :PropertyListNotEmpty,
                 :_AND_ValueLogical_Star,
-                :_Add_Sub_MultiplicativeExpression_NumericLiteralPositive_NumericLiteralNegative_Opt,
+                :_Add_Sub_MultiplicativeExpression_Opt,
                 :_COMMA_Expression_Opt,
                 :_COMMA_Expression_Star,
                 :_COMMA_Object_Star,
@@ -4006,7 +4006,7 @@
                 "}",
                 :PropertyListNotEmpty,
                 :_AND_ValueLogical_Star,
-                :_Add_Sub_MultiplicativeExpression_NumericLiteralPositive_NumericLiteralNegative_Opt,
+                :_Add_Sub_MultiplicativeExpression_Opt,
                 :_COMMA_Expression_Opt,
                 :_COMMA_Expression_Star,
                 :_COMMA_Object_Star,
@@ -4029,7 +4029,7 @@
                 "}",
                 :PropertyListNotEmpty,
                 :_AND_ValueLogical_Star,
-                :_Add_Sub_MultiplicativeExpression_NumericLiteralPositive_NumericLiteralNegative_Opt,
+                :_Add_Sub_MultiplicativeExpression_Opt,
                 :_COMMA_Expression_Opt,
                 :_COMMA_Expression_Star,
                 :_COMMA_Object_Star,
@@ -4052,7 +4052,7 @@
                 "}",
                 :PropertyListNotEmpty,
                 :_AND_ValueLogical_Star,
-                :_Add_Sub_MultiplicativeExpression_NumericLiteralPositive_NumericLiteralNegative_Opt,
+                :_Add_Sub_MultiplicativeExpression_Opt,
                 :_COMMA_Expression_Opt,
                 :_COMMA_Expression_Star,
                 :_COMMA_Object_Star,
@@ -4184,7 +4184,7 @@
                 "}",
                 :PropertyListNotEmpty,
                 :_AND_ValueLogical_Star,
-                :_Add_Sub_MultiplicativeExpression_NumericLiteralPositive_NumericLiteralNegative_Opt,
+                :_Add_Sub_MultiplicativeExpression_Opt,
                 :_COMMA_Expression_Opt,
                 :_COMMA_Expression_Star,
                 :_COMMA_Object_Star,
@@ -4475,7 +4475,7 @@
          cfg:canPrecede ")",
                 ",",
                 :_AND_ValueLogical_Star,
-                :_Add_Sub_MultiplicativeExpression_NumericLiteralPositive_NumericLiteralNegative_Opt,
+                :_Add_Sub_MultiplicativeExpression_Opt,
                 :_COMMA_Expression_Opt,
                 :_COMMA_Expression_Star,
                 :_Compare_NumericExpression_Opt,
@@ -4565,7 +4565,7 @@
                 :SolutionModifier,
                 :WhereClause,
                 :_AND_ValueLogical_Star,
-                :_Add_Sub_MultiplicativeExpression_NumericLiteralPositive_NumericLiteralNegative_Opt,
+                :_Add_Sub_MultiplicativeExpression_Opt,
                 :_COMMA_Expression_Opt,
                 :_COMMA_Expression_Star,
                 :_COMMA_Object_Star,
@@ -4598,7 +4598,7 @@
                 :SolutionModifier,
                 :WhereClause,
                 :_AND_ValueLogical_Star,
-                :_Add_Sub_MultiplicativeExpression_NumericLiteralPositive_NumericLiteralNegative_Opt,
+                :_Add_Sub_MultiplicativeExpression_Opt,
                 :_COMMA_Expression_Opt,
                 :_COMMA_Expression_Star,
                 :_COMMA_Object_Star,
@@ -4746,7 +4746,7 @@
                 :SolutionModifier,
                 :WhereClause,
                 :_AND_ValueLogical_Star,
-                :_Add_Sub_MultiplicativeExpression_NumericLiteralPositive_NumericLiteralNegative_Opt,
+                :_Add_Sub_MultiplicativeExpression_Opt,
                 :_COMMA_Expression_Opt,
                 :_COMMA_Expression_Star,
                 :_COMMA_Object_Star,
@@ -5065,10 +5065,8 @@
             :_ASC_Or_DESC
             :BrackettedExpression ) ) .
     
-    :_Add_Sub_MultiplicativeExpression_NumericLiteralPositive_NumericLiteralNegative_Opt     cfg:TEST "+",
-                "-",
-                :NumericLiteralNegative,
-                :NumericLiteralPositive;
+    :_Add_Sub_MultiplicativeExpression_Opt     cfg:TEST "+",
+                "-";
          cfg:branch  [
              cfg:branchTail ();
              cfg:condition "!=",
@@ -5097,19 +5095,7 @@
              cfg:condition "-";
              cfg:sequence  (
             "-"
-            :MultiplicativeExpression ) ],
-                 [
-             cfg:branchTail  (
-            :NumericLiteralPositive );
-             cfg:condition "+";
-             cfg:sequence  (
-            :NumericLiteralPositive ) ],
-                 [
-             cfg:branchTail  (
-            :NumericLiteralNegative );
-             cfg:condition "-";
-             cfg:sequence  (
-            :NumericLiteralNegative ) ];
+            :MultiplicativeExpression ) ];
          cfg:canPrecede ")",
                 ",",
                 :_AND_ValueLogical_Star,
@@ -5150,11 +5136,7 @@
             :MultiplicativeExpression )
          (
             "-"
-            :MultiplicativeExpression )
-         (
-            :NumericLiteralPositive )
-         (
-            :NumericLiteralNegative ) ) .
+            :MultiplicativeExpression ) ) .
     
     :_ArgList_Opt     cfg:TEST :ArgList;
          cfg:branch  [
@@ -5184,7 +5166,7 @@
          cfg:canPrecede ")",
                 ",",
                 :_AND_ValueLogical_Star,
-                :_Add_Sub_MultiplicativeExpression_NumericLiteralPositive_NumericLiteralNegative_Opt,
+                :_Add_Sub_MultiplicativeExpression_Opt,
                 :_COMMA_Expression_Opt,
                 :_COMMA_Expression_Star,
                 :_Compare_NumericExpression_Opt,
@@ -6339,7 +6321,7 @@
                 "}",
                 :PropertyListNotEmpty,
                 :_AND_ValueLogical_Star,
-                :_Add_Sub_MultiplicativeExpression_NumericLiteralPositive_NumericLiteralNegative_Opt,
+                :_Add_Sub_MultiplicativeExpression_Opt,
                 :_COMMA_Expression_Opt,
                 :_COMMA_Expression_Star,
                 :_COMMA_Object_Star,
@@ -6531,7 +6513,7 @@
          cfg:canPrecede ")",
                 ",",
                 :_AND_ValueLogical_Star,
-                :_Add_Sub_MultiplicativeExpression_NumericLiteralPositive_NumericLiteralNegative_Opt,
+                :_Add_Sub_MultiplicativeExpression_Opt,
                 :_COMMA_Expression_Opt,
                 :_COMMA_Expression_Star,
                 :_Compare_NumericExpression_Opt,
