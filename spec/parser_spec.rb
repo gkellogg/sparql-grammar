@@ -766,29 +766,50 @@ describe SPARQL::Grammar::Parser do
   describe "when matching the [50] RelationalExpression production rule" do
     with_production(:RelationalExpression) do |production|
       it_rejects_empty_input_using production
-      pending("TODO")
+      # [50] RelationalExpression ::= NumericExpression (
+      #                                   '=' NumericExpression
+      #                                 | '!=' NumericExpression
+      #                                 | '<' NumericExpression
+      #                                 | '>' NumericExpression
+      #                                 | '<=' NumericExpression
+      #                                 | '>=' NumericExpression )?
+      # 
+      # Additive Expression
+      given_it_generates(production, %q(1 + 2), [:Expression, [:"+", RDF::Literal(1), RDF::Literal(2)]])
+      
+      # Relational
+      given_it_generates(production, %q(1 = 2), [:Expression, [:"=", RDF::Literal(1), RDF::Literal(2)]])
+      given_it_generates(production, %q(1 + 2 = 3), [:Expression, [:"=", [:"+", RDF::Literal(1), RDF::Literal(2)], RDF::Literal(3)]])
     end
   end
 
   describe "when matching the [51] NumericExpression production rule" do
     with_production(:NumericExpression) do |production|
-      it_rejects_empty_input_using production
-      pending("TODO")
+      # Nothing to do, as it's equivalent to AdditiveExpression
     end
   end
 
   describe "when matching the [52] AdditiveExpression production rule" do
     with_production(:AdditiveExpression) do |production|
-      it_rejects_empty_input_using production
-      pending("TODO")
+      # [52]    AdditiveExpression ::= MultiplicativeExpression ( '+' MultiplicativeExpression | '-' MultiplicativeExpression )*
+
+      # Multiplicative Expression
+      given_it_generates(production, %q(1 * 2), [:Expression, [:"*", RDF::Literal(1), RDF::Literal(2)]])
+      
+      # E +- E
+      given_it_generates(production, %q(1 + 2), [:Expression, [:"+", RDF::Literal(1), RDF::Literal(2)]])
+      given_it_generates(production, %q(1 - 2), [:Expression, [:"-", RDF::Literal(1), RDF::Literal(2)]])
+      given_it_generates(production, %q(3+4), [:Expression, [:"+", RDF::Literal(3), RDF::Literal(4)]])
+      
+      # E +- E +- E
+      given_it_generates(production, %q("1" + "2" - "3"), [:Expression, [:"+", RDF::Literal("1"), [:"-", RDF::Literal("2"), RDF::Literal("3")]]])
+      given_it_generates(production, %q("1" - "2" + "3"), [:Expression, [:"-", RDF::Literal("1"), [:"+", RDF::Literal("2"), RDF::Literal("3")]]])
     end
   end
 
   describe "when matching the [53] MultiplicativeExpression production rule" do
     with_production(:MultiplicativeExpression) do |production|
       # [53] MultiplicativeExpression ::= UnaryExpression ( '*' UnaryExpression | '/' UnaryExpression )*
-      it_rejects_empty_input_using production
-      
       # Unary Expression
       given_it_generates(production, %q(! "foo"), [:Expression, [:"!", RDF::Literal("foo")]])
       given_it_generates(production, %q(+ 1), [:Expression, [:"+", RDF::Literal(1)]])
@@ -798,6 +819,7 @@ describe SPARQL::Grammar::Parser do
       # E */ E
       given_it_generates(production, %q(1 * 2), [:Expression, [:"*", RDF::Literal(1), RDF::Literal(2)]])
       given_it_generates(production, %q(1 / 2), [:Expression, [:"/", RDF::Literal(1), RDF::Literal(2)]])
+      given_it_generates(production, %q(3*4), [:Expression, [:"*", RDF::Literal(3), RDF::Literal(4)]])
       
       # E */ E */ E
       given_it_generates(production, %q("1" * "2" * "3"), [:Expression, [:"*", RDF::Literal("1"), [:"*", RDF::Literal("2"), RDF::Literal("3")]]])

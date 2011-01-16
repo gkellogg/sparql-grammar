@@ -342,14 +342,14 @@ _Compare_NumericExpression_Opt cfg:mustBeOneSequence (
 NumericExpression cfg:mustBeOneSequence ( ( AdditiveExpression )  ) .
 
 AdditiveExpression cfg:mustBeOneSequence (
-  ( MultiplicativeExpression _Add_Sub_MultiplicativeExpression_Opt) ) .
+  ( MultiplicativeExpression _Add_Sub_MultiplicativeExpression_Star) ) .
 
   # GK Remove NumericLiteralPositive and NumericLiteralNegative as they already occur through PrimaryExpression
 
-_Add_Sub_MultiplicativeExpression_Opt cfg:mustBeOneSequence (
+_Add_Sub_MultiplicativeExpression_Star cfg:mustBeOneSequence (
   ( )
-  ( "+" MultiplicativeExpression )
-  ( "-" MultiplicativeExpression ) ) .
+  ( "+" MultiplicativeExpression _Add_Sub_MultiplicativeExpression_Star )
+  ( "-" MultiplicativeExpression _Add_Sub_MultiplicativeExpression_Star ) ) .
 
 MultiplicativeExpression cfg:mustBeOneSequence (
   ( UnaryExpression _Mul_Div_UnaryExpression_Star ) ) .

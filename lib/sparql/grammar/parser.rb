@@ -432,13 +432,55 @@ module SPARQL; module Grammar
         {
           :finish => lambda { |data| data.values.each {|v| add_prod_data(:Expression, v)} }
         }
-      when :AdditiveExpression
-        # [52]    AdditiveExpression ::= MultiplicativeExpression (
-        #                                  '+' MultiplicativeExpression
-        #                                | '-' MultiplicativeExpression
-        #                                | NumericLiteralPositive
-        #                                | NumericLiteralNegative )*
+      when :RelationalExpression
+        # [50] RelationalExpression ::= NumericExpression (
+        #                                   '=' NumericExpression
+        #                                 | '!=' NumericExpression
+        #                                 | '<' NumericExpression
+        #                                 | '>' NumericExpression
+        #                                 | '<=' NumericExpression
+        #                                 | '>=' NumericExpression )?
         # 
+        {
+          :finish => lambda { |data|
+            if data[:_Compare_Numeric]
+              add_prod_data(:Expression, [[data[:_Compare_Numeric].first] + data[:Expression] + [data[:_Compare_Numeric].last]])
+            else
+              add_prod_data(:Expression, data[:Expression])
+            end
+          }
+        }
+      when :_Compare_NumericExpression_Opt  # ( '=' NumericExpression | '!=' NumericExpression | ... )?
+        # This part handles the operator and the rhs of a RelationalExpression
+        {
+          :finish => lambda { |data|
+            if data[:RelationalExpression]
+              add_prod_data(:_Compare_Numeric, data[:RelationalExpression] + data[:Expression])
+            end
+          }
+        }
+      when :AdditiveExpression
+        # [52]    AdditiveExpression ::= MultiplicativeExpression ( '+' MultiplicativeExpression | '-' MultiplicativeExpression )*
+        {
+          :finish => lambda { |data|
+            if data[:_Add_Sub]
+              add_prod_data(:Expression, [[data[:_Add_Sub].first] + data[:Expression] + [data[:_Add_Sub].last]])
+            else
+              add_prod_data(:Expression, data[:Expression])
+            end
+          }
+        }
+      when :_Add_Sub_MultiplicativeExpression_Star  # ( '+' MultiplicativeExpression | '-' MultiplicativeExpression | ... )*
+        # This part handles the operator and the rhs of a AdditiveExpression
+        {
+          :finish => lambda { |data|
+            if data[:_Add_Sub]
+              add_prod_data(:_Add_Sub, data[:AdditiveExpression] + [[data[:_Add_Sub].first] + data[:Expression] + [data[:_Add_Sub].last]])
+            elsif data[:AdditiveExpression]
+              add_prod_data(:_Add_Sub, data[:AdditiveExpression] + data[:Expression])
+            end
+          }
+        }
       when :MultiplicativeExpression
         # [53]    MultiplicativeExpression  ::=       UnaryExpression ( '*' UnaryExpression | '/' UnaryExpression )*
         {
@@ -451,7 +493,7 @@ module SPARQL; module Grammar
           }
         }
       when :_Mul_Div_UnaryExpression_Star # ( '*' UnaryExpression | '/' UnaryExpression )*
-        # This part handls the operator and the rhs of a MultiplicativeExpression
+        # This part handles the operator and the rhs of a MultiplicativeExpression
         {
           :finish => lambda { |data|
             if data [:_Mul_Div]
@@ -611,7 +653,7 @@ module SPARQL; module Grammar
     # Handlers for individual tokens based on production
     def token_productions(parent_production, production)
       case parent_production
-      when :AdditiveExpression
+      when :_Add_Sub_MultiplicativeExpression_Star
         case production
         when :"+", :"-"
           lambda { |token| add_prod_data(:AdditiveExpression, production) }
@@ -684,6 +726,8 @@ module SPARQL; module Grammar
           lambda { |token| add_prod_data(:Var, RDF::Query::Variable.new(token)) }
         when :"*", :"/"
           lambda { |token| add_prod_data(:MultiplicativeExpression, production) }
+        when :"=", :"!=", :"<", :">", :"<=", :">="
+          lambda { |token| add_prod_data(:RelationalExpression, production) }
         end
       end
     end
