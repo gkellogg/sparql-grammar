@@ -337,7 +337,7 @@ _Compare_NumericExpression_Opt cfg:mustBeOneSequence (
   ( "<" NumericExpression )
   ( ">" NumericExpression )
   ( "<=" NumericExpression )
-  ( "=>" NumericExpression ) ) .
+  ( ">=" NumericExpression ) ) .
 
 NumericExpression cfg:mustBeOneSequence ( ( AdditiveExpression )  ) .
 

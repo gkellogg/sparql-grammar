@@ -110,9 +110,9 @@
          cfg:canStartWith "=";
          cfg:condition "=" .
     
-    "=>"     cfg:canPrecede :NumericExpression;
-         cfg:canStartWith "=>";
-         cfg:condition "=>" .
+    ">="     cfg:canPrecede :NumericExpression;
+         cfg:canStartWith ">=";
+         cfg:condition ">=" .
     
     ">"     cfg:canPrecede :NumericExpression;
          cfg:canStartWith ">";
@@ -371,7 +371,7 @@
       ( "="
         :NumericExpression )
          a rul:Used .
-      ( "=>"
+      ( ">="
         :NumericExpression )
          a rul:Used .
       ( ">"
@@ -5078,7 +5078,7 @@
                     "<",
                     "<=",
                     "=",
-                    "=>",
+                    ">=",
                     ">",
                     "||";
              cfg:sequence () ],
@@ -5118,7 +5118,7 @@
                 "<",
                 "<=",
                 "=",
-                "=>",
+                ">=",
                 ">",
                 "||";
          cfg:canStartWithLiteral "+",
@@ -5132,7 +5132,7 @@
                 "<",
                 "<=",
                 "=",
-                "=>",
+                ">=",
                 ">",
                 "||";
          cfg:mustBeOneSequence  (
@@ -5160,7 +5160,7 @@
                     "<",
                     "<=",
                     "=",
-                    "=>",
+                    ">=",
                     ">",
                     "||";
              cfg:sequence () ],
@@ -5192,7 +5192,7 @@
                 "<",
                 "<=",
                 "=",
-                "=>",
+                ">=",
                 ">",
                 "||",
                 :NIL;
@@ -5208,7 +5208,7 @@
                 "<",
                 "<=",
                 "=",
-                "=>",
+                ">=",
                 ">",
                 "||",
                 :NIL;
@@ -5379,7 +5379,7 @@
                 "<",
                 "<=",
                 "=",
-                "=>",
+                ">=",
                 ">";
          cfg:branch  [
              cfg:branchTail ();
@@ -5430,11 +5430,11 @@
             :NumericExpression ) ],
                  [
              cfg:branchTail  (
-            "=>"
+            ">="
             :NumericExpression );
-             cfg:condition "=>";
+             cfg:condition ">=";
              cfg:sequence  (
-            "=>"
+            ">="
             :NumericExpression ) ];
          cfg:canPrecede ")",
                 ",",
@@ -5449,14 +5449,14 @@
                 "<",
                 "<=",
                 "=",
-                "=>",
+                ">=",
                 ">",
                 "||";
          cfg:canStartWithLiteral "!=",
                 "<",
                 "<=",
                 "=",
-                "=>",
+                ">=",
                 ">";
          cfg:condition "!=",
                 "&&",
@@ -5465,7 +5465,7 @@
                 "<",
                 "<=",
                 "=",
-                "=>",
+                ">=",
                 ">",
                 "||";
          cfg:mustBeOneSequence  (
@@ -5486,7 +5486,7 @@
             "<="
             :NumericExpression )
          (
-            "=>"
+            ">="
             :NumericExpression ) ) .
     
     :_Constraint_or_Var     cfg:TEST :Constraint,
@@ -6281,7 +6281,7 @@
                     "<",
                     "<=",
                     "=",
-                    "=>",
+                    ">=",
                     ">",
                     "FILTER",
                     "GRAPH",
@@ -6355,7 +6355,7 @@
                 "<",
                 "<=",
                 "=",
-                "=>",
+                ">=",
                 ">",
                 "FILTER",
                 "GRAPH",
@@ -6399,7 +6399,7 @@
                 "<",
                 "<=",
                 "=",
-                "=>",
+                ">=",
                 ">",
                 "FILTER",
                 "GRAPH",
@@ -6494,7 +6494,7 @@
                     "<",
                     "<=",
                     "=",
-                    "=>",
+                    ">=",
                     ">",
                     "||";
              cfg:sequence () ],
@@ -6537,7 +6537,7 @@
                 "<",
                 "<=",
                 "=",
-                "=>",
+                ">=",
                 ">",
                 "||";
          cfg:canStartWithLiteral "*",
@@ -6553,7 +6553,7 @@
                 "<",
                 "<=",
                 "=",
-                "=>",
+                ">=",
                 ">",
                 "||";
          cfg:mustBeOneSequence  (
