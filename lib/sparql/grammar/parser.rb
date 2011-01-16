@@ -169,7 +169,7 @@ module SPARQL; module Grammar
       @result = prod_data
       if @result.is_a?(Hash) && !@result.empty?
         key = @result.keys.first
-        @result = [key] + result[key]  # Creates [:BGP, [:triple], ...]
+        @result = [key] + result[key]  # Creates [:bgp, [:triple], ...]
       end
     end
     
@@ -244,7 +244,7 @@ module SPARQL; module Grammar
     #
     # @return [RDF::URI]
     def base_uri=(uri)
-      @options[:base_uri] = uri
+      @options[:base_uri] = RDF::URI(uri)
     end
 
     ##
@@ -280,7 +280,7 @@ module SPARQL; module Grammar
         # [3]     BaseDecl      ::=       'BASE' IRI_REF
         {
           :finish => lambda { |data|
-            self.base_uri = uri(data[:iri].last)
+            self.base_uri = uri(data[:iri].last) if options[:resolve_uris]
             add_prod_data(:BaseDecl, data[:iri].last)
           }
         }
@@ -298,21 +298,21 @@ module SPARQL; module Grammar
         # [5]     SelectQuery               ::=       'SELECT' ( 'DISTINCT' | 'REDUCED' )? ( Var+ | '*' ) DatasetClause* WhereClause SolutionModifier
         {
           :finish => lambda { |data|
-            add_prod_data(:BGP, data[:BGP])
+            add_prod_data(:bgp, data[:bgp])
           }
         }
       when :WhereClause
         # [13]    WhereClause               ::=       'WHERE'? GroupGraphPattern
         {
           :finish => lambda { |data|
-            add_prod_data(:BGP, data[:BGP])
+            add_prod_data(:bgp, data[:bgp])
           }
         }
       when :GroupGraphPattern
         # [20]    GroupGraphPattern         ::=       '{' TriplesBlock? ( ( GraphPatternNotTriples | Filter ) '.'? TriplesBlock? )* '}'
         {
           :finish => lambda { |data|
-            add_prod_data(:BGP, data[:BGP])
+            add_prod_data(:bgp, data[:bgp])
           }
         }
       when :TriplesBlock
@@ -321,12 +321,12 @@ module SPARQL; module Grammar
           :finish => lambda { |data|
             if data[:triple]
               triples = data[:triple].map {|v| [:triple, v[:subject], v[:predicate], v[:object]]}
-              add_prod_data(:BGP, triples)
+              add_prod_data(:bgp, triples)
             end
         
             # Append triples from ('.' TriplesBlock? )? 
-            if data[:BGP]
-              add_prod_data(:BGP, data[:BGP])
+            if data[:bgp]
+              add_prod_data(:bgp, data[:bgp])
             end
           }
         }
@@ -754,7 +754,7 @@ module SPARQL; module Grammar
         when :INTEGER
           lambda { |token| add_prod_data(:literal, RDF::Literal.new(token, :datatype => RDF::XSD.integer)) }
         when :IRI_REF
-          lambda { |token| add_prod_data(:iri, uri(self.base_uri, token)) }
+          lambda { |token| add_prod_data(:iri, uri(token)) }
         when :ISBLANK
           lambda { |token| add_prod_data(:BuiltInCall, :isBLANK) }
         when :ISLITERAL
@@ -775,8 +775,8 @@ module SPARQL; module Grammar
           lambda { |token| add_prod_data(:PrefixedName, ns(*token)) }
         when :PNAME_NS
           lambda { |token|
-            add_prod_data(:PrefixedName, ns(token, nil))    # [68]    PrefixedName ::= PNAME_LN | PNAME_NS
-            prod_data[:prefix] = uri(token && token.to_sym) # [4] PrefixDecl := 'PREFIX' PNAME_NS IRI_REF";
+            add_prod_data(:PrefixedName, ns(token, nil))    # [68] PrefixedName ::= PNAME_LN | PNAME_NS
+            prod_data[:prefix] = token && token.to_sym      # [4]  PrefixDecl := 'PREFIX' PNAME_NS IRI_REF";
           }
         when :STR
           lambda { |token| add_prod_data(:BuiltInCall, :STR) }
@@ -850,19 +850,19 @@ module SPARQL; module Grammar
     # Inputs are :BaseDecl, :PrefixDecl, and :Query
     def finalize_query(data)
       %w(
-        BGP Union Join LeftJoin Filter
+        bgp Union Join LeftJoin Filter
         ToList OrderBy Project Distinct Slice
       ).map(&:to_sym).each do |key|
         next unless sxp = data[key]
 
         # Wrap in :base or :prefix or just use key
-        if data[:PrefixDecl] && data[:BaseDecl]
+        if data[:PrefixDecl] && data[:BaseDecl] && !options[:expand_uris]
           add_prod_data(:base, data[:BaseDecl])
           add_prod_data(:base, [[:prefix] + data[:PrefixDecl] + [[key] + sxp]])
-        elsif data[:PrefixDecl]
+        elsif data[:PrefixDecl] && !options[:expand_uris]
           add_prod_data(:prefix, data[:PrefixDecl])
           add_prod_data(:prefix, [[key] + sxp])
-        elsif data[:BaseDecl]
+        elsif data[:BaseDecl] && !options[:expand_uris]
           add_prod_data(:base, data[:BaseDecl])
           add_prod_data(:base, [[key] + sxp])
         else
@@ -946,7 +946,7 @@ module SPARQL; module Grammar
     
     # Create URIs
     def uri(value, append = nil)
-      value = RDF::URI.new(value)
+      value = self.base_uri ? (self.base_uri.join(value.to_s)) : RDF::URI(value)
       value = value.join(append) if append
       #value.validate! if validate? && value.respond_to?(:validate)
       #value.canonicalize! if canonicalize?
@@ -955,10 +955,14 @@ module SPARQL; module Grammar
     end
     
     def ns(prefix, suffix)
-      base = prefix(prefix).to_s
-      suffix = suffix.to_s.sub(/^\#/, "") if base.index("#")
-      debug("ns(#{prefix.inspect})", "base: '#{base}', suffix: '#{suffix}'")
-      uri(base + suffix.to_s)
+      if options[:resolve_uris]
+        base = prefix(prefix).to_s
+        suffix = suffix.to_s.sub(/^\#/, "") if base.index("#")
+        debug("ns(#{prefix.inspect})", "base: '#{base}', suffix: '#{suffix}'")
+        uri(base + suffix.to_s)
+      else
+        "#{prefix}:#{suffix}".to_sym
+      end
     end
     
     # add a statement

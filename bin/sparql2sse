@@ -35,13 +35,14 @@ rescue Exception => e
 end
 
 def present_results(array, options = {})
+  options = options.merge(:prefixes => false) if options[:prefixes] && array.is_a?(Array) && array.first == :prefix
   level = options[:level].to_i
   "#{'  ' * level}[" +
   array.map do |e|
     e.to_s
     case e
     when Array                then present_results(e, options.merge(:level => level + 1))
-    when Symbol               then ":#{e}"
+    when Symbol               then e.inspect
     when RDF::Node            then e.to_s
     when RDF::Query::Variable then e.to_s
     when RDF::Literal        then RDF::NTriples::Writer.new.format_value(e)

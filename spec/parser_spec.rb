@@ -619,24 +619,24 @@ describe SPARQL::Grammar::Parser do
       {
         "BASE <foo/> SELECT * WHERE { <a> <b> <c> }" =>
           [:base, RDF::URI("foo/"),
-            [:BGP, [:triple, RDF::URI("foo/a"), RDF::URI("foo/b"), RDF::URI("foo/c")]]],
+            [:bgp, [:triple, RDF::URI("foo/a"), RDF::URI("foo/b"), RDF::URI("foo/c")]]],
         "PREFIX : <http://example.com/> SELECT * WHERE { :a :b :c }" =>
           [:prefix, [[:":", RDF::URI("http://example.com/")]],
-            [:BGP, [:triple, RDF::URI("http://example.com/a"), RDF::URI("http://example.com/b"), RDF::URI("http://example.com/c")]]],
+            [:bgp, [:triple, RDF::URI("http://example.com/a"), RDF::URI("http://example.com/b"), RDF::URI("http://example.com/c")]]],
         "PREFIX : <foo#> PREFIX bar: <bar#> SELECT * WHERE { :a :b bar:c }" =>
           [:prefix, [[:":", RDF::URI("foo#")], [:"bar:", RDF::URI("bar#")]],
-            [:BGP, [:triple, RDF::URI("foo#a"), RDF::URI("foo#b"), RDF::URI("bar#c")]]],
+            [:bgp, [:triple, RDF::URI("foo#a"), RDF::URI("foo#b"), RDF::URI("bar#c")]]],
         "BASE <http://baz/> PREFIX : <http://foo#> PREFIX bar: <http://bar#> SELECT * WHERE { <a> :b bar:c }" =>
           [:base, RDF::URI("http://baz/"), [:prefix, [[:":", RDF::URI("http://foo#")], [:"bar:", RDF::URI("http://bar#")]],
-            [:BGP, [:triple, RDF::URI("http://baz/a"), RDF::URI("http://foo#b"), RDF::URI("http://bar#c")]]]],
+            [:bgp, [:triple, RDF::URI("http://baz/a"), RDF::URI("http://foo#b"), RDF::URI("http://bar#c")]]]],
       }.each_pair do |input, result|
         given_it_generates(production, input, result)
       end
 
       TRIPLES.each_pair do |input, result|
-        given_it_generates(production, "SELECT * WHERE {#{input}}", ([:BGP] + result),
+        given_it_generates(production, "SELECT * WHERE {#{input}}", ([:bgp] + result),
           :prefixes => {nil => "http://example.com/", :rdf => RDF.to_uri.to_s},
-          :base_uri => "http://example.org/",
+          :base_uri => RDF::URI("http://example.org/"),
           :anon_base => "gen0000")
       end
     end
@@ -685,9 +685,9 @@ describe SPARQL::Grammar::Parser do
 
       describe "SELECT * WHERE {...}" do
         TRIPLES.each_pair do |input, result|
-          given_it_generates(production, "SELECT * WHERE {#{input}}", ([:BGP] + result),
+          given_it_generates(production, "SELECT * WHERE {#{input}}", ([:bgp] + result),
             :prefixes => {nil => "http://example.com/", :rdf => RDF.to_uri.to_s},
-            :base_uri => "http://example.org/",
+            :base_uri => RDF::URI("http://example.org/"),
             :anon_base => "gen0000")
         end
       end
@@ -791,9 +791,9 @@ describe SPARQL::Grammar::Parser do
       it_rejects_empty_input_using production
 
       TRIPLES.each_pair do |input, result|
-        given_it_generates(production, "WHERE {#{input}}", ([:BGP] + result),
+        given_it_generates(production, "WHERE {#{input}}", ([:bgp] + result),
           :prefixes => {nil => "http://example.com/", :rdf => RDF.to_uri.to_s},
-          :base_uri => "http://example.org/",
+          :base_uri => RDF::URI("http://example.org/"),
           :anon_base => "gen0000")
       end
     end
@@ -843,9 +843,9 @@ describe SPARQL::Grammar::Parser do
   describe "when matching the [20] GroupGraphPattern production rule" do
     with_production(:GroupGraphPattern) do |production|
       TRIPLES.each_pair do |input, result|
-        given_it_generates(production, "{#{input}}", ([:BGP] + result),
+        given_it_generates(production, "{#{input}}", ([:bgp] + result),
           :prefixes => {nil => "http://example.com/", :rdf => RDF.to_uri.to_s},
-          :base_uri => "http://example.org/",
+          :base_uri => RDF::URI("http://example.org/"),
           :anon_base => "gen0000")
       end
     end
@@ -914,7 +914,7 @@ describe SPARQL::Grammar::Parser do
       TRIPLES.each_pair do |input, result|
         given_it_generates(production, "{#{input}}", ([:ConstructTriples] + result),
           :prefixes => {nil => "http://example.com/", :rdf => RDF.to_uri.to_s},
-          :base_uri => "http://example.org/",
+          :base_uri => RDF::URI("http://example.org/"),
           :anon_base => "gen0000")
       end
     end
@@ -925,7 +925,7 @@ describe SPARQL::Grammar::Parser do
       TRIPLES.each_pair do |input, result|
         given_it_generates(production, input, ([:ConstructTriples] + result),
           :prefixes => {nil => "http://example.com/", :rdf => RDF.to_uri.to_s},
-          :base_uri => "http://example.org/",
+          :base_uri => RDF::URI("http://example.org/"),
           :anon_base => "gen0000")
       end
     end
@@ -934,9 +934,9 @@ describe SPARQL::Grammar::Parser do
   describe "when matching the [21] TriplesBlock production rule" do
     with_production(:TriplesBlock) do |production|
       TRIPLES.each_pair do |input, result|
-        given_it_generates(production, input, ([:BGP] + result),
+        given_it_generates(production, input, ([:bgp] + result),
           :prefixes => {nil => "http://example.com/", :rdf => RDF.to_uri.to_s},
-          :base_uri => "http://example.org/",
+          :base_uri => RDF::URI("http://example.org/"),
           :anon_base => "gen0000")
       end
     end
