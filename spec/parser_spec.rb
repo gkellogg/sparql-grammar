@@ -26,22 +26,43 @@ module ProductionRequirements
 
   # [28] FunctionCall
   def it_recognizes_function_using(production)
-    given_it_generates(production, %q(<foo>("bar")), [RDF::URI("foo"), RDF::Literal("bar")], :last => true)
-    given_it_generates(production, %q(<foo>()), [RDF::URI("foo"), RDF["nil"]], :last => true)
+    it "recognizes the FunctionCall nonterminal" do
+      it_recognizes_function(production)
+    end
+  end
+
+  # [41]    GraphNode
+  def it_recognizes_graph_node_using(production)
+    it "recognizes the GraphNode nonterminal" do
+      it_recognizes_graph_node(production)
+    end
+  end
+
+  # [42]    VarOrTerm
+  def it_recognizes_var_or_term_using(production)
+    it "recognizes the VarOrTerm nonterminal" do
+      it_recognizes_var_or_iriref(production)
+    end
+  end
+
+  # [43]    VarOrIRIref
+  def it_recognizes_var_or_iriref_using(production)
+    it "recognizes the VarOrIRIref nonterminal" do
+      it_recognizes_var_or_iriref(production)
+    end
   end
 
   # [44] Var
   def it_recognizes_var_using(production)
     it "recognizes the Var nonterminal" do
-      it_recognizes_var1(production)
-      it_recognizes_var2(production)
+      it_recognizes_var(production)
     end
   end
 
   # [45] GraphTerm
   def it_recognizes_graph_term_using(production)
     it "recognizes the GraphTerm nonterminal" do
-      pending
+      it_recognizes_graph_term(production)
     end
   end
 
@@ -176,9 +197,7 @@ module ProductionRequirements
   # [69] BlankNode
   def it_recognizes_blank_node_using(production)
     it "recognizes the BlankNode nonterminal" do
-      # FIXME
-      parser(production).call(%q(_:foobar)).last.should == RDF::Node(:foobar)
-      parser(production).call(%q([])).last.should be_an(RDF::Node)
+      it_recognizes_blank_node(production)
     end
   end
 
@@ -215,6 +234,48 @@ module ProductionRequirements
 end
 
 module ProductionExamples
+  # [28] FunctionCall
+  def it_recognizes_function(production)
+    parser(production).call(%q(<foo>("bar"))).last.should == [RDF::URI("foo"), RDF::Literal("bar")]
+    parser(production).call(%q(<foo>())).last.should == [RDF::URI("foo"), RDF["nil"]]
+  end
+
+  # [41]    GraphNode                 ::=       VarOrTerm | TriplesNode
+  def it_recognizes_graph_node(production)
+    it_recognizes_var_or_term(production)
+    it_recognizes_triples_node(production)
+  end
+
+  # [42]    VarOrTerm                 ::=       Var | GraphTerm
+  def it_recognizes_var_or_term(production)
+    it_recognizes_var(production)
+    it_recognizes_graph_term(production)
+  end
+
+  # [43]    VarOrIRIref               ::=       Var | IRIref
+  def it_recognizes_var_or_iriref(production)
+    it_recognizes_var(production)
+    it_recognizes_iriref(production)
+  end
+
+  # [44]    Var                       ::=       VAR1 | VAR2
+  def it_recognizes_var(production)
+    it_recognizes_var1(production)
+    it_recognizes_var2(production)
+  end
+
+  # [45] GraphTerm ::=       IRIref | RDFLiteral | NumericLiteral | BooleanLiteral | BlankNode | NIL
+  def it_recognizes_graph_term(production)
+    it_recognizes_iriref(production)
+    it_recognizes_rdf_literal_without_language_or_datatype(production)
+    it_recognizes_rdf_literal_with_language(production)
+    it_recognizes_rdf_literal_with_datatype(production)
+    it_recognizes_numeric_literal production
+    it_recognizes_boolean_literal production
+    it_recognizes_blank_node production
+    it_recognizes_nil production
+  end
+
   # [46]    Expression ::=       ConditionalOrExpression
   def it_recognizes_expression(production)
     it_recognizes_conditional_or_expression(production)
@@ -295,7 +356,16 @@ module ProductionExamples
     parser(production).call(%q(- 1)).should == [:Expression, [:"-", RDF::Literal(1)]]
     parser(production).call(%q(+ "foo")).should == [:Expression, [:"+", RDF::Literal("foo")]]
     parser(production).call(%q(- "foo")).should == [:Expression, [:"-", RDF::Literal("foo")]]
-    it_recognizes_primary_expression production
+
+    it_recognizes_bracketted_expression production
+    it_recognizes_built_in_call production
+    it_recognizes_iriref_or_function production
+    it_recognizes_rdf_literal_without_language_or_datatype(production)
+    it_recognizes_rdf_literal_with_language(production)
+    it_recognizes_rdf_literal_with_datatype(production)
+    #it_recognizes_numeric_literal production             # This conflicts
+    it_recognizes_boolean_literal production
+    it_recognizes_var production
   end
 
   # [55]    PrimaryExpression ::=       BrackettedExpression | BuiltInCall | IRIrefOrFunction | RDFLiteral | NumericLiteral | BooleanLiteral | Var
@@ -303,7 +373,9 @@ module ProductionExamples
     it_recognizes_bracketted_expression production
     it_recognizes_built_in_call production
     it_recognizes_iriref_or_function production
-    it_recognizes_rdf_literal production
+    it_recognizes_rdf_literal_without_language_or_datatype(production)
+    it_recognizes_rdf_literal_with_language(production)
+    it_recognizes_rdf_literal_with_datatype(production)
     it_recognizes_numeric_literal production
     it_recognizes_boolean_literal production
     it_recognizes_var production
@@ -393,7 +465,13 @@ module ProductionExamples
   # [67] IRIref
   def it_recognizes_iriref(production)
     parser(production).call(%q(<http://example.org/>)).last.should == RDF::URI('http://example.org/')
-    pending("test prefixed names")
+    # test prefixed names
+  end
+
+  # [69] BlankNode
+  def it_recognizes_blank_node(production)
+    parser(production).call(%q(_:foobar)).last.should == RDF::Node(:foobar)
+    parser(production).call(%q([])).last.should be_an(RDF::Node)
   end
 
   # [74] VAR1
@@ -939,24 +1017,19 @@ describe SPARQL::Grammar::Parser do
 
   describe "when matching the [41] GraphNode production rule" do
     with_production(:GraphNode) do |production|
-      it_rejects_empty_input_using production
-      pending("TODO")
+      it_recognizes_graph_node_using(production)
     end
   end
 
   describe "when matching the [42] VarOrTerm production rule" do
     with_production(:VarOrTerm) do |production|
-      it_rejects_empty_input_using production
-      it_recognizes_var_using production
-      it_recognizes_graph_term_using production
+      it_recognizes_var_or_term_using production
     end
   end
 
   describe "when matching the [43] VarOrIRIref production rule" do
     with_production(:VarOrIRIref) do |production|
-      it_rejects_empty_input_using production
-      it_recognizes_var_using production
-      it_recognizes_iriref_using production
+      it_recognizes_var_or_iriref_using production
     end
   end
 
@@ -976,13 +1049,7 @@ describe SPARQL::Grammar::Parser do
 
   describe "when matching the [45] GraphTerm production rule" do
     with_production(:GraphTerm) do |production|
-      it_rejects_empty_input_using production
-      it_recognizes_iriref_using production
-      it_recognizes_rdf_literal_using production
-      it_recognizes_numeric_literal_using production
-      it_recognizes_boolean_literal_using production
-      it_recognizes_blank_node_using production
-      it_recognizes_nil_using production
+      it_recognizes_graph_term_using(production)
     end
   end
 
