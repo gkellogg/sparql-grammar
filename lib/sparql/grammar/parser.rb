@@ -430,7 +430,7 @@ module SPARQL; module Grammar
       when :Expression
         # [46] Expression ::=       ConditionalOrExpression
         {
-          :finish => lambda { |data| data.values.each {|v| add_prod_data(:Expression, v)} }
+          :finish => lambda { |data| add_prod_data(:Expression, data[:Expression]) }
         }
       when :ConditionalOrExpression
         # [47]    ConditionalOrExpression   ::=       ConditionalAndExpression ( '||' ConditionalAndExpression )*

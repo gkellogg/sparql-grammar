@@ -16,17 +16,20 @@ module ProductionRequirements
       if options[:last]
         # Only look at end of production
         parser(production, options).call(input).last.should == result
+      elsif options[:shift]
+        parser(production, options).call(input)[1..-1].should == result
       else
         parser(production, options).call(input).should == result
       end
     end
   end
-  
+
   # [28] FunctionCall
   def it_recognizes_function_using(production)
     given_it_generates(production, %q(<foo>("bar")), [RDF::URI("foo"), RDF::Literal("bar")], :last => true)
+    given_it_generates(production, %q(<foo>()), [RDF::URI("foo"), RDF["nil"]], :last => true)
   end
-  
+
   # [44] Var
   def it_recognizes_var_using(production)
     it "recognizes the Var nonterminal" do
@@ -42,9 +45,107 @@ module ProductionRequirements
     end
   end
 
+  # [46]    Expression
+  def it_recognizes_expression_using(production)
+    it "recognizes Expression nonterminal" do
+      it_recognizes_expression(production)
+    end
+  end
+
+  # [47]    ConditionalOrExpression
+  def it_recognizes_conditional_or_expression_using(production)
+    it "recognizes ConditionalOrExpression nonterminal" do
+      it_recognizes_conditional_or_expression(production)
+    end
+  end
+
+  # [48]    ConditionalAndExpression
+  def it_recognizes_conditional_and_expression_using(production)
+    it "recognizes ConditionalAndExpression nonterminal" do
+      it_recognizes_conditional_and_expression(production)
+    end
+  end
+
+  # [49]    ValueLogical
+  def it_recognizes_value_logical_using(production)
+    it "recognizes ValueLogical nonterminal" do
+      it_recognizes_value_logical(production)
+    end
+  end
+
+  # [50]    RelationalExpression
+  def it_recognizes_relational_expression_using(production)
+    it "recognizes RelationalExpression nonterminal" do
+      it_recognizes_relational_expression(production)
+    end
+  end
+
+  # [51]    NumericExpression
+  def it_recognizes_numeric_expression_using(production)
+    it "recognizes NumericExpression nonterminal" do
+      it_recognizes_numeric_expression(production)
+    end
+  end
+
+  # [52]    AdditiveExpression
+  def it_recognizes_additive_expression_using(production)
+    it "recognizes AdditiveExpression nonterminal" do
+      it_recognizes_additive_expression(production)
+    end
+  end
+
+  # [53]    MultiplicativeExpression
+  def it_recognizes_multiplicative_expression_using(production)
+    it "recognizes MultiplicativeExpression nonterminal" do
+      it_recognizes_multiplicative_expression(production)
+    end
+  end
+
+  # [54] UnaryExpression
+  def it_recognizes_unary_expression_using(production)
+    it "recognizes UnaryExpression nonterminal" do
+      it_recognizes_unary_expression(production)
+    end
+  end
+
+  # [55]    PrimaryExpression
+  def it_recognizes_primary_expression_using(production)
+    it "recognizes PrimaryExpression nonterminal" do
+      it_recognizes_primary_expression(production)
+    end
+  end
+
+  # [56]    BrackettedExpression ::=       '(' Expression ')'
+  def it_recognizes_bracketted_expression_using(production)
+    it "recognizes BrackettedExpression nonterminal" do
+      it_recognizes_bracketted_expression(production)
+    end
+  end
+
+  # [57]    BuiltInCall
+  def it_recognizes_built_in_call_using(production)
+    it "recognizes BuiltInCall nonterminal" do
+      it_recognizes_built_in_call(production)
+    end
+  end
+
+  # [58]    RegexExpression
+  def it_recognizes_regex_expression_using(production)
+    it "recognizes RegexExpression nonterminal" do
+      it_recognizes_regex_expression(production)
+    end
+  end
+
+  # [59]    IRIrefOrFunction
+  def it_recognizes_iriref_or_function_using(production)
+    it "recognizes the IRIrefOrFunction nonterminal" do
+      it_recognizes_iriref_or_function(production)
+    end
+  end
+
   # [60] RDFLiteral
   def it_recognizes_rdf_literal_using(production)
-    it "recognizes the Var nonterminal" do
+    it "recognizes the RDFLiteral nonterminal" do
       it_recognizes_rdf_literal_without_language_or_datatype(production)
       it_recognizes_rdf_literal_with_language(production)
       it_recognizes_rdf_literal_with_datatype(production)
@@ -54,26 +155,21 @@ module ProductionRequirements
   # [61] NumericLiteral
   def it_recognizes_numeric_literal_using(production)
     it "recognizes the NumericLiteral nonterminal" do
-      parser(production).call(%q(123)).last.should     == RDF::Literal::Integer.new(123)
-      parser(production).call(%q(+3.1415)).last.should == RDF::Literal::Decimal.new(3.1415)
-      parser(production).call(%q(-1e6)).last.should    == RDF::Literal::Double.new(-1e6)
+      it_recognizes_numeric_literal(production)
     end
   end
 
   # [65] BooleanLiteral
   def it_recognizes_boolean_literal_using(production)
     it "recognizes the BooleanLiteral nonterminal" do
-      # FIXME
-      parser(production).call(%q(true)).last.should == RDF::Literal(true)
-      parser(production).call(%q(false)).last.should == RDF::Literal(false)
+      it_recognizes_boolean_literal(production)
     end
   end
 
   # [67] IRIref
   def it_recognizes_iriref_using(production)
     it "recognizes the IRIref nonterminal" do
-      parser(production).call(%q(<http://example.org/>)).last.should == RDF::URI('http://example.org/')
-      pending("test prefixed names")
+      it_recognizes_iriref(production)
     end
   end
 
@@ -119,6 +215,142 @@ module ProductionRequirements
 end
 
 module ProductionExamples
+  # [46]    Expression ::=       ConditionalOrExpression
+  def it_recognizes_expression(production)
+    it_recognizes_conditional_or_expression(production)
+  end
+
+  # [47]    ConditionalOrExpression ::=       ConditionalAndExpression ( '||' ConditionalAndExpression )*
+  def it_recognizes_conditional_or_expression(production)
+    parser(production).call(%q(1 || 2)).should == [:Expression, [:"||", RDF::Literal(1), RDF::Literal(2)]]
+    parser(production).call(%q(1 || 2 && 3)).should == [:Expression, [:"||", RDF::Literal(1), [:"&&", RDF::Literal(2), RDF::Literal(3)]]]
+    parser(production).call(%q(1 && 2 || 3)).should == [:Expression, [:"||", [:"&&", RDF::Literal(1), RDF::Literal(2)], RDF::Literal(3)]]
+    it_recognizes_conditional_and_expression(production)
+  end
+
+  # [48]    ConditionalAndExpression ::=       ValueLogical ( '&&' ValueLogical )*
+  def it_recognizes_conditional_and_expression(production)
+    parser(production).call(%q(1 && 2)).should == [:Expression, [:"&&", RDF::Literal(1), RDF::Literal(2)]]
+    it_recognizes_value_logical(production)
+  end
+
+  # [49]    ValueLogical ::=       RelationalExpression
+  def it_recognizes_value_logical(production)
+    it_recognizes_relational_expression(production)
+  end
+
+  # [50]    RelationalExpression ::= NumericExpression (
+  #                                      '=' NumericExpression
+  #                                    | '!=' NumericExpression
+  #                                    | '<' NumericExpression
+  #                                    | '>' NumericExpression
+  #                                    | '<=' NumericExpression
+  #                                    | '>=' NumericExpression )?
+  def it_recognizes_relational_expression(production)
+    parser(production).call(%q(1 = 2)).should == [:Expression, [:"=", RDF::Literal(1), RDF::Literal(2)]]
+    parser(production).call(%q(1 != 2)).should == [:Expression, [:"!=", RDF::Literal(1), RDF::Literal(2)]]
+    parser(production).call(%q(1 < 2)).should == [:Expression, [:"<", RDF::Literal(1), RDF::Literal(2)]]
+    parser(production).call(%q(1 > 2)).should == [:Expression, [:">", RDF::Literal(1), RDF::Literal(2)]]
+    parser(production).call(%q(1 <= 2)).should == [:Expression, [:"<=", RDF::Literal(1), RDF::Literal(2)]]
+    parser(production).call(%q(1 >= 2)).should == [:Expression, [:">=", RDF::Literal(1), RDF::Literal(2)]]
+
+    parser(production).call(%q(1 + 2 = 3)).should == [:Expression, [:"=", [:"+", RDF::Literal(1), RDF::Literal(2)], RDF::Literal(3)]]
+    
+    it_recognizes_numeric_expression(production)
+  end
+
+  # [51]    NumericExpression ::=       AdditiveExpression
+  def it_recognizes_numeric_expression(production)
+    it_recognizes_additive_expression(production)
+  end
+
+  # [52]    AdditiveExpression ::= MultiplicativeExpression ( '+' MultiplicativeExpression | '-' MultiplicativeExpression )*
+  def it_recognizes_additive_expression(production)
+    parser(production).call(%q(1 + 2)).should == [:Expression, [:"+", RDF::Literal(1), RDF::Literal(2)]]
+    parser(production).call(%q(1 - 2)).should == [:Expression, [:"-", RDF::Literal(1), RDF::Literal(2)]]
+    parser(production).call(%q(3+4)).should == [:Expression, [:"+", RDF::Literal(3), RDF::Literal(4)]]
+
+    parser(production).call(%q("1" + "2" - "3")).should == [:Expression, [:"+", RDF::Literal("1"), [:"-", RDF::Literal("2"), RDF::Literal("3")]]]
+    parser(production).call(%q("1" - "2" + "3")).should == [:Expression, [:"-", RDF::Literal("1"), [:"+", RDF::Literal("2"), RDF::Literal("3")]]]
+    
+    it_recognizes_multiplicative_expression(production)
+  end
+
+  # [53]    MultiplicativeExpression ::=       UnaryExpression ( '*' UnaryExpression | '/' UnaryExpression )*
+  def it_recognizes_multiplicative_expression(production)
+    parser(production).call(%q(1 * 2)).should == [:Expression, [:"*", RDF::Literal(1), RDF::Literal(2)]]
+    parser(production).call(%q(1 / 2)).should == [:Expression, [:"/", RDF::Literal(1), RDF::Literal(2)]]
+    parser(production).call(%q(3*4)).should == [:Expression, [:"*", RDF::Literal(3), RDF::Literal(4)]]
+
+    parser(production).call(%q("1" * "2" * "3")).should == [:Expression, [:"*", RDF::Literal("1"), [:"*", RDF::Literal("2"), RDF::Literal("3")]]]
+    parser(production).call(%q("1" * "2" / "3")).should == [:Expression, [:"*", RDF::Literal("1"), [:"/", RDF::Literal("2"), RDF::Literal("3")]]]
+
+    it_recognizes_unary_expression(production)
+  end
+
+  # [54] UnaryExpression ::=  '!' PrimaryExpression | '+' PrimaryExpression | '-' PrimaryExpression | PrimaryExpression
+  def it_recognizes_unary_expression(production)
+    parser(production).call(%q(! "foo")).should == [:Expression, [:"!", RDF::Literal("foo")]]
+    parser(production).call(%q(+ 1)).should == [:Expression, [:"+", RDF::Literal(1)]]
+    parser(production).call(%q(- 1)).should == [:Expression, [:"-", RDF::Literal(1)]]
+    parser(production).call(%q(+ "foo")).should == [:Expression, [:"+", RDF::Literal("foo")]]
+    parser(production).call(%q(- "foo")).should == [:Expression, [:"-", RDF::Literal("foo")]]
+    it_recognizes_primary_expression production
+  end
+
+  # [55]    PrimaryExpression ::=       BrackettedExpression | BuiltInCall | IRIrefOrFunction | RDFLiteral | NumericLiteral | BooleanLiteral | Var
+  def it_recognizes_primary_expression(production)
+    it_recognizes_bracketted_expression production
+    it_recognizes_built_in_call production
+    it_recognizes_iriref_or_function production
+    it_recognizes_rdf_literal production
+    it_recognizes_numeric_literal production
+    it_recognizes_boolean_literal production
+    it_recognizes_var production
+  end
+
+  # [56]    BrackettedExpression ::=       '(' Expression ')'
+  def it_recognizes_bracketted_expression(production)
+    parser(production).call(%q(("foo"))).should == [:Expression, RDF::Literal("foo")]
+  end
+
+  # [57]    BuiltInCall ::=  'STR' '(' Expression ')'
+  #                        | 'LANG' '(' Expression ')'
+  #                        | 'LANGMATCHES' '(' Expression ',' Expression ')'
+  #                        | 'DATATYPE' '(' Expression ')'
+  #                        | 'BOUND' '(' Var ')'
+  #                        | 'sameTerm' '(' Expression ',' Expression ')'
+  #                        | 'isIRI' '(' Expression ')'
+  #                        | 'isURI' '(' Expression ')'
+  #                        | 'isBLANK' '(' Expression ')'
+  #                        | 'isLITERAL' '(' Expression ')'
+  #                        | RegexExpression
+  def it_recognizes_built_in_call(production)
+    parser(production).call(%q(STR ("foo")))[1..-1].should == [:STR, RDF::Literal("foo")]
+    parser(production).call(%q(LANG ("foo")))[1..-1].should == [:LANG, RDF::Literal("foo")]
+    parser(production).call(%q(LANGMATCHES ("foo", "bar")))[1..-1].should == [:LANGMATCHES, RDF::Literal("foo"), RDF::Literal("bar")]
+    parser(production).call(%q(DATATYPE ("foo")))[1..-1].should == [:DATATYPE, RDF::Literal("foo")]
+    parser(production).call(%q(sameTerm ("foo", "bar")))[1..-1].should == [:sameTerm, RDF::Literal("foo"), RDF::Literal("bar")]
+    parser(production).call(%q(isIRI ("foo")))[1..-1].should == [:isIRI, RDF::Literal("foo")]
+    parser(production).call(%q(isURI ("foo")))[1..-1].should == [:isURI, RDF::Literal("foo")]
+    parser(production).call(%q(isBLANK ("foo")))[1..-1].should == [:isBLANK, RDF::Literal("foo")]
+    parser(production).call(%q(isLITERAL ("foo")))[1..-1].should == [:isLITERAL, RDF::Literal("foo")]
+    parser(production).call(%q(BOUND (?foo)))[1..-1].should == [:BOUND, RDF::Query::Variable.new("foo")]
+    parser(production).call(%q(REGEX ("foo", "bar")))[1..-1].should == [:REGEX, RDF::Literal("foo"), RDF::Literal("bar")]
+  end
+
+  # [58]    RegexExpression ::=       'REGEX' '(' Expression ',' Expression ( ',' Expression )? ')'
+  def it_recognizes_regex_expression(production)
+    lambda { parser(production).call(%q(REGEX ("foo"))) }.should raise_error
+    parser(production).call(%q(REGEX ("foo", "bar"))).should == [:REGEX, RDF::Literal("foo"), RDF::Literal("bar")]
+  end
+
+  # [59]    IRIrefOrFunction ::=       IRIref ArgList?
+  def it_recognizes_iriref_or_function(production)
+    it_recognizes_iriref(production)
+    it_recognizes_function(production)
+  end
+
   # [60] RDFLiteral
   def it_recognizes_rdf_literal_without_language_or_datatype(production)
     parser(production).call(%q("")).last.should == RDF::Literal.new("")
@@ -143,6 +375,25 @@ module ProductionExamples
   def it_recognizes_rdf_literal_with_datatype(production)
     parser(production).call(%q(""^^<http://www.w3.org/2001/XMLSchema#string>)).last.should == RDF::Literal.new("", :datatype => RDF::XSD.string)
     parser(production).call(%q("foobar"^^<http://www.w3.org/2001/XMLSchema#string>)).last.should == RDF::Literal.new("foobar", :datatype => RDF::XSD.string)
+  end
+
+  # [61] NumericLiteral
+  def it_recognizes_numeric_literal(production)
+    parser(production).call(%q(123)).last.should     == RDF::Literal::Integer.new(123)
+    parser(production).call(%q(+3.1415)).last.should == RDF::Literal::Decimal.new(3.1415)
+    parser(production).call(%q(-1e6)).last.should    == RDF::Literal::Double.new(-1e6)
+  end
+
+  # [65] BooleanLiteral
+  def it_recognizes_boolean_literal(production)
+    parser(production).call(%q(true)).last.should == RDF::Literal(true)
+    parser(production).call(%q(false)).last.should == RDF::Literal(false)
+  end
+
+  # [67] IRIref
+  def it_recognizes_iriref(production)
+    parser(production).call(%q(<http://example.org/>)).last.should == RDF::URI('http://example.org/')
+    pending("test prefixed names")
   end
 
   # [74] VAR1
@@ -598,7 +849,7 @@ describe SPARQL::Grammar::Parser do
   describe "when matching the [29] ArgList production rule" do
     with_production(:ArgList) do |production|
       it_recognizes_nil_using production
-      
+
       given_it_generates(production, %q(()), [:ArgList, RDF["nil"]])
       given_it_generates(production, %q(("foo")), [:ArgList, RDF::Literal("foo")])
       given_it_generates(production, %q(("foo", "bar")), [:ArgList, RDF::Literal("foo"), RDF::Literal("bar")])
@@ -737,177 +988,86 @@ describe SPARQL::Grammar::Parser do
 
   describe "when matching the [46] Expression production rule" do
     with_production(:Expression) do |production|
-      it_rejects_empty_input_using production
-      pending("TODO")
+      it_recognizes_expression_using production
     end
   end
 
   describe "when matching the [47] ConditionalOrExpression production rule" do
     with_production(:ConditionalOrExpression) do |production|
-      # [47]    ConditionalOrExpression   ::=       ConditionalAndExpression ( '||' ConditionalAndExpression )*
-      
-      # E && E
-      given_it_generates(production, %q(1 && 2), [:Expression, [:"&&", RDF::Literal(1), RDF::Literal(2)]])
-      
-      # E || E
-      given_it_generates(production, %q(1 || 2), [:Expression, [:"||", RDF::Literal(1), RDF::Literal(2)]])
+      it_recognizes_conditional_or_expression_using production
     end
   end
 
   describe "when matching the [48] ConditionalAndExpression production rule" do
     with_production(:ConditionalAndExpression) do |production|
-      # [48]    ConditionalAndExpression  ::=       ValueLogical ( '&&' ValueLogical )*
-      
-      # Relational
-      given_it_generates(production, %q(1 = 2), [:Expression, [:"=", RDF::Literal(1), RDF::Literal(2)]])
-      
-      # E && E
-      given_it_generates(production, %q(1 && 2), [:Expression, [:"&&", RDF::Literal(1), RDF::Literal(2)]])
-     end
+      it_recognizes_conditional_and_expression_using production
+    end
   end
 
   describe "when matching the [49] ValueLogical production rule" do
     with_production(:ValueLogical) do |production|
-     end
+      it_recognizes_value_logical_using production
+    end
   end
 
   describe "when matching the [50] RelationalExpression production rule" do
     with_production(:RelationalExpression) do |production|
-      # [50] RelationalExpression ::= NumericExpression (
-      #                                   '=' NumericExpression
-      #                                 | '!=' NumericExpression
-      #                                 | '<' NumericExpression
-      #                                 | '>' NumericExpression
-      #                                 | '<=' NumericExpression
-      #                                 | '>=' NumericExpression )?
-      # 
-      # Additive Expression
-      given_it_generates(production, %q(1 + 2), [:Expression, [:"+", RDF::Literal(1), RDF::Literal(2)]])
-      
-      # Relational
-      given_it_generates(production, %q(1 = 2), [:Expression, [:"=", RDF::Literal(1), RDF::Literal(2)]])
-      given_it_generates(production, %q(1 + 2 = 3), [:Expression, [:"=", [:"+", RDF::Literal(1), RDF::Literal(2)], RDF::Literal(3)]])
+      it_recognizes_relational_expression_using production
     end
   end
 
   describe "when matching the [51] NumericExpression production rule" do
     with_production(:NumericExpression) do |production|
-      # Nothing to do, as it's equivalent to AdditiveExpression
+      it_recognizes_numeric_expression_using production
     end
   end
 
   describe "when matching the [52] AdditiveExpression production rule" do
     with_production(:AdditiveExpression) do |production|
-      # [52]    AdditiveExpression ::= MultiplicativeExpression ( '+' MultiplicativeExpression | '-' MultiplicativeExpression )*
-
-      # Multiplicative Expression
-      given_it_generates(production, %q(1 * 2), [:Expression, [:"*", RDF::Literal(1), RDF::Literal(2)]])
-      
-      # E +- E
-      given_it_generates(production, %q(1 + 2), [:Expression, [:"+", RDF::Literal(1), RDF::Literal(2)]])
-      given_it_generates(production, %q(1 - 2), [:Expression, [:"-", RDF::Literal(1), RDF::Literal(2)]])
-      given_it_generates(production, %q(3+4), [:Expression, [:"+", RDF::Literal(3), RDF::Literal(4)]])
-      
-      # E +- E +- E
-      given_it_generates(production, %q("1" + "2" - "3"), [:Expression, [:"+", RDF::Literal("1"), [:"-", RDF::Literal("2"), RDF::Literal("3")]]])
-      given_it_generates(production, %q("1" - "2" + "3"), [:Expression, [:"-", RDF::Literal("1"), [:"+", RDF::Literal("2"), RDF::Literal("3")]]])
+      it_recognizes_additive_expression_using production
     end
   end
 
   describe "when matching the [53] MultiplicativeExpression production rule" do
     with_production(:MultiplicativeExpression) do |production|
-      # [53] MultiplicativeExpression ::= UnaryExpression ( '*' UnaryExpression | '/' UnaryExpression )*
-      # Unary Expression
-      given_it_generates(production, %q(! "foo"), [:Expression, [:"!", RDF::Literal("foo")]])
-      given_it_generates(production, %q(+ 1), [:Expression, [:"+", RDF::Literal(1)]])
-      given_it_generates(production, %q(- 1), [:Expression, [:"-", RDF::Literal(1)]])
-      given_it_generates(production, %q("foo"),   [:Expression, RDF::Literal("foo")])
-      
-      # E */ E
-      given_it_generates(production, %q(1 * 2), [:Expression, [:"*", RDF::Literal(1), RDF::Literal(2)]])
-      given_it_generates(production, %q(1 / 2), [:Expression, [:"/", RDF::Literal(1), RDF::Literal(2)]])
-      given_it_generates(production, %q(3*4), [:Expression, [:"*", RDF::Literal(3), RDF::Literal(4)]])
-      
-      # E */ E */ E
-      given_it_generates(production, %q("1" * "2" * "3"), [:Expression, [:"*", RDF::Literal("1"), [:"*", RDF::Literal("2"), RDF::Literal("3")]]])
-      given_it_generates(production, %q("1" * "2" / "3"), [:Expression, [:"*", RDF::Literal("1"), [:"/", RDF::Literal("2"), RDF::Literal("3")]]])
+      it_recognizes_multiplicative_expression_using production
     end
   end
 
   describe "when matching the [54] UnaryExpression production rule" do
     with_production(:UnaryExpression) do |production|
-      # [54] UnaryExpression ::=  '!' PrimaryExpression | '+' PrimaryExpression | '-' PrimaryExpression | PrimaryExpression
-      given_it_generates(production, %q(! "foo"), [:Expression, [:"!", RDF::Literal("foo")]])
-      given_it_generates(production, %q(+ 1), [:Expression, [:"+", RDF::Literal(1)]])
-      given_it_generates(production, %q(- 1), [:Expression, [:"-", RDF::Literal(1)]])
-      given_it_generates(production, %q("foo"),   [:Expression, RDF::Literal("foo")])
+      it_recognizes_unary_expression_using production
     end
   end
 
   describe "when matching the [55] PrimaryExpression production rule" do
     # [55] PrimaryExpression ::= BrackettedExpression | BuiltInCall | IRIrefOrFunction | RDFLiteral | NumericLiteral | BooleanLiteral | Var
     with_production(:PrimaryExpression) do |production|
-      given_it_generates(production, %q(("foo")), [:Expression, RDF::Literal("foo")]) # BrackettedExpression
-      it_recognizes_function_using production
-      it_recognizes_iriref_using production
-      it_recognizes_rdf_literal_using production
-      it_recognizes_numeric_literal_using production
-      it_recognizes_boolean_literal_using production
-      it_recognizes_var_using production
+      it_recognizes_primary_expression_using production
     end
   end
 
   describe "when matching the [56] BrackettedExpression production rule" do
     with_production(:BrackettedExpression) do |production|
-      given_it_generates(production, %q(("foo")), [:Expression, RDF::Literal("foo")])
+      it_recognizes_bracketted_expression_using production
     end
   end
 
   describe "when matching the [57] BuiltInCall production rule" do
-    # [57] BuiltInCall ::= 'STR' '(' Expression ')'
-    #                    | 'LANG' '(' Expression ')'
-    #                    | 'LANGMATCHES' '(' Expression ',' Expression ')'
-    #                    | 'DATATYPE' '(' Expression ')'
-    #                    | 'BOUND' '(' Var ')'
-    #                    | 'sameTerm' '(' Expression ',' Expression ')'
-    #                    | 'isIRI' '(' Expression ')'
-    #                    | 'isURI' '(' Expression ')'
-    #                    | 'isBLANK' '(' Expression ')'
-    #                    | 'isLITERAL' '(' Expression ')'
-    #                    | RegexExpression
     with_production(:BuiltInCall) do |production|
-      it_rejects_empty_input_using production
-
-      given_it_generates(production, %q(STR ("foo")), [:BuiltInCall, :STR, RDF::Literal("foo")])
-      given_it_generates(production, %q(LANG ("foo")), [:BuiltInCall, :LANG, RDF::Literal("foo")])
-      given_it_generates(production, %q(LANGMATCHES ("foo", "bar")), [:BuiltInCall, :LANGMATCHES, RDF::Literal("foo"), RDF::Literal("bar")])
-      given_it_generates(production, %q(DATATYPE ("foo")), [:BuiltInCall, :DATATYPE, RDF::Literal("foo")])
-      given_it_generates(production, %q(sameTerm ("foo", "bar")), [:BuiltInCall, :sameTerm, RDF::Literal("foo"), RDF::Literal("bar")])
-      given_it_generates(production, %q(isIRI ("foo")), [:BuiltInCall, :isIRI, RDF::Literal("foo")])
-      given_it_generates(production, %q(isURI ("foo")), [:BuiltInCall, :isURI, RDF::Literal("foo")])
-      given_it_generates(production, %q(isBLANK ("foo")), [:BuiltInCall, :isBLANK, RDF::Literal("foo")])
-      given_it_generates(production, %q(isLITERAL ("foo")), [:BuiltInCall, :isLITERAL, RDF::Literal("foo")])
-      given_it_generates(production, %q(BOUND (?foo)), [:BuiltInCall, :BOUND, RDF::Query::Variable.new("foo")])
-      given_it_generates(production, %q(REGEX ("foo", "bar")), [:BuiltInCall, :REGEX, RDF::Literal("foo"), RDF::Literal("bar")])
+      it_recognizes_built_in_call_using production
     end
   end
 
   describe "when matching the [58] RegexExpression production rule" do
     with_production(:RegexExpression) do |production|
-      it_rejects_empty_input_using production
-      
-      it "regects REGEX with single expression" do
-        lambda { parser(production).call(%q(REGEX ("foo"))) }.should raise_error
-      end
-
-      given_it_generates(production, %q(REGEX ("foo", "bar")), [:REGEX, RDF::Literal("foo"), RDF::Literal("bar")])
+      it_recognizes_regex_expression_using production
     end
   end
 
   describe "when matching the [59] IRIrefOrFunction production rule" do
     with_production(:IRIrefOrFunction) do |production|
-      it_recognizes_function_using production
-      it_recognizes_iriref_using production
+      it_recognizes_iriref_or_function_using production
     end
   end
 
