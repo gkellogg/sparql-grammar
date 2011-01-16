@@ -382,7 +382,7 @@ module ProductionExamples
 
   # [56]    BrackettedExpression ::=       '(' Expression ')'
   def it_recognizes_bracketted_expression(production)
-    parser(production).call(%q(("foo"))).should == [:Expression, RDF::Literal("foo")]
+    parser(production).call(%q(("foo")))[1..-1].should == [RDF::Literal("foo")]
   end
 
   # [57]    BuiltInCall ::=  'STR' '(' Expression ')'
@@ -397,17 +397,17 @@ module ProductionExamples
   #                        | 'isLITERAL' '(' Expression ')'
   #                        | RegexExpression
   def it_recognizes_built_in_call(production)
-    parser(production).call(%q(STR ("foo")))[1..-1].should == [:STR, RDF::Literal("foo")]
-    parser(production).call(%q(LANG ("foo")))[1..-1].should == [:LANG, RDF::Literal("foo")]
-    parser(production).call(%q(LANGMATCHES ("foo", "bar")))[1..-1].should == [:LANGMATCHES, RDF::Literal("foo"), RDF::Literal("bar")]
-    parser(production).call(%q(DATATYPE ("foo")))[1..-1].should == [:DATATYPE, RDF::Literal("foo")]
-    parser(production).call(%q(sameTerm ("foo", "bar")))[1..-1].should == [:sameTerm, RDF::Literal("foo"), RDF::Literal("bar")]
-    parser(production).call(%q(isIRI ("foo")))[1..-1].should == [:isIRI, RDF::Literal("foo")]
-    parser(production).call(%q(isURI ("foo")))[1..-1].should == [:isURI, RDF::Literal("foo")]
-    parser(production).call(%q(isBLANK ("foo")))[1..-1].should == [:isBLANK, RDF::Literal("foo")]
-    parser(production).call(%q(isLITERAL ("foo")))[1..-1].should == [:isLITERAL, RDF::Literal("foo")]
-    parser(production).call(%q(BOUND (?foo)))[1..-1].should == [:BOUND, RDF::Query::Variable.new("foo")]
-    parser(production).call(%q(REGEX ("foo", "bar")))[1..-1].should == [:REGEX, RDF::Literal("foo"), RDF::Literal("bar")]
+    parser(production).call(%q(STR ("foo")))[1..-1].should == [:STR, [RDF::Literal("foo")]]
+    parser(production).call(%q(LANG ("foo")))[1..-1].should == [:LANG, [RDF::Literal("foo")]]
+    parser(production).call(%q(LANGMATCHES ("foo", "bar")))[1..-1].should == [:LANGMATCHES, [RDF::Literal("foo"), RDF::Literal("bar")]]
+    parser(production).call(%q(DATATYPE ("foo")))[1..-1].should == [:DATATYPE, [RDF::Literal("foo")]]
+    parser(production).call(%q(sameTerm ("foo", "bar")))[1..-1].should == [:sameTerm, [RDF::Literal("foo"), RDF::Literal("bar")]]
+    parser(production).call(%q(isIRI ("foo")))[1..-1].should == [:isIRI, [RDF::Literal("foo")]]
+    parser(production).call(%q(isURI ("foo")))[1..-1].should == [:isURI, [RDF::Literal("foo")]]
+    parser(production).call(%q(isBLANK ("foo")))[1..-1].should == [:isBLANK, [RDF::Literal("foo")]]
+    parser(production).call(%q(isLITERAL ("foo")))[1..-1].should == [:isLITERAL, [RDF::Literal("foo")]]
+    parser(production).call(%q(BOUND (?foo)))[1..-1].should == [:BOUND, [RDF::Query::Variable.new("foo")]]
+    parser(production).call(%q(REGEX ("foo", "bar")))[1..-1].should == [:REGEX, [RDF::Literal("foo"), RDF::Literal("bar")]]
   end
 
   # [58]    RegexExpression ::=       'REGEX' '(' Expression ',' Expression ( ',' Expression )? ')'
@@ -808,26 +808,44 @@ describe SPARQL::Grammar::Parser do
 
   describe "when matching the [15] LimitOffsetClauses production rule" do
     with_production(:LimitOffsetClauses) do |production|
-      pending("TODO")
+      it "recognizes OFFSET clauses" do
+        parser(production).call(%q(OFFSET 10)).should == [:offset, RDF::Literal.new(10)]
+      end
     end
   end
 
+  # [16]    OrderClause               ::=       'ORDER' 'BY' OrderCondition+
   describe "when matching the [16] OrderClause production rule" do
     with_production(:OrderClause) do |production|
-      pending("TODO")
+      given_it_generates(production, "ORDER BY ASC (1)", [:order, [[:asc, RDF::Literal(1)]]])
+      given_it_generates(production, "ORDER BY DESC (?a)", [:order, [[:desc, RDF::Query::Variable.new("a")]]])
+      given_it_generates(production, "ORDER BY ?a ASC (1) isURI(<b>)",
+        [:order,
+          RDF::Query::Variable.new("a"),
+          [[:asc, RDF::Literal(1)]],
+          :isURI, [RDF::URI.new("b")]])
     end
   end
 
+  # [17]    OrderCondition            ::=       ( ( 'ASC' | 'DESC' ) BrackettedExpression ) | ( Constraint | Var )
   describe "when matching the [17] OrderCondition production rule" do
     with_production(:OrderCondition) do |production|
-      pending("TODO")
+      given_it_generates(production, "ASC (1)", [:order, [[:asc, RDF::Literal(1)]]])
+      given_it_generates(production, "DESC (?a)", [:order, [[:desc, RDF::Query::Variable.new("a")]]])
+
+      # Constraint
+      it_recognizes_bracketted_expression_using production
+      it_recognizes_built_in_call_using production
+      it_recognizes_function_using production
+
+      it_recognizes_var_using production
     end
   end
 
   describe "when matching the [18] LimitClause production rule" do
     with_production(:LimitClause) do |production|
       it "recognizes LIMIT clauses" do
-        pending {parser(production).call(%q(LIMIT 10)).should == [:limit, 10]}
+        parser(production).call(%q(LIMIT 10)).should == [:limit, RDF::Literal.new(10)]
       end
     end
   end
@@ -835,7 +853,7 @@ describe SPARQL::Grammar::Parser do
   describe "when matching the [19] OffsetClause production rule" do
     with_production(:OffsetClause) do |production|
       it "recognizes OFFSET clauses" do
-        pending {parser(production).call(%q(OFFSET 10)).should == [:offset, 10]}
+        parser(production).call(%q(OFFSET 10)).should == [:offset, 10]
       end
     end
   end
@@ -879,17 +897,13 @@ describe SPARQL::Grammar::Parser do
     end
   end
 
-  describe "when matching the [26] Filter production rule" do
-    with_production(:Filter) do |production|
-      it_rejects_empty_input_using production
-      pending("TODO")
-    end
-  end
-
+  # [27] Constraint ::=  BrackettedExpression | BuiltInCall | FunctionCall
   describe "when matching the [27] Constraint production rule" do
     with_production(:Constraint) do |production|
       it_rejects_empty_input_using production
-      pending("TODO")
+      it_recognizes_bracketted_expression_using production
+      it_recognizes_built_in_call_using production
+      it_recognizes_function_using production
     end
   end
 

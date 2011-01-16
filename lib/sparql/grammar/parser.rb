@@ -317,6 +317,31 @@ module SPARQL; module Grammar
             add_prod_data(:bgp, data[:bgp])
           }
         }
+      when :OrderCondition
+        # [17]    OrderCondition            ::=       ( ( 'ASC' | 'DESC' ) BrackettedExpression ) | ( Constraint | Var )
+        {
+          :finish => lambda { |data|
+            if data[:OrderDirection]
+              add_prod_data(:order, [[data[:OrderDirection] + data[:Expression]]])
+            else
+              add_prod_data(:order, data[:Constraint] || data[:Var])
+            end
+          }
+        }
+      when :LimitClause
+        # [18]    LimitClause               ::=       'LIMIT' INTEGER
+        {
+          :finish => lambda { |data|
+            add_prod_data(:limit, data[:literal])
+          }
+        }
+      when :OffsetClause
+        # [19]    OffsetClause              ::=       'OFFSET' INTEGER
+        {
+          :finish => lambda { |data|
+            add_prod_data(:offset, data[:literal])
+          }
+        }
       when :GroupGraphPattern
         # [20]    GroupGraphPattern         ::=       '{' TriplesBlock? ( ( GraphPatternNotTriples | Filter ) '.'? TriplesBlock? )* '}'
         {
@@ -337,6 +362,13 @@ module SPARQL; module Grammar
             if data[:bgp]
               add_prod_data(:bgp, data[:bgp])
             end
+          }
+        }
+      when :Constraint
+        # [27]    Constraint                ::=       BrackettedExpression | BuiltInCall | FunctionCall
+        {
+          :finish => lambda { |data|
+            add_prod_data(:Constraint, data[:Expression] || data[:BuiltInCall] || data[:Function])
           }
         }
       when :FunctionCall
@@ -624,11 +656,11 @@ module SPARQL; module Grammar
         {
           :finish => lambda { |data|
             if data[:REGEX]
-              add_prod_data(:BuiltInCall, [:REGEX] + data[:REGEX])
+              add_prod_data(:BuiltInCall, [:REGEX] + [data[:REGEX]])
             elsif data[:BOUND]
-              add_prod_data(:BuiltInCall, [:BOUND] + data[:Var])
+              add_prod_data(:BuiltInCall, [:BOUND] + [data[:Var]])
             elsif data[:BuiltInCall]
-              add_prod_data(:BuiltInCall, data[:BuiltInCall] + data[:Expression])
+              add_prod_data(:BuiltInCall, data[:BuiltInCall] + [data[:Expression]])
             end
           }
         }
@@ -746,6 +778,8 @@ module SPARQL; module Grammar
           lambda { |token| add_prod_data(:Verb, RDF.type) }
         when :ANON
           lambda { |token| add_prod_data(:BlankNode, gen_node()) }
+        when :ASC, :DESC
+          lambda { |token| add_prod_data(:OrderDirection, token.downcase.to_sym) }
         when :BLANK_NODE_LABEL
           lambda { |token| add_prod_data(:BlankNode, gen_node(token)) }
         when :BooleanLiteral
