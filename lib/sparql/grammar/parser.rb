@@ -85,6 +85,15 @@ module SPARQL; module Grammar
     rescue Error
       false
     end
+    
+    # Output SSE as an S-Expression
+    #
+    # @return [String]
+    def to_sse
+      @result.to_sxp
+    end
+    
+    alias_method :to_s, :to_sse
 
     # Parse query
     #

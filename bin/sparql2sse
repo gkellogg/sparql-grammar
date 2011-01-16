@@ -21,7 +21,7 @@ def run(input, parser_options)
   elsif $dump
     puts res.inspect
   else
-    puts present_results(res, parser_options)
+    puts parser.to_sse
   end
   puts
   secs = Time.new - start
@@ -32,33 +32,6 @@ rescue Exception => e
     STDERR.puts("\nIn #{fname}: #{e.message}")
     raise e
   end
-end
-
-def present_results(array, options = {})
-  options = options.merge(:prefixes => false) if options[:prefixes] && array.is_a?(Array) && array.first == :prefix
-  level = options[:level].to_i
-  "#{'  ' * level}[" +
-  array.map do |e|
-    e.to_s
-    case e
-    when Array                then present_results(e, options.merge(:level => level + 1))
-    when Symbol               then e.inspect
-    when RDF::Node            then e.to_s
-    when RDF::Query::Variable then e.to_s
-    when RDF::Literal        then RDF::NTriples::Writer.new.format_value(e)
-    when RDF::URI
-      if options[:prefixes] && (start = options[:prefixes].values.detect {|v| e.to_s.index(v) == 0})
-        prefix = options[:prefixes].invert[start].to_s
-        "#{prefix}:#{e.to_s.sub(start, '')}"
-      elsif options[:base_uri] && e.to_s.index(options[:base_uri]) == 0
-        "<#{e.to_s.sub(options[:base_uri], '')}>"
-      else
-        "<#{e}>"
-      end
-    else                           e.inspect
-    end
-  end.join(" ") +
-  "]\n"
 end
 
 $output_format = :ntriples

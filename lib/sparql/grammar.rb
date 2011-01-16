@@ -1,4 +1,7 @@
 require 'rdf' # @see http://rubygems.org/gems/rdf
+require 'json'
+require 'sxp'
+require 'sparql/grammar/writer'
 
 module SPARQL
   ##
@@ -8,7 +11,7 @@ module SPARQL
   module Grammar
     autoload :Lexer,   'sparql/grammar/lexer'
     autoload :Parser,  'sparql/grammar/parser'
-    autoload :Meta,  'sparql/grammar/parser/meta'
+    autoload :Meta,    'sparql/grammar/parser/meta'
     autoload :VERSION, 'sparql/grammar/version'
 
     METHODS   = %w(SELECT CONSTRUCT DESCRIBE ASK).map(&:to_sym)
