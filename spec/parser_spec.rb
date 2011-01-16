@@ -243,7 +243,6 @@ module ProductionExamples
   # [41]    GraphNode                 ::=       VarOrTerm | TriplesNode
   def it_recognizes_graph_node(production)
     it_recognizes_var_or_term(production)
-    it_recognizes_triples_node(production)
   end
 
   # [42]    VarOrTerm                 ::=       Var | GraphTerm
@@ -465,7 +464,7 @@ module ProductionExamples
   # [67] IRIref
   def it_recognizes_iriref(production)
     parser(production).call(%q(<http://example.org/>)).last.should == RDF::URI('http://example.org/')
-    # test prefixed names
+    # XXXtest prefixed names
   end
 
   # [69] BlankNode
@@ -493,149 +492,117 @@ module ProductionExamples
     parser(production).call(%q(())).last.should == RDF.nil
   end
 
-  SIMPLE_BGP = {
+  TRIPLES = {
     # From sytax-sparql1/syntax-basic-03.rq
     %q(?x ?y ?z) =>
-      [:BGP,
-        [:triple, RDF::Query::Variable.new("x"), RDF::Query::Variable.new("y"), RDF::Query::Variable.new("z")]],
+      [[:triple, RDF::Query::Variable.new("x"), RDF::Query::Variable.new("y"), RDF::Query::Variable.new("z")]],
     # From sytax-sparql1/syntax-basic-05.rq
     %q(?x ?y ?z . ?a ?b ?c) =>
-      [:BGP,
-        [:triple, RDF::Query::Variable.new("x"), RDF::Query::Variable.new("y"), RDF::Query::Variable.new("z")],
-        [:triple, RDF::Query::Variable.new("a"), RDF::Query::Variable.new("b"), RDF::Query::Variable.new("c")]],
+      [[:triple, RDF::Query::Variable.new("x"), RDF::Query::Variable.new("y"), RDF::Query::Variable.new("z")],
+      [:triple, RDF::Query::Variable.new("a"), RDF::Query::Variable.new("b"), RDF::Query::Variable.new("c")]],
     # From sytax-sparql1/syntax-bnodes-01.rq
     %q([:p :q ]) =>
-      [:BGP,
-        [:triple, RDF::Node("gen0001"), RDF::URI("http://example.com/p"), RDF::URI("http://example.com/q")]],
+      [[:triple, RDF::Node("gen0001"), RDF::URI("http://example.com/p"), RDF::URI("http://example.com/q")]],
     # From sytax-sparql1/syntax-bnodes-02.rq
     %q([] :p :q) =>
-      [:BGP,
-        [:triple, RDF::Node("gen0001"), RDF::URI("http://example.com/p"), RDF::URI("http://example.com/q")]],
+      [[:triple, RDF::Node("gen0001"), RDF::URI("http://example.com/p"), RDF::URI("http://example.com/q")]],
 
     # From sytax-sparql2/syntax-general-01.rq
     %q(<a><b><c>) =>
-      [:BGP,
-        [:triple, RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::URI("http://example.org/c")]],
+      [[:triple, RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::URI("http://example.org/c")]],
     # From sytax-sparql2/syntax-general-02.rq
     %q(<a><b>_:x) =>
-      [:BGP,
-        [:triple, RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::Node("x")]],
+      [[:triple, RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::Node("x")]],
     # From sytax-sparql2/syntax-general-03.rq
     %q(<a><b>1) =>
-      [:BGP,
-        [:triple, RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::Literal(1)]],
+      [[:triple, RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::Literal(1)]],
     # From sytax-sparql2/syntax-general-04.rq
     %q(<a><b>+1) =>
-      [:BGP,
-        [:triple, RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::Literal::Integer.new("+1")]],
+      [[:triple, RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::Literal::Integer.new("+1")]],
     # From sytax-sparql2/syntax-general-05.rq
     %q(<a><b>-1) =>
-      [:BGP,
-        [:triple, RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::Literal::Integer.new("-1")]],
+      [[:triple, RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::Literal::Integer.new("-1")]],
     # From sytax-sparql2/syntax-general-06.rq
     %q(<a><b>1.0) =>
-      [:BGP,
-        [:triple, RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::Literal::Decimal.new("1.0")]],
+      [[:triple, RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::Literal::Decimal.new("1.0")]],
     # From sytax-sparql2/syntax-general-07.rq
     %q(<a><b>+1.0) =>
-      [:BGP,
-        [:triple, RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::Literal::Decimal.new("+1.0")]],
+      [[:triple, RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::Literal::Decimal.new("+1.0")]],
     # From sytax-sparql2/syntax-general-08.rq
     %q(<a><b>-1.0) =>
-      [:BGP,
-        [:triple, RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::Literal::Decimal.new("-1.0")]],
+      [[:triple, RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::Literal::Decimal.new("-1.0")]],
     # From sytax-sparql2/syntax-general-09.rq
     %q(<a><b>1.0e0) =>
-      [:BGP,
-        [:triple, RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::Literal::Double.new("1.0e0")]],
+      [[:triple, RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::Literal::Double.new("1.0e0")]],
     # From sytax-sparql2/syntax-general-10.rq
     %q(<a><b>+1.0e+1) =>
-      [:BGP,
-        [:triple, RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::Literal::Double.new("+1.0e+1")]],
+      [[:triple, RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::Literal::Double.new("+1.0e+1")]],
     # From sytax-sparql2/syntax-general-11.rq
     %q(<a><b>-1.0e-1) =>
-      [:BGP,
-        [:triple, RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::Literal::Double.new("-1.0e-1")]],
+      [[:triple, RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::Literal::Double.new("-1.0e-1")]],
 
     # Made up syntax tests
     %q(<a><b><c>,<d>) =>
-      [:BGP,
-        [:triple, RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::URI("http://example.org/c")],
-        [:triple, RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::URI("http://example.org/d")]],
+      [[:triple, RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::URI("http://example.org/c")],
+      [:triple, RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::URI("http://example.org/d")]],
     %q(<a><b><c>;<d><e>) =>
-      [:BGP,
-        [:triple, RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::URI("http://example.org/c")],
-        [:triple, RDF::URI("http://example.org/a"), RDF::URI("http://example.org/d"), RDF::URI("http://example.org/e")]],
+      [[:triple, RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::URI("http://example.org/c")],
+      [:triple, RDF::URI("http://example.org/a"), RDF::URI("http://example.org/d"), RDF::URI("http://example.org/e")]],
     %q([<b><c>,<d>]) =>
-      [:BGP,
-        [:triple, RDF::Node("gen0001"), RDF::URI("http://example.org/b"), RDF::URI("http://example.org/c")],
-        [:triple, RDF::Node("gen0001"), RDF::URI("http://example.org/b"), RDF::URI("http://example.org/d")]],
+      [[:triple, RDF::Node("gen0001"), RDF::URI("http://example.org/b"), RDF::URI("http://example.org/c")],
+      [:triple, RDF::Node("gen0001"), RDF::URI("http://example.org/b"), RDF::URI("http://example.org/d")]],
     %q([<b><c>;<d><e>]) =>
-      [:BGP,
-        [:triple, RDF::Node("gen0001"), RDF::URI("http://example.org/b"), RDF::URI("http://example.org/c")],
-        [:triple, RDF::Node("gen0001"), RDF::URI("http://example.org/d"), RDF::URI("http://example.org/e")]],
+      [[:triple, RDF::Node("gen0001"), RDF::URI("http://example.org/b"), RDF::URI("http://example.org/c")],
+      [:triple, RDF::Node("gen0001"), RDF::URI("http://example.org/d"), RDF::URI("http://example.org/e")]],
     %q((<a>)) =>
-      [:BGP,
-        [:triple, RDF::Node("gen0001"), RDF["first"], RDF::URI("http://example.org/a")],
-        [:triple, RDF::Node("gen0001"), RDF["rest"], RDF["nil"]]],
+      [[:triple, RDF::Node("gen0001"), RDF["first"], RDF::URI("http://example.org/a")],
+      [:triple, RDF::Node("gen0001"), RDF["rest"], RDF["nil"]]],
     %q((<a> <b>)) =>
-      [:BGP,
-        [:triple, RDF::Node("gen0001"), RDF["first"], RDF::URI("http://example.org/a")],
-        [:triple, RDF::Node("gen0001"), RDF["rest"], RDF::Node("gen0002")],
-        [:triple, RDF::Node("gen0002"), RDF["first"], RDF::URI("http://example.org/b")],
-        [:triple, RDF::Node("gen0002"), RDF["rest"], RDF["nil"]]],
+      [[:triple, RDF::Node("gen0001"), RDF["first"], RDF::URI("http://example.org/a")],
+      [:triple, RDF::Node("gen0001"), RDF["rest"], RDF::Node("gen0002")],
+      [:triple, RDF::Node("gen0002"), RDF["first"], RDF::URI("http://example.org/b")],
+      [:triple, RDF::Node("gen0002"), RDF["rest"], RDF["nil"]]],
     %q(<a><b>"foobar") =>
-      [:BGP,
-        [:triple, RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::Literal("foobar")]],
+      [[:triple, RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::Literal("foobar")]],
     %q(<a><b>'foobar') =>
-      [:BGP,
-        [:triple, RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::Literal("foobar")]],
+      [[:triple, RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::Literal("foobar")]],
     %q(<a><b>"""foobar""") =>
-      [:BGP,
-        [:triple, RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::Literal("foobar")]],
+      [[:triple, RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::Literal("foobar")]],
     %q(<a><b>'''foobar''') =>
-      [:BGP,
-        [:triple, RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::Literal("foobar")]],
+      [[:triple, RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::Literal("foobar")]],
     %q(<a><b>"foobar"@en) =>
-      [:BGP,
-        [:triple, RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::Literal("foobar", :language => :en)]],
+      [[:triple, RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::Literal("foobar", :language => :en)]],
     %q(<a><b>"foobar"^^<c>) =>
-      [:BGP,
-        [:triple, RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::Literal("foobar", :datatype => RDF::URI("http://example.org/c"))]],
+      [[:triple, RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::Literal("foobar", :datatype => RDF::URI("http://example.org/c"))]],
     %q(<a><b>()) =>
-      [:BGP,
-        [:triple,  RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF["nil"]]],
+      [[:triple,  RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF["nil"]]],
 
     # From sytax-sparql1/syntax-bnodes-03.rq
     %q([ ?x ?y ] <http://example.com/p> [ ?pa ?b ]) =>
-      [:BGP,
-        [:triple, RDF::Node("gen0001"), RDF::Query::Variable.new("x"), RDF::Query::Variable.new("y")],
-        [:triple, RDF::Node("gen0001"), RDF::URI("http://example.com/p"), RDF::Node("gen0002")],
-        [:triple, RDF::Node("gen0002"), RDF::Query::Variable.new("pa"), RDF::Query::Variable.new("b")]],
+      [[:triple, RDF::Node("gen0001"), RDF::Query::Variable.new("x"), RDF::Query::Variable.new("y")],
+      [:triple, RDF::Node("gen0001"), RDF::URI("http://example.com/p"), RDF::Node("gen0002")],
+      [:triple, RDF::Node("gen0002"), RDF::Query::Variable.new("pa"), RDF::Query::Variable.new("b")]],
     # From sytax-sparql1/syntax-bnodes-03.rq
     %q(_:a :p1 :q1 .
        _:a :p2 :q2 .) =>
-      [:BGP,
-        [:triple, RDF::Node("a"), RDF::URI("http://example.com/p1"), RDF::URI("http://example.com/q1")],
-        [:triple, RDF::Node("a"), RDF::URI("http://example.com/p2"), RDF::URI("http://example.com/q2")]],
+      [[:triple, RDF::Node("a"), RDF::URI("http://example.com/p1"), RDF::URI("http://example.com/q1")],
+      [:triple, RDF::Node("a"), RDF::URI("http://example.com/p2"), RDF::URI("http://example.com/q2")]],
     # From sytax-sparql1/syntax-forms-01.rq
     %q(( [ ?x ?y ] ) :p ( [ ?pa ?b ] 57 )) =>
-      [:BGP,
-        [:triple, RDF::Node("gen0002"), RDF::Query::Variable.new("x"), RDF::Query::Variable.new("y")],
-        [:triple, RDF::Node("gen0001"), RDF["first"], RDF::Node("gen0002")],
-        [:triple, RDF::Node("gen0001"), RDF["rest"], RDF["nil"]],
-        [:triple, RDF::Node("gen0001"), RDF::URI("http://example.com/p"), RDF::Node("gen0003")],
-        [:triple, RDF::Node("gen0004"), RDF::Query::Variable.new("pa"), RDF::Query::Variable.new("b")],
-        [:triple, RDF::Node("gen0003"), RDF["first"], RDF::Node("gen0004")],
-        [:triple, RDF::Node("gen0003"), RDF["rest"], RDF::Node("gen0005")],
-        [:triple, RDF::Node("gen0005"), RDF["first"], RDF::Literal(57)],
-        [:triple, RDF::Node("gen0005"), RDF["rest"], RDF["nil"]]],
+      [[:triple, RDF::Node("gen0002"), RDF::Query::Variable.new("x"), RDF::Query::Variable.new("y")],
+      [:triple, RDF::Node("gen0001"), RDF["first"], RDF::Node("gen0002")],
+      [:triple, RDF::Node("gen0001"), RDF["rest"], RDF["nil"]],
+      [:triple, RDF::Node("gen0001"), RDF::URI("http://example.com/p"), RDF::Node("gen0003")],
+      [:triple, RDF::Node("gen0004"), RDF::Query::Variable.new("pa"), RDF::Query::Variable.new("b")],
+      [:triple, RDF::Node("gen0003"), RDF["first"], RDF::Node("gen0004")],
+      [:triple, RDF::Node("gen0003"), RDF["rest"], RDF::Node("gen0005")],
+      [:triple, RDF::Node("gen0005"), RDF["first"], RDF::Literal(57)],
+      [:triple, RDF::Node("gen0005"), RDF["rest"], RDF["nil"]]],
     # From sytax-sparql1/syntax-lists-01.rq
     %q(( ?x ) :p ?z) =>
-      [:BGP,
-        [:triple, RDF::Node("gen0001"), RDF["first"], RDF::Query::Variable.new("x")],
-        [:triple, RDF::Node("gen0001"), RDF["rest"], RDF["nil"]],
-        [:triple, RDF::Node("gen0001"), RDF::URI("http://example.com/p"), RDF::Query::Variable.new("z")]],
+      [[:triple, RDF::Node("gen0001"), RDF["first"], RDF::Query::Variable.new("x")],
+      [:triple, RDF::Node("gen0001"), RDF["rest"], RDF["nil"]],
+      [:triple, RDF::Node("gen0001"), RDF::URI("http://example.com/p"), RDF::Query::Variable.new("z")]],
   }
 end
 
@@ -666,8 +633,8 @@ describe SPARQL::Grammar::Parser do
         given_it_generates(production, input, result)
       end
 
-      SIMPLE_BGP.each_pair do |input, result|
-        given_it_generates(production, "SELECT * WHERE {#{input}}", result,
+      TRIPLES.each_pair do |input, result|
+        given_it_generates(production, "SELECT * WHERE {#{input}}", ([:BGP] + result),
           :prefixes => {nil => "http://example.com/", :rdf => RDF.to_uri.to_s},
           :base_uri => "http://example.org/",
           :anon_base => "gen0000")
@@ -692,7 +659,7 @@ describe SPARQL::Grammar::Parser do
         p.prefixes[nil].should == 'foobar'
       end
 
-      given_it_generates(production, %q(PREFIX : <foobar>), [:PrefixDecl, [[:":", RDF::URI("foobar")]]])
+      given_it_generates(production, %q(PREFIX : <foobar>), [:PrefixDecl, [[:":", RDF::URI("foobar")]]], :resolve_uris => false)
 
       it "sets prefix foo: to 'bar' given 'PREFIX foo: <bar>'" do
         p = parser.call(%q(PREFIX foo: <bar>))
@@ -702,32 +669,51 @@ describe SPARQL::Grammar::Parser do
         p.prefixes[:foo].should == 'bar'
       end
 
-      given_it_generates(production, %q(PREFIX foo: <bar>), [:PrefixDecl, [[:"foo:", RDF::URI("bar")]]])
+      given_it_generates(production, %q(PREFIX foo: <bar>), [:PrefixDecl, [[:"foo:", RDF::URI("bar")]]], :resolve_uris => false)
 
       given_it_generates(production, %q(PREFIX : <foobar> PREFIX foo: <bar>),
         [:PrefixDecl, [
           [:":", RDF::URI("foobar")],
-          [:"foo:", RDF::URI("bar")]]]);
+          [:"foo:", RDF::URI("bar")]]], :resolve_uris => false);
     end
   end
 
+  # [5]     SelectQuery               ::=       'SELECT' ( 'DISTINCT' | 'REDUCED' )? ( Var+ | '*' ) DatasetClause* WhereClause SolutionModifier
   describe "when matching the [5] SelectQuery production rule" do
     with_production(:SelectQuery) do |production|
       it_rejects_empty_input_using production
 
-      SIMPLE_BGP.each_pair do |input, result|
-        given_it_generates(production, "SELECT * WHERE {#{input}}", result,
-          :prefixes => {nil => "http://example.com/", :rdf => RDF.to_uri.to_s},
-          :base_uri => "http://example.org/",
-          :anon_base => "gen0000")
+      describe "SELECT * WHERE {...}" do
+        TRIPLES.each_pair do |input, result|
+          given_it_generates(production, "SELECT * WHERE {#{input}}", ([:BGP] + result),
+            :prefixes => {nil => "http://example.com/", :rdf => RDF.to_uri.to_s},
+            :base_uri => "http://example.org/",
+            :anon_base => "gen0000")
+        end
       end
     end
   end
 
+  # [6]     ConstructQuery            ::=       'CONSTRUCT' ConstructTemplate DatasetClause* WhereClause SolutionModifier
   describe "when matching the [6] ConstructQuery production rule" do
     with_production(:ConstructQuery) do |production|
       it_rejects_empty_input_using production
-      pending("TODO")
+      
+      query = %(
+        PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> 
+        PREFIX  foaf:       <http://xmlns.com/foaf/0.1/>
+
+        CONSTRUCT { ?s foaf:name ?o . }
+        WHERE {
+          ?s foaf:name ?o .
+        }
+      )
+      result = %(
+        (prefix ((rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>)
+                 (foaf: <http://xmlns.com/foaf/0.1/>))
+          (project (?s ?o)
+            (bgp (triple ?s foaf:name ?o))))
+      )
     end
   end
 
@@ -804,8 +790,8 @@ describe SPARQL::Grammar::Parser do
     with_production(:WhereClause) do |production|
       it_rejects_empty_input_using production
 
-      SIMPLE_BGP.each_pair do |input, result|
-        given_it_generates(production, "WHERE {#{input}}", result,
+      TRIPLES.each_pair do |input, result|
+        given_it_generates(production, "WHERE {#{input}}", ([:BGP] + result),
           :prefixes => {nil => "http://example.com/", :rdf => RDF.to_uri.to_s},
           :base_uri => "http://example.org/",
           :anon_base => "gen0000")
@@ -856,19 +842,8 @@ describe SPARQL::Grammar::Parser do
 
   describe "when matching the [20] GroupGraphPattern production rule" do
     with_production(:GroupGraphPattern) do |production|
-      SIMPLE_BGP.each_pair do |input, result|
-        given_it_generates(production, "{#{input}}", result,
-          :prefixes => {nil => "http://example.com/", :rdf => RDF.to_uri.to_s},
-          :base_uri => "http://example.org/",
-          :anon_base => "gen0000")
-      end
-    end
-  end
-
-  describe "when matching the [21] TriplesBlock production rule" do
-    with_production(:TriplesBlock) do |production|
-      SIMPLE_BGP.each_pair do |input, result|
-        given_it_generates(production, input, result,
+      TRIPLES.each_pair do |input, result|
+        given_it_generates(production, "{#{input}}", ([:BGP] + result),
           :prefixes => {nil => "http://example.com/", :rdf => RDF.to_uri.to_s},
           :base_uri => "http://example.org/",
           :anon_base => "gen0000")
@@ -936,370 +911,336 @@ describe SPARQL::Grammar::Parser do
 
   describe "when matching the [30] ConstructTemplate production rule" do
     with_production(:ConstructTemplate) do |production|
-      it_rejects_empty_input_using production
-      pending("TODO")
+      TRIPLES.each_pair do |input, result|
+        given_it_generates(production, "{#{input}}", ([:ConstructTriples] + result),
+          :prefixes => {nil => "http://example.com/", :rdf => RDF.to_uri.to_s},
+          :base_uri => "http://example.org/",
+          :anon_base => "gen0000")
+      end
     end
   end
 
   describe "when matching the [31] ConstructTriples production rule" do
     with_production(:ConstructTriples) do |production|
-      it_rejects_empty_input_using production
-      pending("TODO")
-    end
-  end
-
-  describe "when matching the [32] TriplesSameSubject production rule" do
-    with_production(:TriplesSameSubject) do |production|
-      it_rejects_empty_input_using production
-      pending("TODO")
-    end
-  end
-
-  describe "when matching the [33] PropertyListNotEmpty production rule" do
-    with_production(:PropertyListNotEmpty) do |production|
-      pending("TODO")
-    end
-  end
-
-  describe "when matching the [34] PropertyList production rule" do
-    with_production(:PropertyList) do |production|
-      it_rejects_empty_input_using production
-      pending("TODO")
-    end
-  end
-
-  describe "when matching the [35] ObjectList production rule" do
-    with_production(:ObjectList) do |production|
-      it_rejects_empty_input_using production
-      pending("TODO")
-    end
-  end
-
-  describe "when matching the [36] Object production rule" do
-    with_production(:Object) do |production|
-      it_rejects_empty_input_using production
-      pending("TODO")
-    end
-  end
-
-  describe "when matching the [37] Verb production rule" do
-    with_production(:Verb) do |production|
-      it_rejects_empty_input_using production
-
-      it "recognizes the VarOrIRIref nonterminal" do
-        pending("TODO")
-      end
-
-      it "recognizes the 'a' lexeme" do
-        parser(production).call(%q(a)).should == [:Verb, RDF.type]
+      TRIPLES.each_pair do |input, result|
+        given_it_generates(production, input, ([:ConstructTriples] + result),
+          :prefixes => {nil => "http://example.com/", :rdf => RDF.to_uri.to_s},
+          :base_uri => "http://example.org/",
+          :anon_base => "gen0000")
       end
     end
   end
 
-  describe "when matching the [38] TriplesNode production rule" do
-    with_production(:TriplesNode) do |production|
-      pending("TODO")
-    end
-  end
-
-  describe "when matching the [39] BlankNodePropertyList production rule" do
-    with_production(:BlankNodePropertyList) do |production|
-      it_rejects_empty_input_using production
-      pending("TODO")
-    end
-  end
-
-  describe "when matching the [40] Collection production rule" do
-    with_production(:Collection) do |production|
-       pending("TODO")
-    end
-  end
-
-  describe "when matching the [41] GraphNode production rule" do
-    with_production(:GraphNode) do |production|
-      it_recognizes_graph_node_using(production)
-    end
-  end
-
-  describe "when matching the [42] VarOrTerm production rule" do
-    with_production(:VarOrTerm) do |production|
-      it_recognizes_var_or_term_using production
-    end
-  end
-
-  describe "when matching the [43] VarOrIRIref production rule" do
-    with_production(:VarOrIRIref) do |production|
-      it_recognizes_var_or_iriref_using production
-    end
-  end
-
-  describe "when matching the [44] Var production rule" do
-    with_production(:Var) do |production|
-      it_rejects_empty_input_using production
-
-      it "recognizes the VAR1 terminal" do
-        it_recognizes_var1(production)
-      end
-
-      it "recognizes the VAR2 terminal" do
-        it_recognizes_var2(production)
+  describe "when matching the [21] TriplesBlock production rule" do
+    with_production(:TriplesBlock) do |production|
+      TRIPLES.each_pair do |input, result|
+        given_it_generates(production, input, ([:BGP] + result),
+          :prefixes => {nil => "http://example.com/", :rdf => RDF.to_uri.to_s},
+          :base_uri => "http://example.org/",
+          :anon_base => "gen0000")
       end
     end
   end
 
-  describe "when matching the [45] GraphTerm production rule" do
-    with_production(:GraphTerm) do |production|
-      it_recognizes_graph_term_using(production)
-    end
-  end
-
-  describe "when matching the [46] Expression production rule" do
-    with_production(:Expression) do |production|
-      it_recognizes_expression_using production
-    end
-  end
-
-  describe "when matching the [47] ConditionalOrExpression production rule" do
-    with_production(:ConditionalOrExpression) do |production|
-      it_recognizes_conditional_or_expression_using production
-    end
-  end
-
-  describe "when matching the [48] ConditionalAndExpression production rule" do
-    with_production(:ConditionalAndExpression) do |production|
-      it_recognizes_conditional_and_expression_using production
-    end
-  end
-
-  describe "when matching the [49] ValueLogical production rule" do
-    with_production(:ValueLogical) do |production|
-      it_recognizes_value_logical_using production
-    end
-  end
-
-  describe "when matching the [50] RelationalExpression production rule" do
-    with_production(:RelationalExpression) do |production|
-      it_recognizes_relational_expression_using production
-    end
-  end
-
-  describe "when matching the [51] NumericExpression production rule" do
-    with_production(:NumericExpression) do |production|
-      it_recognizes_numeric_expression_using production
-    end
-  end
-
-  describe "when matching the [52] AdditiveExpression production rule" do
-    with_production(:AdditiveExpression) do |production|
-      it_recognizes_additive_expression_using production
-    end
-  end
-
-  describe "when matching the [53] MultiplicativeExpression production rule" do
-    with_production(:MultiplicativeExpression) do |production|
-      it_recognizes_multiplicative_expression_using production
-    end
-  end
-
-  describe "when matching the [54] UnaryExpression production rule" do
-    with_production(:UnaryExpression) do |production|
-      it_recognizes_unary_expression_using production
-    end
-  end
-
-  describe "when matching the [55] PrimaryExpression production rule" do
-    # [55] PrimaryExpression ::= BrackettedExpression | BuiltInCall | IRIrefOrFunction | RDFLiteral | NumericLiteral | BooleanLiteral | Var
-    with_production(:PrimaryExpression) do |production|
-      it_recognizes_primary_expression_using production
-    end
-  end
-
-  describe "when matching the [56] BrackettedExpression production rule" do
-    with_production(:BrackettedExpression) do |production|
-      it_recognizes_bracketted_expression_using production
-    end
-  end
-
-  describe "when matching the [57] BuiltInCall production rule" do
-    with_production(:BuiltInCall) do |production|
-      it_recognizes_built_in_call_using production
-    end
-  end
-
-  describe "when matching the [58] RegexExpression production rule" do
-    with_production(:RegexExpression) do |production|
-      it_recognizes_regex_expression_using production
-    end
-  end
-
-  describe "when matching the [59] IRIrefOrFunction production rule" do
-    with_production(:IRIrefOrFunction) do |production|
-      it_recognizes_iriref_or_function_using production
-    end
-  end
-
-  describe "when matching the [60] RDFLiteral production rule" do
-    with_production(:RDFLiteral) do |production|
-      it_rejects_empty_input_using production
-
-      it "recognizes plain literals" do
-        it_recognizes_rdf_literal_without_language_or_datatype production
-      end
-
-      it "recognizes language-tagged literals" do
-        it_recognizes_rdf_literal_with_language production
-      end
-
-      it "recognizes datatyped literals" do
-        it_recognizes_rdf_literal_with_datatype production
-      end
-
-    end
-  end
-
-  describe "when matching the [61] NumericLiteral production rule" do
-    with_production(:NumericLiteral) do |production|
-      it_rejects_empty_input_using production
-
-      it "recognizes the NumericLiteralUnsigned nonterminal" do
-        parser(production).call(%q(123)).last.should     == RDF::Literal::Integer.new(123)
-        parser(production).call(%q(3.1415)).last.should  == RDF::Literal::Decimal.new(3.1415)
-        parser(production).call(%q(1e6)).last.should     == RDF::Literal::Double.new(1e6)
-      end
-
-      it "recognizes the NumericLiteralPositive nonterminal" do
-        parser(production).call(%q(+123)).last.should    == RDF::Literal::Integer.new(123)
-        parser(production).call(%q(+3.1415)).last.should == RDF::Literal::Decimal.new(3.1415)
-        parser(production).call(%q(+1e6)).last.should    == RDF::Literal::Double.new(1e6)
-      end
-
-      it "recognizes the NumericLiteralNegative nonterminal" do
-        parser(production).call(%q(-123)).last.should    == RDF::Literal::Integer.new(-123)
-        parser(production).call(%q(-3.1415)).last.should == RDF::Literal::Decimal.new(-3.1415)
-        parser(production).call(%q(-1e6)).last.should    == RDF::Literal::Double.new(-1e6)
+  # Productions that can be tested individually
+  describe "individual nonterminal productions" do
+    describe "when matching the [41] GraphNode production rule" do
+      with_production(:GraphNode) do |production|
+        it_recognizes_graph_node_using(production)
       end
     end
-  end
 
-  describe "when matching the [62] NumericLiteralUnsigned production rule" do
-    with_production(:NumericLiteralUnsigned) do |production|
-      it_rejects_empty_input_using production
+    describe "when matching the [42] VarOrTerm production rule" do
+      with_production(:VarOrTerm) do |production|
+        it_recognizes_var_or_term_using production
+      end
+    end
 
-      it "recognizes the INTEGER terminal" do
-        %w(1 2 3 42 123).each do |input|
-          parser(production).call(input).last.should == RDF::Literal::Integer.new(input.to_i)
+    describe "when matching the [43] VarOrIRIref production rule" do
+      with_production(:VarOrIRIref) do |production|
+        it_recognizes_var_or_iriref_using production
+      end
+    end
+
+    describe "when matching the [44] Var production rule" do
+      with_production(:Var) do |production|
+        it_rejects_empty_input_using production
+
+        it "recognizes the VAR1 terminal" do
+          it_recognizes_var1(production)
         end
-      end
 
-      it "recognizes the DECIMAL terminal" do
-        %w(1. 3.1415 .123).each do |input|
-          parser(production).call(input).last.should == RDF::Literal::Decimal.new(input.to_f)
-        end
-      end
-
-      it "recognizes the DOUBLE terminal" do
-        %w(1e2 3.1415e2 .123e2).each do |input|
-          parser(production).call(input).last.should == RDF::Literal::Double.new(input.to_f)
+        it "recognizes the VAR2 terminal" do
+          it_recognizes_var2(production)
         end
       end
     end
-  end
 
-  describe "when matching the [63] NumericLiteralPositive production rule" do
-    with_production(:NumericLiteralPositive) do |production|
-      it_rejects_empty_input_using production
+    describe "when matching the [45] GraphTerm production rule" do
+      with_production(:GraphTerm) do |production|
+        it_recognizes_graph_term_using(production)
+      end
+    end
 
-      it "recognizes the INTEGER_POSITIVE terminal" do
-        %w(+1 +2 +3 +42 +123).each do |input|
-          parser(production).call(input).last.should == RDF::Literal::Integer.new(input.to_i)
+    describe "when matching the [46] Expression production rule" do
+      with_production(:Expression) do |production|
+        it_recognizes_expression_using production
+      end
+    end
+
+    describe "when matching the [47] ConditionalOrExpression production rule" do
+      with_production(:ConditionalOrExpression) do |production|
+        it_recognizes_conditional_or_expression_using production
+      end
+    end
+
+    describe "when matching the [48] ConditionalAndExpression production rule" do
+      with_production(:ConditionalAndExpression) do |production|
+        it_recognizes_conditional_and_expression_using production
+      end
+    end
+
+    describe "when matching the [49] ValueLogical production rule" do
+      with_production(:ValueLogical) do |production|
+        it_recognizes_value_logical_using production
+      end
+    end
+
+    describe "when matching the [50] RelationalExpression production rule" do
+      with_production(:RelationalExpression) do |production|
+        it_recognizes_relational_expression_using production
+      end
+    end
+
+    describe "when matching the [51] NumericExpression production rule" do
+      with_production(:NumericExpression) do |production|
+        it_recognizes_numeric_expression_using production
+      end
+    end
+
+    describe "when matching the [52] AdditiveExpression production rule" do
+      with_production(:AdditiveExpression) do |production|
+        it_recognizes_additive_expression_using production
+      end
+    end
+
+    describe "when matching the [53] MultiplicativeExpression production rule" do
+      with_production(:MultiplicativeExpression) do |production|
+        it_recognizes_multiplicative_expression_using production
+      end
+    end
+
+    describe "when matching the [54] UnaryExpression production rule" do
+      with_production(:UnaryExpression) do |production|
+        it_recognizes_unary_expression_using production
+      end
+    end
+
+    describe "when matching the [55] PrimaryExpression production rule" do
+      # [55] PrimaryExpression ::= BrackettedExpression | BuiltInCall | IRIrefOrFunction | RDFLiteral | NumericLiteral | BooleanLiteral | Var
+      with_production(:PrimaryExpression) do |production|
+        it_recognizes_primary_expression_using production
+      end
+    end
+
+    describe "when matching the [56] BrackettedExpression production rule" do
+      with_production(:BrackettedExpression) do |production|
+        it_recognizes_bracketted_expression_using production
+      end
+    end
+
+    describe "when matching the [57] BuiltInCall production rule" do
+      with_production(:BuiltInCall) do |production|
+        it_recognizes_built_in_call_using production
+      end
+    end
+
+    describe "when matching the [58] RegexExpression production rule" do
+      with_production(:RegexExpression) do |production|
+        it_recognizes_regex_expression_using production
+      end
+    end
+
+    describe "when matching the [59] IRIrefOrFunction production rule" do
+      with_production(:IRIrefOrFunction) do |production|
+        it_recognizes_iriref_or_function_using production
+      end
+    end
+
+    describe "when matching the [60] RDFLiteral production rule" do
+      with_production(:RDFLiteral) do |production|
+        it_rejects_empty_input_using production
+
+        it "recognizes plain literals" do
+          it_recognizes_rdf_literal_without_language_or_datatype production
+        end
+
+        it "recognizes language-tagged literals" do
+          it_recognizes_rdf_literal_with_language production
+        end
+
+        it "recognizes datatyped literals" do
+          it_recognizes_rdf_literal_with_datatype production
+        end
+
+      end
+    end
+
+    describe "when matching the [61] NumericLiteral production rule" do
+      with_production(:NumericLiteral) do |production|
+        it_rejects_empty_input_using production
+        it_recognizes_numeric_literal_using production
+
+        it "recognizes the NumericLiteralUnsigned nonterminal" do
+          parser(production).call(%q(123)).last.should     == RDF::Literal::Integer.new(123)
+          parser(production).call(%q(3.1415)).last.should  == RDF::Literal::Decimal.new(3.1415)
+          parser(production).call(%q(1e6)).last.should     == RDF::Literal::Double.new(1e6)
+        end
+
+        it "recognizes the NumericLiteralPositive nonterminal" do
+          parser(production).call(%q(+123)).last.should    == RDF::Literal::Integer.new(123)
+          parser(production).call(%q(+3.1415)).last.should == RDF::Literal::Decimal.new(3.1415)
+          parser(production).call(%q(+1e6)).last.should    == RDF::Literal::Double.new(1e6)
+        end
+
+        it "recognizes the NumericLiteralNegative nonterminal" do
+          parser(production).call(%q(-123)).last.should    == RDF::Literal::Integer.new(-123)
+          parser(production).call(%q(-3.1415)).last.should == RDF::Literal::Decimal.new(-3.1415)
+          parser(production).call(%q(-1e6)).last.should    == RDF::Literal::Double.new(-1e6)
         end
       end
+    end
 
-      it "recognizes the DECIMAL_POSITIVE terminal" do
-        %w(+1. +3.1415 +.123).each do |input|
-          parser(production).call(input).last.should == RDF::Literal::Decimal.new(input.to_f)
+    describe "when matching the [62] NumericLiteralUnsigned production rule" do
+      with_production(:NumericLiteralUnsigned) do |production|
+        it_rejects_empty_input_using production
+
+        it "recognizes the INTEGER terminal" do
+          %w(1 2 3 42 123).each do |input|
+            parser(production).call(input).last.should == RDF::Literal::Integer.new(input.to_i)
+          end
+        end
+
+        it "recognizes the DECIMAL terminal" do
+          %w(1. 3.1415 .123).each do |input|
+            parser(production).call(input).last.should == RDF::Literal::Decimal.new(input.to_f)
+          end
+        end
+
+        it "recognizes the DOUBLE terminal" do
+          %w(1e2 3.1415e2 .123e2).each do |input|
+            parser(production).call(input).last.should == RDF::Literal::Double.new(input.to_f)
+          end
         end
       end
+    end
 
-      it "recognizes the DOUBLE_POSITIVE terminal" do
-        %w(+1e2 +3.1415e2 +.123e2).each do |input|
-          parser(production).call(input).last.should == RDF::Literal::Double.new(input.to_f)
+    describe "when matching the [63] NumericLiteralPositive production rule" do
+      with_production(:NumericLiteralPositive) do |production|
+        it_rejects_empty_input_using production
+
+        it "recognizes the INTEGER_POSITIVE terminal" do
+          %w(+1 +2 +3 +42 +123).each do |input|
+            parser(production).call(input).last.should == RDF::Literal::Integer.new(input.to_i)
+          end
+        end
+
+        it "recognizes the DECIMAL_POSITIVE terminal" do
+          %w(+1. +3.1415 +.123).each do |input|
+            parser(production).call(input).last.should == RDF::Literal::Decimal.new(input.to_f)
+          end
+        end
+
+        it "recognizes the DOUBLE_POSITIVE terminal" do
+          %w(+1e2 +3.1415e2 +.123e2).each do |input|
+            parser(production).call(input).last.should == RDF::Literal::Double.new(input.to_f)
+          end
+        end
+      end
+    end
+
+    describe "when matching the [64] NumericLiteralNegative production rule" do
+      with_production(:NumericLiteralNegative) do |production|
+        it "recognizes the INTEGER_NEGATIVE terminal" do
+          %w(-1 -2 -3 -42 -123).each do |input|
+            parser(production).call(input).last.should == RDF::Literal::Integer.new(input.to_i)
+          end
+        end
+
+        it "recognizes the DECIMAL_NEGATIVE terminal" do
+          %w(-1. -3.1415 -.123).each do |input|
+            parser(production).call(input).last.should == RDF::Literal::Decimal.new(input.to_f)
+          end
+        end
+
+        it "recognizes the DOUBLE_NEGATIVE terminal" do
+          %w(-1e2 -3.1415e2 -.123e2).each do |input|
+            parser(production).call(input).last.should == RDF::Literal::Double.new(input.to_f)
+          end
         end
       end
     end
   end
-
-  describe "when matching the [64] NumericLiteralNegative production rule" do
-    with_production(:NumericLiteralNegative) do |production|
-      it "recognizes the INTEGER_NEGATIVE terminal" do
-        %w(-1 -2 -3 -42 -123).each do |input|
-          parser(production).call(input).last.should == RDF::Literal::Integer.new(input.to_i)
+  
+  # Individual terminal productions
+  describe "individual terminal productions" do
+    describe "when matching the [67] IRIref production rule" do
+      with_production(:IRIref) do |production|
+        it "recognizes the IRI_REF terminal" do
+          %w(<> <foobar> <http://example.org/foobar>).each do |input|
+            parser(production).call(input).last.should_not == false # TODO
+          end
         end
-      end
 
-      it "recognizes the DECIMAL_NEGATIVE terminal" do
-        %w(-1. -3.1415 -.123).each do |input|
-          parser(production).call(input).last.should == RDF::Literal::Decimal.new(input.to_f)
-        end
-      end
-
-      it "recognizes the DOUBLE_NEGATIVE terminal" do
-        %w(-1e2 -3.1415e2 -.123e2).each do |input|
-          parser(production).call(input).last.should == RDF::Literal::Double.new(input.to_f)
-        end
-      end
-    end
-  end
-
-  describe "when matching the [67] IRIref production rule" do
-    with_production(:IRIref) do |production|
-      it "recognizes the IRI_REF terminal" do
-        %w(<> <foobar> <http://example.org/foobar>).each do |input|
-          parser(production).call(input).last.should_not == false # TODO
-        end
-      end
-
-      it "recognizes the PrefixedName nonterminal" do
-        %w(: foo: :bar foo:bar).each do |input|
-          parser(production).call(input).last.should_not == false # TODO
-        end
-      end
-    end
-  end
-
-  describe "when matching the [68] PrefixedName production rule" do
-    with_production(:PrefixedName) do |production|
-      inputs = {
-        :PNAME_LN => %w(:bar foo:bar),
-        :PNAME_NS => %w(: foo:),
-      }
-      inputs.each do |terminal, examples|
-        it "recognizes the #{terminal} terminal" do
-          examples.each do |input|
+        it "recognizes the PrefixedName nonterminal" do
+          %w(: foo: :bar foo:bar).each do |input|
             parser(production).call(input).last.should_not == false # TODO
           end
         end
       end
     end
-  end
 
-  describe "when matching the [69] BlankNode production rule" do
-    with_production(:BlankNode) do |production|
-      inputs = {
-        :BLANK_NODE_LABEL => %q(_:foobar),
-        :ANON             => %q([]),
-      }
-      inputs.each do |terminal, input|
-        it "recognizes the #{terminal} terminal" do
-          if output = parser(production).call(input)
-            output.last.should be_an(RDF::Node)
+    describe "when matching the [68] PrefixedName production rule" do
+      with_production(:PrefixedName) do |production|
+        inputs = {
+          :PNAME_LN => {
+            ":bar"    => RDF::URI("http://example.com/bar"),
+            "foo:bar" => RDF.bar
+          },
+          :PNAME_NS => {
+            ":"    => RDF::URI("http://example.com/"),
+            "foo:" => RDF.to_uri
+          }
+        }
+        inputs.each do |terminal, examples|
+          it "recognizes the #{terminal} terminal" do
+            examples.each_pair do |input, result|
+              p = parser(production, :prefixes => {nil => "http://example.com/", :foo => RDF.to_uri.to_s})
+              p.call(input).last.should == result
+            end
           end
         end
       end
     end
-  end
 
-  # NOTE: production rules [70..100] are internal to the lexer
+    describe "when matching the [69] BlankNode production rule" do
+      with_production(:BlankNode) do |production|
+        inputs = {
+          :BLANK_NODE_LABEL => %q(_:foobar),
+          :ANON             => %q([]),
+        }
+        inputs.each do |terminal, input|
+          it "recognizes the #{terminal} terminal" do
+            if output = parser(production).call(input)
+              output.last.should be_an(RDF::Node)
+            end
+          end
+        end
+      end
+    end
+
+    # NOTE: production rules [70..100] are internal to the lexer
+  end
 
   describe "when parsing ASK queries" do
     pending("TODO")
@@ -1319,7 +1260,7 @@ describe SPARQL::Grammar::Parser do
 
   def parser(production = nil, options = {})
     Proc.new do |query|
-      parser = SPARQL::Grammar::Parser.new(query, options)
+      parser = SPARQL::Grammar::Parser.new(query, {:resolve_uris => true}.merge(options))
       production ? parser.parse(SPARQL::Grammar::SPARQL_GRAMMAR[production]) : parser
     end
   end

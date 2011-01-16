@@ -24,7 +24,7 @@ module SPARQL; module Grammar
     #   the base URI to use when resolving relative URIs (for acessing intermediate parser productions)
     # @option options [#to_s]    :anon_base     ("gen0000")
     #   Basis for generating anonymous Nodes
-    # @option options [Boolean] :resolve_iris (false)
+    # @option options [Boolean] :resolve_uris (false)
     #   Resolve prefix and relative IRIs, otherwise output as symbols
     # @option options [Boolean]  :validate     (false)
     #   whether to validate the parsed statements and values
@@ -339,6 +339,21 @@ module SPARQL; module Grammar
         # [29]    ArgList                   ::=       ( NIL | '(' Expression ( ',' Expression )* ')' )
         {
           :finish => lambda { |data| data.values.each {|v| add_prod_data(:ArgList, v)} }
+        }
+      when :ConstructTriples
+        # [31]    ConstructTriples          ::=       TriplesSameSubject ( '.' ConstructTriples? )?
+        {
+          :finish => lambda { |data|
+            if data[:triple]
+              triples = data[:triple].map {|v| [:triple, v[:subject], v[:predicate], v[:object]]}
+              add_prod_data(:ConstructTriples, triples)
+            end
+        
+            # Append triples from ('.' ConstructTriples? )? 
+            if data[:ConstructTriples]
+              add_prod_data(:ConstructTriples, data[:ConstructTriples])
+            end
+          }
         }
       when :TriplesSameSubject
         # [32]    TriplesSameSubject ::= VarOrTerm PropertyListNotEmpty | TriplesNode PropertyList
@@ -757,7 +772,7 @@ module SPARQL; module Grammar
           lambda { |token| add_prod_data(:PrefixedName, ns(*token)) }
         when :PNAME_NS
           lambda { |token|
-            add_prod_data(:PrefixedName, ns(nil, token))    # [68]    PrefixedName ::= PNAME_LN | PNAME_NS
+            add_prod_data(:PrefixedName, ns(token, nil))    # [68]    PrefixedName ::= PNAME_LN | PNAME_NS
             prod_data[:prefix] = uri(token && token.to_sym) # [4] PrefixDecl := 'PREFIX' PNAME_NS IRI_REF";
           }
         when :STR
@@ -939,7 +954,7 @@ module SPARQL; module Grammar
     def ns(prefix, suffix)
       base = prefix(prefix).to_s
       suffix = suffix.to_s.sub(/^\#/, "") if base.index("#")
-      debug("ns", "base: '#{base}', suffix: '#{suffix}'")
+      debug("ns(#{prefix.inspect})", "base: '#{base}', suffix: '#{suffix}'")
       uri(base + suffix.to_s)
     end
     
