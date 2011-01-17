@@ -438,14 +438,21 @@ module SPARQL; module Grammar
             add_prod_datum(:leftjoin, data[:leftjoin])
           }
         }
+      when :GraphGraphPattern
+        # [24]    GraphGraphPattern         ::=       'GRAPH' VarOrIRIref GroupGraphPattern
+        {
+          :finish => lambda { |data|
+            add_prod_data(:graph, (data[:Var] || data[:IRIref]).last, data[:bgp].unshift(:bgp)) if data[:bgp]
+          }
+        }
       when :GroupOrUnionGraphPattern
         # [25]    GroupOrUnionGraphPattern  ::=       GroupGraphPattern ( 'UNION' GroupGraphPattern )*
         {
           :finish => lambda { |data|
             if data[:union]
-              add_prod_data(:join, [:union, data[:bgp].unshift(:bgp)]) if data[:bgp]
-            elsif data[:bgp]
-              add_prod_data(:join, data[:bgp].unshift(:bgp)) if data[:bgp]
+              add_prod_data(:union, data[:bgp].unshift(:bgp), *data[:union]) if data[:bgp]
+            else
+              add_prod_datum(:bgp, data[:bgp])
             end
           }
         }
@@ -453,7 +460,7 @@ module SPARQL; module Grammar
         {
           :finish => lambda { |data|
             if data[:union]
-              #
+              add_prod_data(:union, data[:bgp].unshift(:bgp), *data[:union])
             elsif data[:bgp]
               add_prod_data(:union, data[:bgp].unshift(:bgp))
             end

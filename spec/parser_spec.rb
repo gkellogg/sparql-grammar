@@ -917,9 +917,7 @@ describe SPARQL::Grammar::Parser do
     with_production(:OptionalGraphPattern) do |production|
       it_rejects_empty_input_using production
       {
-        "OPTIONAL {<d><e><f>}" =>
-          [:leftjoin,
-            [:bgp, [:triple, RDF::URI("d"), RDF::URI("e"), RDF::URI("f")]]],
+        "OPTIONAL {<d><e><f>}" => %q((leftjoin (bgp (triple <d> <e> <f>))))
       }.each_pair do |input, result|
         given_it_generates(production, input, result)
       end
@@ -930,7 +928,14 @@ describe SPARQL::Grammar::Parser do
   describe "when matching the [24] GraphGraphPattern production rule" do
     with_production(:GraphGraphPattern) do |production|
       it_rejects_empty_input_using production
-      pending("TODO")
+
+      {
+        "GRAPH ?a {<d><e><f>}" => %q((graph ?a (bgp (triple <d> <e> <f>)))),
+        "GRAPH :a {<d><e><f>}" => %q((graph :a (bgp (triple <d> <e> <f>)))),
+        "GRAPH <a> {<d><e><f>}" => %q((graph <a> (bgp (triple <d> <e> <f>)))),
+      }.each_pair do |input, result|
+        given_it_generates(production, input, result, :resolve_uris => false)
+      end
     end
   end
 
@@ -938,7 +943,22 @@ describe SPARQL::Grammar::Parser do
   describe "when matching the [25] GroupOrUnionGraphPattern production rule" do
     with_production(:GroupOrUnionGraphPattern) do |production|
       it_rejects_empty_input_using production
-      pending("TODO")
+
+      {
+        # From data/Optional/q-opt-3.rq
+        "{:x :y :z}" => %q((bgp (triple :x :y :z))),
+        "{:x :y :z} UNION {<d><e><f>}" =>
+          %q((union
+              (bgp (triple :x :y :z))
+              (bgp (triple <d> <e> <f>)))),
+        "{:x :y :z} UNION {<d><e><f>} UNION {?a ?b ?c}" =>
+          %q((union
+              (bgp (triple :x :y :z))
+              (bgp (triple <d> <e> <f>))
+              (bgp (triple ?a ?b ?c)))),
+      }.each_pair do |input, result|
+        given_it_generates(production, input, result, :resolve_uris => false)
+      end
     end
   end
 
