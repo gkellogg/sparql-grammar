@@ -653,7 +653,7 @@ describe SPARQL::Grammar::Parser do
         p.base_uri.should == RDF::URI('http://example.org/')
       end
 
-      given_it_generates(production, %q(BASE <http://example.org/>), [:BaseDecl, RDF::URI("http://example.org/")])
+      given_it_generates(production, %q(BASE <http://example.org/>), [:BaseDecl, [RDF::URI("http://example.org/")]])
 
       it "sets prefix : to 'foobar' given 'PREFIX : <foobar>'" do
         p = parser.call(%q(PREFIX : <foobar>))
@@ -908,7 +908,7 @@ describe SPARQL::Grammar::Parser do
                 (bgp (triple ?a :b ?c))
                 (bgp (triple ?c :d ?e))))),
       }.each_pair do |input, result|
-        given_it_generates(production, input, result, :resolve_uris => false)
+        pending {given_it_generates(production, input, result, :resolve_uris => false)}
       end
     end
   end

@@ -282,7 +282,7 @@ module SPARQL; module Grammar
         {
           :finish => lambda { |data|
             add_prod_data(:BaseDecl, data[:BaseDecl])
-            add_prod_data(:PrefixDecl, [data[:PrefixDecl]]) if data[:PrefixDecl]
+            add_prod_data(:PrefixDecl, data[:PrefixDecl]) if data[:PrefixDecl]
           }
         }
       when :BaseDecl
@@ -290,7 +290,7 @@ module SPARQL; module Grammar
         {
           :finish => lambda { |data|
             self.base_uri = uri(data[:iri].last) if options[:resolve_uris]
-            add_prod_data(:BaseDecl, data[:iri].last)
+            add_prod_datum(:BaseDecl, data[:iri].last)
           }
         }
       when :PrefixDecl
@@ -299,7 +299,7 @@ module SPARQL; module Grammar
           :finish => lambda { |data|
             if data[:iri]
               self.prefix(data[:prefix], data[:iri].last)
-              add_prod_data(:PrefixDecl, [["#{data[:prefix]}:".to_sym, data[:iri].last]])
+              add_prod_data(:PrefixDecl, data[:iri].unshift("#{data[:prefix]}:".to_sym))
             end
           }
         }
@@ -307,14 +307,14 @@ module SPARQL; module Grammar
         # [5]     SelectQuery               ::=       'SELECT' ( 'DISTINCT' | 'REDUCED' )? ( Var+ | '*' ) DatasetClause* WhereClause SolutionModifier
         {
           :finish => lambda { |data|
-            add_prod_data(:bgp, data[:bgp])
+            add_prod_datum(:bgp, data[:bgp])
           }
         }
       when :WhereClause
         # [13]    WhereClause               ::=       'WHERE'? GroupGraphPattern
         {
           :finish => lambda { |data|
-            add_prod_data(:bgp, data[:bgp])
+            add_prod_datum(:bgp, data[:bgp])
           }
         }
       when :OrderCondition
@@ -322,9 +322,9 @@ module SPARQL; module Grammar
         {
           :finish => lambda { |data|
             if data[:OrderDirection]
-              add_prod_data(:order, [[data[:OrderDirection] + data[:Expression]]])
+              add_prod_data(:order, [data[:OrderDirection] + data[:Expression]])
             else
-              add_prod_data(:order, data[:Constraint] || data[:Var])
+              add_prod_datum(:order, data[:Constraint] || data[:Var])
             end
           }
         }
@@ -332,33 +332,33 @@ module SPARQL; module Grammar
         # [18]    LimitClause               ::=       'LIMIT' INTEGER
         {
           :finish => lambda { |data|
-            add_prod_data(:limit, data[:literal])
+            add_prod_datum(:limit, data[:literal])
           }
         }
       when :OffsetClause
         # [19]    OffsetClause              ::=       'OFFSET' INTEGER
         {
           :finish => lambda { |data|
-            add_prod_data(:offset, data[:literal])
+            add_prod_datum(:offset, data[:literal])
           }
         }
       when :GroupGraphPattern
         # [20] GroupGraphPattern ::= '{' TriplesBlock? ( ( GraphPatternNotTriples | Filter ) '.'? TriplesBlock? )* '}'
         {
           :finish => lambda { |data|
-            if data[:join]
-              list = []
-              list << [:bgp] + data[:bgp] if data[:bgp]
-              list += data[:join]
-              add_prod_data(:join, list)
-            elsif data[:leftjoin]
-              list = []
-              list << [:bgp] + data[:bgp] if data[:bgp]
-              list += data[:leftjoin]
-              add_prod_data(:leftjoin, list)
-            else
-              add_prod_data(:bgp, data[:bgp])
-            end
+            add_prod_datum(:bgp, data[:bgp])
+          }
+        }
+      when :_GraphPatternNotTriples_or_Filter_Dot_Opt_TriplesBlock_Opt_Star
+        {
+          :finish => lambda { |data|
+            add_prod_datum(:bgp, data[:bgp])
+          }
+        }
+      when :_GraphPatternNotTriples_or_Filter_Dot_Opt_TriplesBlock_Opt
+        {
+          :finish => lambda { |data|
+            add_prod_datum(:bgp, data[:bgp])
           }
         }
       when :TriplesBlock
@@ -367,12 +367,29 @@ module SPARQL; module Grammar
           :finish => lambda { |data|
             if data[:triple]
               triples = data[:triple].map {|v| [:triple, v[:subject], v[:predicate], v[:object]]}
-              add_prod_data(:bgp, triples)
+              add_prod_datum(:bgp, triples)
             end
         
             # Append triples from ('.' TriplesBlock? )? 
-            if data[:bgp]
-              add_prod_data(:bgp, data[:bgp])
+            add_prod_datum(:bgp, data[:bgp])
+          }
+        }
+      when :GraphPatternNotTriples
+        # [22]    GraphPatternNotTriples    ::=       OptionalGraphPattern | GroupOrUnionGraphPattern | GraphGraphPattern
+        {
+          :finish => lambda { |data|
+            if data[:join]
+              list = []
+              list << [:bgp] + data[:bgp] if data[:bgp]
+              list += data[:join]
+              add_prod_datum(:join, list)
+            elsif data[:leftjoin]
+              list = []
+              list << [:bgp] + data[:bgp] if data[:bgp]
+              list += data[:leftjoin]
+              add_prod_datum(:leftjoin, list)
+            else
+              add_prod_datum(:bgp, data[:bgp])
             end
           }
         }
@@ -380,8 +397,8 @@ module SPARQL; module Grammar
         # [23]    OptionalGraphPattern      ::=       'OPTIONAL' GroupGraphPattern
         {
           :finish => lambda { |data|
-            add_prod_data(:leftjoin, [[:bgp] + data[:bgp]]) if data[:bgp]
-            add_prod_data(:leftjoin, data[:leftjoin])
+            add_prod_data(:leftjoin, data[:bgp].unshift(:bgp)) if data[:bgp]
+            add_prod_datum(:leftjoin, data[:leftjoin])
           }
         }
       when :GroupOrUnionGraphPattern
@@ -389,9 +406,9 @@ module SPARQL; module Grammar
         {
           :finish => lambda { |data|
             if data[:union]
-              add_prod_data(:join, [[:union, [:bgp] + data[:bgp]]]) if data[:bgp]
+              add_prod_data(:join, [:union, data[:bgp].unshift(:bgp)]) if data[:bgp]
             elsif data[:bgp]
-              add_prod_data(:join, [[:bgp] + data[:bgp]]) if data[:bgp]
+              add_prod_data(:join, data[:bgp].unshift(:bgp)) if data[:bgp]
             end
           }
         }
@@ -401,7 +418,7 @@ module SPARQL; module Grammar
             if data[:union]
               #
             elsif data[:bgp]
-              add_prod_data(:union, [:bgp] + data[:bgp])
+              add_prod_data(:union, data[:bgp].unshift(:bgp))
             end
           }
         }
@@ -409,7 +426,7 @@ module SPARQL; module Grammar
         # [27]    Constraint                ::=       BrackettedExpression | BuiltInCall | FunctionCall
         {
           :finish => lambda { |data|
-            add_prod_data(:Constraint, data[:Expression] || data[:BuiltInCall] || data[:Function])
+            add_prod_datum(:Constraint, data[:Expression] || data[:BuiltInCall] || data[:Function])
           }
         }
       when :FunctionCall
@@ -417,13 +434,13 @@ module SPARQL; module Grammar
         {
           :finish => lambda { |data|
             # Function is (func arg1 arg2 ...)
-            add_prod_data(:Function, [data[:IRIref] + data[:ArgList]])
+            add_prod_data(:Function, data[:IRIref] + data[:ArgList])
           }
         }
       when :ArgList
         # [29]    ArgList                   ::=       ( NIL | '(' Expression ( ',' Expression )* ')' )
         {
-          :finish => lambda { |data| data.values.each {|v| add_prod_data(:ArgList, v)} }
+          :finish => lambda { |data| data.values.each {|v| add_prod_datum(:ArgList, v)} }
         }
       when :ConstructTriples
         # [31]    ConstructTriples          ::=       TriplesSameSubject ( '.' ConstructTriples? )?
@@ -431,19 +448,19 @@ module SPARQL; module Grammar
           :finish => lambda { |data|
             if data[:triple]
               triples = data[:triple].map {|v| [:triple, v[:subject], v[:predicate], v[:object]]}
-              add_prod_data(:ConstructTriples, triples)
+              add_prod_datum(:ConstructTriples, triples)
             end
         
             # Append triples from ('.' ConstructTriples? )? 
             if data[:ConstructTriples]
-              add_prod_data(:ConstructTriples, data[:ConstructTriples])
+              add_prod_datum(:ConstructTriples, data[:ConstructTriples])
             end
           }
         }
       when :TriplesSameSubject
         # [32]    TriplesSameSubject ::= VarOrTerm PropertyListNotEmpty | TriplesNode PropertyList
         {
-          :finish => lambda { |data| add_prod_data(:triple, data[:triple]) }
+          :finish => lambda { |data| add_prod_datum(:triple, data[:triple]) }
         }
       when :PropertyListNotEmpty
         # [33]    PropertyListNotEmpty ::= Verb ObjectList ( ';' ( Verb ObjectList )? )*
@@ -453,7 +470,7 @@ module SPARQL; module Grammar
             error(nil, "Expected VarOrTerm or TriplesNode or GraphNode", :production => :PropertyListNotEmpty) if validate? && !subject
             data[:Subject] = subject
           },
-          :finish => lambda {|data| add_prod_data(:triple, data[:triple])}
+          :finish => lambda {|data| add_prod_datum(:triple, data[:triple])}
         }
       when :ObjectList
         # [35]    ObjectList ::= Object ( ',' Object )*
@@ -471,7 +488,7 @@ module SPARQL; module Grammar
               error(nil, "Expected Verb", :production => :ObjectList) if validate?
             end
           },
-          :finish => lambda { |data| add_prod_data(:triple, data[:triple]) }
+          :finish => lambda { |data| add_prod_datum(:triple, data[:triple]) }
         }
       when :Object
         # [36]    Object ::= GraphNode
@@ -480,14 +497,14 @@ module SPARQL; module Grammar
             object = data[:VarOrTerm] || data[:TriplesNode] || data[:GraphNode]
             if object
               add_triple(:Object, :subject => prod_data[:Subject], :predicate => prod_data[:Verb], :object => object)
-              add_prod_data(:triple, data[:triple])
+              add_prod_datum(:triple, data[:triple])
             end
           }
         }
       when :Verb
         # [37]    Verb ::=       VarOrIRIref | 'a'
         {
-          :finish => lambda { |data| data.values.each {|v| add_prod_data(:Verb, v)} }
+          :finish => lambda { |data| data.values.each {|v| add_prod_datum(:Verb, v)} }
         }
       when :TriplesNode
         # [38]    TriplesNode ::= Collection | BlankNodePropertyList
@@ -496,8 +513,8 @@ module SPARQL; module Grammar
         {
           :start => lambda { |data| data[:TriplesNode] = gen_node() },
           :finish => lambda { |data| 
-            add_prod_data(:triple, data[:triple])
-            add_prod_data(:TriplesNode, data[:TriplesNode])
+            add_prod_datum(:triple, data[:triple])
+            add_prod_datum(:TriplesNode, data[:TriplesNode])
           }
         }
       when :Collection
@@ -511,35 +528,35 @@ module SPARQL; module Grammar
         {
           :finish => lambda { |data|
             term = data[:VarOrTerm] || data[:TriplesNode]
-            add_prod_data(:triple, data[:triple])
-            add_prod_data(:GraphNode, term)
+            add_prod_datum(:triple, data[:triple])
+            add_prod_datum(:GraphNode, term)
           }
         }
       when :VarOrTerm
         # [42]    VarOrTerm ::= Var | GraphTerm
         {
-          :finish => lambda { |data| data.values.each {|v| add_prod_data(:VarOrTerm, v)} }
+          :finish => lambda { |data| data.values.each {|v| add_prod_datum(:VarOrTerm, v)} }
         }
       when :GraphTerm
         # [45]    GraphTerm ::= IRIref | RDFLiteral | NumericLiteral | BooleanLiteral | BlankNode | NIL
         {
           :finish => lambda { |data|
-            add_prod_data(:GraphTerm, data[:IRIref] || data[:literal] || data[:BlankNode] || data[:NIL])
+            add_prod_datum(:GraphTerm, data[:IRIref] || data[:literal] || data[:BlankNode] || data[:NIL])
           }
         }
       when :Expression
         # [46] Expression ::=       ConditionalOrExpression
         {
-          :finish => lambda { |data| add_prod_data(:Expression, data[:Expression]) }
+          :finish => lambda { |data| add_prod_datum(:Expression, data[:Expression]) }
         }
       when :ConditionalOrExpression
         # [47]    ConditionalOrExpression   ::=       ConditionalAndExpression ( '||' ConditionalAndExpression )*
         {
           :finish => lambda { |data|
             if data[:_OR]
-              add_prod_data(:Expression, [[data[:_OR].first] + data[:Expression] + [data[:_OR].last]])
+              add_prod_data(:Expression, data[:_OR].insert(1, *data[:Expression]))
             else
-              add_prod_data(:Expression, data[:Expression])
+              add_prod_datum(:Expression, data[:Expression])
             end
           }
         }
@@ -548,9 +565,9 @@ module SPARQL; module Grammar
         {
           :finish => lambda { |data|
             if data[:_OR]
-              add_prod_data(:_OR, data[:ConditionalOrExpression] + [[data[:_OR].first] + data[:Expression] + [data[:_OR].last]])
+              add_prod_data(:_OR, data[:ConditionalOrExpression] + data[:_OR].insert(1, *data[:Expression]))
             elsif data[:ConditionalOrExpression]
-              add_prod_data(:_OR, data[:ConditionalOrExpression] + data[:Expression])
+              add_prod_datum(:_OR, data[:ConditionalOrExpression] + data[:Expression])
             end
           }
         }
@@ -559,9 +576,9 @@ module SPARQL; module Grammar
         {
           :finish => lambda { |data|
             if data[:_AND]
-              add_prod_data(:Expression, [[data[:_AND].first] + data[:Expression] + [data[:_AND].last]])
+              add_prod_data(:Expression, data[:_AND].insert(1, *data[:Expression]))
             else
-              add_prod_data(:Expression, data[:Expression])
+              add_prod_datum(:Expression, data[:Expression])
             end
           }
         }
@@ -570,9 +587,9 @@ module SPARQL; module Grammar
         {
           :finish => lambda { |data|
             if data[:_AND]
-              add_prod_data(:_AND, data[:ConditionalAndExpression] + [[data[:_AND].first] + data[:Expression] + [data[:_AND].last]])
+              add_prod_data(:_AND, data[:ConditionalAndExpression] + data[:_AND].insert(1, *data[:Expression]))
             elsif data[:ConditionalAndExpression]
-              add_prod_data(:_AND, data[:ConditionalAndExpression] + data[:Expression])
+              add_prod_datum(:_AND, data[:ConditionalAndExpression] + data[:Expression])
             end
           }
         }
@@ -588,9 +605,9 @@ module SPARQL; module Grammar
         {
           :finish => lambda { |data|
             if data[:_Compare_Numeric]
-              add_prod_data(:Expression, [[data[:_Compare_Numeric].first] + data[:Expression] + [data[:_Compare_Numeric].last]])
+              add_prod_data(:Expression, data[:_Compare_Numeric].insert(1, *data[:Expression]))
             else
-              add_prod_data(:Expression, data[:Expression])
+              add_prod_datum(:Expression, data[:Expression])
             end
           }
         }
@@ -599,7 +616,7 @@ module SPARQL; module Grammar
         {
           :finish => lambda { |data|
             if data[:RelationalExpression]
-              add_prod_data(:_Compare_Numeric, data[:RelationalExpression] + data[:Expression])
+              add_prod_datum(:_Compare_Numeric, data[:RelationalExpression] + data[:Expression])
             end
           }
         }
@@ -608,9 +625,9 @@ module SPARQL; module Grammar
         {
           :finish => lambda { |data|
             if data[:_Add_Sub]
-              add_prod_data(:Expression, [[data[:_Add_Sub].first] + data[:Expression] + [data[:_Add_Sub].last]])
+              add_prod_data(:Expression, data[:_Add_Sub].insert(1, *data[:Expression]))
             else
-              add_prod_data(:Expression, data[:Expression])
+              add_prod_datum(:Expression, data[:Expression])
             end
           }
         }
@@ -619,9 +636,10 @@ module SPARQL; module Grammar
         {
           :finish => lambda { |data|
             if data[:_Add_Sub]
-              add_prod_data(:_Add_Sub, data[:AdditiveExpression] + [[data[:_Add_Sub].first] + data[:Expression] + [data[:_Add_Sub].last]])
+              add_prod_datum(:_Add_Sub, data[:AdditiveExpression])
+              add_prod_data(:_Add_Sub, data[:_Add_Sub].insert(1, *data[:Expression]))
             elsif data[:AdditiveExpression]
-              add_prod_data(:_Add_Sub, data[:AdditiveExpression] + data[:Expression])
+              add_prod_datum(:_Add_Sub, data[:AdditiveExpression] + data[:Expression])
             end
           }
         }
@@ -630,9 +648,9 @@ module SPARQL; module Grammar
         {
           :finish => lambda { |data|
             if data[:_Mul_Div]
-              add_prod_data(:Expression, [[data[:_Mul_Div].first] + data[:Expression] + [data[:_Mul_Div].last]])
+              add_prod_data(:Expression, data[:_Mul_Div].insert(1, *data[:Expression]))
             else
-              add_prod_data(:Expression, data[:Expression])
+              add_prod_datum(:Expression, data[:Expression])
             end
           }
         }
@@ -641,9 +659,10 @@ module SPARQL; module Grammar
         {
           :finish => lambda { |data|
             if data [:_Mul_Div]
-              add_prod_data(:_Mul_Div, data[:MultiplicativeExpression] + [[data[:_Mul_Div].first] + data[:Expression] + [data[:_Mul_Div].last]])
+              add_prod_datum(:_Mul_Div, data[:MultiplicativeExpression])
+              add_prod_data(:_Mul_Div, data[:_Mul_Div].insert(1, *data[:Expression]))
             elsif data[:MultiplicativeExpression]
-              add_prod_data(:_Mul_Div, data[:MultiplicativeExpression] + data[:Expression])
+              add_prod_datum(:_Mul_Div, data[:MultiplicativeExpression] + data[:Expression])
             end
           }
         }
@@ -653,11 +672,11 @@ module SPARQL; module Grammar
           :finish => lambda { |data|
             case data[:UnaryExpression]
             when [:"!"], [:"+"]
-              add_prod_data(:Expression, [data[:UnaryExpression] + data[:Expression]])
+              add_prod_data(:Expression, data[:UnaryExpression] + data[:Expression])
             when [:"-"]
-              add_prod_data(:Expression, [data[:UnaryExpression] + data[:Expression]])
+              add_prod_data(:Expression, data[:UnaryExpression] + data[:Expression])
             else
-              add_prod_data(:Expression, data[:Expression])
+              add_prod_datum(:Expression, data[:Expression])
             end
           }
         }
@@ -666,20 +685,20 @@ module SPARQL; module Grammar
         {
           :finish => lambda { |data|
             if data[:Expression]
-              add_prod_data(:Expression, data[:Expression])
+              add_prod_datum(:Expression, data[:Expression])
             elsif data[:BuiltInCall]
-              add_prod_data(:Expression, data[:BuiltInCall])
+              add_prod_datum(:Expression, data[:BuiltInCall])
             elsif data[:IRIref]
-              add_prod_data(:Expression, data[:IRIref])
+              add_prod_datum(:Expression, data[:IRIref])
             elsif data[:Function]
-              add_prod_data(:Expression, data[:Function])
+              add_prod_datum(:Expression, data[:Function])
             elsif data[:literal]
-              add_prod_data(:Expression, data[:literal])
+              add_prod_datum(:Expression, data[:literal])
             elsif data[:Var]
-              add_prod_data(:Expression, data[:Var])
+              add_prod_datum(:Expression, data[:Var])
             end
             
-            add_prod_data(:UnaryExpression, data[:UnaryExpression]) # Keep track of this for parent UnaryExpression production
+            add_prod_datum(:UnaryExpression, data[:UnaryExpression]) # Keep track of this for parent UnaryExpression production
           }
         }
       when :BuiltInCall
@@ -697,18 +716,18 @@ module SPARQL; module Grammar
         {
           :finish => lambda { |data|
             if data[:REGEX]
-              add_prod_data(:BuiltInCall, [:REGEX] + [data[:REGEX]])
+              add_prod_datum(:BuiltInCall, [data[:REGEX]].unshift(:REGEX))
             elsif data[:BOUND]
-              add_prod_data(:BuiltInCall, [:BOUND] + [data[:Var]])
+              add_prod_datum(:BuiltInCall, [data[:Var]].unshift(:BOUND))
             elsif data[:BuiltInCall]
-              add_prod_data(:BuiltInCall, data[:BuiltInCall] + [data[:Expression]])
+              add_prod_datum(:BuiltInCall, data[:BuiltInCall] + [data[:Expression]])
             end
           }
         }
       when :RegexExpression
         # [58]    RegexExpression           ::=       'REGEX' '(' Expression ',' Expression ( ',' Expression )? ')'
         {
-          :finish => lambda { |data| add_prod_data(:REGEX, data[:Expression]) }
+          :finish => lambda { |data| add_prod_datum(:REGEX, data[:Expression]) }
         }
       when :IRIrefOrFunction
         # [59]    IRIrefOrFunction          ::=       IRIref ArgList?
@@ -716,9 +735,9 @@ module SPARQL; module Grammar
           :finish => lambda { |data|
             if data.has_key?(:ArgList)
               # Function is (func arg1 arg2 ...)
-              add_prod_data(:Function, [data[:IRIref] + data[:ArgList]])
+              add_prod_data(:Function, data[:IRIref] + data[:ArgList])
             else
-              add_prod_data(:IRIref, data[:IRIref])
+              add_prod_datum(:IRIref, data[:IRIref])
             end
           }
         }
@@ -731,7 +750,7 @@ module SPARQL; module Grammar
               str = lit.delete(:string).last 
               lit[:datatype] = lit.delete(:IRIref).last if lit[:IRIref]
               lit[:language] = lit.delete(:language).last if lit[:language]
-              add_prod_data(:literal, RDF::Literal.new(str, lit)) if str
+              add_prod_datum(:literal, RDF::Literal.new(str, lit)) if str
             end
           }
         }
@@ -739,27 +758,27 @@ module SPARQL; module Grammar
         # [63]    NumericLiteralPositive    ::=       INTEGER_POSITIVE | DECIMAL_POSITIVE | DOUBLE_POSITIVE
         {
           :finish => lambda { |data|
-            add_prod_data(:literal, data.values.flatten.last)
-            add_prod_data(:UnaryExpression, data[:UnaryExpression]) # Keep track of this for parent UnaryExpression production
+            add_prod_datum(:literal, data.values.flatten.last)
+            add_prod_datum(:UnaryExpression, data[:UnaryExpression]) # Keep track of this for parent UnaryExpression production
           }
         }
       when :NumericLiteralNegative
         # [64]    NumericLiteralNegative ::= INTEGER_NEGATIVE | DECIMAL_NEGATIVE | DOUBLE_NEGATIVE
         {
           :finish => lambda { |data|
-            add_prod_data(:literal, -data.values.flatten.last)
-            add_prod_data(:UnaryExpression, data[:UnaryExpression]) # Keep track of this for parent UnaryExpression production
+            add_prod_datum(:literal, -data.values.flatten.last)
+            add_prod_datum(:UnaryExpression, data[:UnaryExpression]) # Keep track of this for parent UnaryExpression production
           }
         }
       when :IRIref
         # [67]    IRIref ::= IRI_REF | PrefixedName
         {
-          :finish => lambda { |data| add_prod_data(:IRIref, data[:iri]) if data.has_key?(:iri) }
+          :finish => lambda { |data| add_prod_datum(:IRIref, data[:iri]) }
         }
       when :PrefixedName
         # [68]    PrefixedName ::= PNAME_LN | PNAME_NS
         {
-          :finish => lambda { |data| add_prod_data(:iri, data[:PrefixedName]) }
+          :finish => lambda { |data| add_prod_datum(:iri, data[:PrefixedName]) }
         }
       end
     end
@@ -800,84 +819,84 @@ module SPARQL; module Grammar
       when :_Add_Sub_MultiplicativeExpression_Star
         case production
         when :"+", :"-"
-          lambda { |token| add_prod_data(:AdditiveExpression, production) }
+          lambda { |token| add_prod_datum(:AdditiveExpression, production) }
         end
       when :UnaryExpression
         case production
         when :"!", :"+", :"-"
-          lambda { |token| add_prod_data(:UnaryExpression, production) }
+          lambda { |token| add_prod_datum(:UnaryExpression, production) }
         end
       when :NumericLiteralPositive, :NumericLiteralNegative, :NumericLiteral
         case production
         when :"+", :"-"
-          lambda { |token| add_prod_data(:NumericLiteral, production) }
+          lambda { |token| add_prod_datum(:NumericLiteral, production) }
         end
       else
         # Generic tokens that don't depend on a particular production
         case production
         when :a
-          lambda { |token| add_prod_data(:Verb, RDF.type) }
+          lambda { |token| add_prod_datum(:Verb, RDF.type) }
         when :ANON
-          lambda { |token| add_prod_data(:BlankNode, gen_node()) }
+          lambda { |token| add_prod_datum(:BlankNode, gen_node()) }
         when :ASC, :DESC
-          lambda { |token| add_prod_data(:OrderDirection, token.downcase.to_sym) }
+          lambda { |token| add_prod_datum(:OrderDirection, token.downcase.to_sym) }
         when :BLANK_NODE_LABEL
-          lambda { |token| add_prod_data(:BlankNode, gen_node(token)) }
+          lambda { |token| add_prod_datum(:BlankNode, gen_node(token)) }
         when :BooleanLiteral
           lambda { |token|
-            add_prod_data(:literal, RDF::Literal.new(token, :datatype => RDF::XSD.boolean))
+            add_prod_datum(:literal, RDF::Literal.new(token, :datatype => RDF::XSD.boolean))
           }
         when :BOUND
-          lambda { |token| add_prod_data(:BOUND, :BOUND) }
+          lambda { |token| add_prod_datum(:BOUND, :BOUND) }
         when :DATATYPE
-          lambda { |token| add_prod_data(:BuiltInCall, :DATATYPE) }
+          lambda { |token| add_prod_datum(:BuiltInCall, :DATATYPE) }
         when :DECIMAL
-          lambda { |token| add_prod_data(:literal, RDF::Literal.new(token, :datatype => RDF::XSD.decimal)) }
+          lambda { |token| add_prod_datum(:literal, RDF::Literal.new(token, :datatype => RDF::XSD.decimal)) }
         when :DOUBLE
-          lambda { |token| add_prod_data(:literal, RDF::Literal.new(token, :datatype => RDF::XSD.double)) }
+          lambda { |token| add_prod_datum(:literal, RDF::Literal.new(token, :datatype => RDF::XSD.double)) }
         when :INTEGER
-          lambda { |token| add_prod_data(:literal, RDF::Literal.new(token, :datatype => RDF::XSD.integer)) }
+          lambda { |token| add_prod_datum(:literal, RDF::Literal.new(token, :datatype => RDF::XSD.integer)) }
         when :IRI_REF
-          lambda { |token| add_prod_data(:iri, uri(token)) }
+          lambda { |token| add_prod_datum(:iri, uri(token)) }
         when :ISBLANK
-          lambda { |token| add_prod_data(:BuiltInCall, :isBLANK) }
+          lambda { |token| add_prod_datum(:BuiltInCall, :isBLANK) }
         when :ISLITERAL
-          lambda { |token| add_prod_data(:BuiltInCall, :isLITERAL) }
+          lambda { |token| add_prod_datum(:BuiltInCall, :isLITERAL) }
         when :ISIRI
-          lambda { |token| add_prod_data(:BuiltInCall, :isIRI) }
+          lambda { |token| add_prod_datum(:BuiltInCall, :isIRI) }
         when :ISURI
-          lambda { |token| add_prod_data(:BuiltInCall, :isURI) }
+          lambda { |token| add_prod_datum(:BuiltInCall, :isURI) }
         when :LANG
-          lambda { |token| add_prod_data(:BuiltInCall, :LANG) }
+          lambda { |token| add_prod_datum(:BuiltInCall, :LANG) }
         when :LANGMATCHES
-          lambda { |token| add_prod_data(:BuiltInCall, :LANGMATCHES) }
+          lambda { |token| add_prod_datum(:BuiltInCall, :LANGMATCHES) }
         when :LANGTAG
-          lambda { |token| add_prod_data(:language, token) }
+          lambda { |token| add_prod_datum(:language, token) }
         when :NIL
-          lambda { |token| add_prod_data(:NIL, RDF["nil"]) }
+          lambda { |token| add_prod_datum(:NIL, RDF["nil"]) }
         when :PNAME_LN
-          lambda { |token| add_prod_data(:PrefixedName, ns(*token)) }
+          lambda { |token| add_prod_datum(:PrefixedName, ns(*token)) }
         when :PNAME_NS
           lambda { |token|
-            add_prod_data(:PrefixedName, ns(token, nil))    # [68] PrefixedName ::= PNAME_LN | PNAME_NS
+            add_prod_datum(:PrefixedName, ns(token, nil))    # [68] PrefixedName ::= PNAME_LN | PNAME_NS
             prod_data[:prefix] = token && token.to_sym      # [4]  PrefixDecl := 'PREFIX' PNAME_NS IRI_REF";
           }
         when :STR
-          lambda { |token| add_prod_data(:BuiltInCall, :STR) }
+          lambda { |token| add_prod_datum(:BuiltInCall, :STR) }
         when :SAMETERM
-          lambda { |token| add_prod_data(:BuiltInCall, :sameTerm) }
+          lambda { |token| add_prod_datum(:BuiltInCall, :sameTerm) }
         when :STRING_LITERAL1, :STRING_LITERAL2, :STRING_LITERAL_LONG1, :STRING_LITERAL_LONG2
-          lambda { |token| add_prod_data(:string, token) }
+          lambda { |token| add_prod_datum(:string, token) }
         when :VAR1, :VAR2       # [44]    Var ::= VAR1 | VAR2
-          lambda { |token| add_prod_data(:Var, RDF::Query::Variable.new(token)) }
+          lambda { |token| add_prod_datum(:Var, RDF::Query::Variable.new(token)) }
         when :"*", :"/"
-          lambda { |token| add_prod_data(:MultiplicativeExpression, production) }
+          lambda { |token| add_prod_datum(:MultiplicativeExpression, production) }
         when :"=", :"!=", :"<", :">", :"<=", :">="
-          lambda { |token| add_prod_data(:RelationalExpression, production) }
+          lambda { |token| add_prod_datum(:RelationalExpression, production) }
         when :"&&"
-          lambda { |token| add_prod_data(:ConditionalAndExpression, production) }
+          lambda { |token| add_prod_datum(:ConditionalAndExpression, production) }
         when :"||"
-          lambda { |token| add_prod_data(:ConditionalOrExpression, production) }
+          lambda { |token| add_prod_datum(:ConditionalOrExpression, production) }
         end
       end
     end
@@ -941,16 +960,16 @@ module SPARQL; module Grammar
 
         # Wrap in :base or :prefix or just use key
         if data[:PrefixDecl] && data[:BaseDecl] && !options[:expand_uris]
-          add_prod_data(:base, data[:BaseDecl])
-          add_prod_data(:base, [[:prefix] + data[:PrefixDecl] + [[key] + sxp]])
+          add_prod_datum(:base, *data[:BaseDecl])
+          add_prod_data(:base, data[:PrefixDecl].unshift(:prefix) + [sxp.unshift(key)])
         elsif data[:PrefixDecl] && !options[:expand_uris]
-          add_prod_data(:prefix, data[:PrefixDecl])
-          add_prod_data(:prefix, [[key] + sxp])
+          add_prod_datum(:prefix, data[:PrefixDecl])
+          add_prod_data(:prefix, sxp.unshift(key))
         elsif data[:BaseDecl] && !options[:expand_uris]
-          add_prod_data(:base, data[:BaseDecl])
-          add_prod_data(:base, [[key] + sxp])
+          add_prod_datum(:base, *data[:BaseDecl])
+          add_prod_data(:base, sxp.unshift(key))
         else
-          add_prod_data(key, sxp)
+          add_prod_datum(key, sxp)
         end
         return
       end
@@ -962,7 +981,7 @@ module SPARQL; module Grammar
     # @param [Hash] data Production Data
     def expand_collection(data)
       # Add any triples generated from deeper productions
-      add_prod_data(:triple, data[:triple])
+      add_prod_datum(:triple, data[:triple])
       
       # Create list items for each element in data[:GraphNode]
       first = col = data[:Collection]
@@ -1005,19 +1024,28 @@ module SPARQL; module Grammar
     alias_method :fail!, :fail
 
     # Add values to production data, values aranged as an array
-    def add_prod_data(sym, values)
+    def add_prod_datum(sym, values)
       case values
       when Array
         prod_data[sym] ||= []
-        debug "add_prod_data(#{sym})", "#{prod_data[sym].inspect} += #{values.inspect}"
+        debug "add_prod_datum(#{sym})", "#{prod_data[sym].inspect} += #{values.inspect}"
         prod_data[sym] += values
       when nil
         return
       else
         prod_data[sym] ||= []
-        debug "add_prod_data(#{sym})", "#{prod_data[sym].inspect} << #{values.inspect}"
+        debug "add_prod_datum(#{sym})", "#{prod_data[sym].inspect} << #{values.inspect}"
         prod_data[sym] << values
       end
+    end
+    
+    # Add values to production data, values aranged as an array
+    def add_prod_data(sym, *values)
+      return if values.compact.empty?
+      
+      prod_data[sym] ||= []
+      prod_data[sym] += values
+      debug "add_prod_data(#{sym})", "#{prod_data[sym].inspect} += #{values.inspect}"
     end
     
     # Generate a BNode identifier
