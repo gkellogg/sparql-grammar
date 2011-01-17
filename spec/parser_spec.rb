@@ -11,6 +11,12 @@ module ProductionRequirements
     end
   end
 
+  def it_does_not_generate_using(production, input)
+    it "Does not generate" do
+      parser(production).call(input).should be_false
+    end
+  end
+
   def given_it_generates(production, input, result, options = {})
     it "given #{input.inspect} it generates #{present_results(result, options)}" do
       if options[:last]
@@ -744,51 +750,15 @@ describe SPARQL::Grammar::Parser do
   describe "when matching the [9] DatasetClause production rule" do
     with_production(:DatasetClause) do |production|
       it_rejects_empty_input_using production
-
-      it "recognizes the 'FROM' lexeme" do
-        pending("TODO")
-      end
-
-      it "recognizes the DefaultGraphClause nonterminal" do
-        parser(production).call(%q(FROM <http://example.org/foaf/aliceFoaf>)) # TODO
-      end
-
-      it "recognizes the NamedGraphClause nonterminal" do
-        parser(production).call(%q(FROM NAMED <http://example.org/alice>)) # TODO
-      end
+      it_does_not_generate_using(production, %q(FROM <http://example.org/foaf/aliceFoaf>))
+      it_does_not_generate_using(production, %q(FROM NAMED <http://example.org/foaf/aliceFoaf>))
     end
   end
 
-  describe "when matching the [10] DefaultGraphClause production rule" do
-    with_production(:DefaultGraphClause) do |production|
-      it_rejects_empty_input_using production
-
-      it "recognizes default graph clauses" do
-        pending {parser(production).call(%q(<http://example.org/foaf/aliceFoaf>)).last.should == [:default, RDF::URI('http://example.org/foaf/aliceFoaf')]}
-      end
-    end
-  end
-
-  describe "when matching the [11] NamedGraphClause production rule" do
-    with_production(:NamedGraphClause) do |production|
-      it_rejects_empty_input_using production
-
-      it "recognizes the 'NAMED' lexeme" do
-        pending("TODO")
-      end
-
-      it "recognizes named graph clauses" do
-        pending {parser(production).call(%q(NAMED <http://example.org/alice>)).should == [:named, RDF::URI('http://example.org/alice')]}
-      end
-    end
-  end
-
-  describe "when matching the [12] SourceSelector production rule" do
-    with_production(:SourceSelector) do |production|
-      it_recognizes_iriref_using production
-    end
-  end
-
+  # No specs for the following, as nothing is produced in SSE.
+  #   [10] DefaultGraphClause
+  #   [11] NamedGraphClause
+  #   [12] SourceSelector
   describe "when matching the [13] WhereClause production rule" do
     with_production(:WhereClause) do |production|
       it_rejects_empty_input_using production
@@ -802,31 +772,40 @@ describe SPARQL::Grammar::Parser do
     end
   end
 
+  # [14]    SolutionModifier          ::=       OrderClause? LimitOffsetClauses?
   describe "when matching the [14] SolutionModifier production rule" do
     with_production(:SolutionModifier) do |production|
       it_rejects_empty_input_using production
-      pending("TODO")
+
+      given_it_generates(production, "LIMIT 1", %q((slice _ 1)))
+      given_it_generates(production, "OFFSET 1", %q((slice 1 _)))
+      given_it_generates(production, "LIMIT 1 OFFSET 2", %q((slice 2 1)))
+      given_it_generates(production, "OFFSET 2 LIMIT 1", %q((slice 2 1)))
+
+      given_it_generates(production, "ORDER BY ASC (1)", %q((order ((asc 1)))))
+      given_it_generates(production, "ORDER BY DESC (?a)", %q((order ((desc ?a)))))
+      given_it_generates(production, "ORDER BY ?a ASC (1) isURI(<b>)", %q((order ?a ((asc 1)) isURI (<b>))))
+      
+      # XXX Can't test both together, as they are handled individually in [5] SelectQuery
     end
   end
 
+  # [15]    LimitOffsetClauses        ::=       ( LimitClause OffsetClause? | OffsetClause LimitClause? )
   describe "when matching the [15] LimitOffsetClauses production rule" do
     with_production(:LimitOffsetClauses) do |production|
-      it "recognizes OFFSET clauses" do
-        parser(production).call(%q(OFFSET 10)).should == [:offset, RDF::Literal.new(10)]
-      end
+      given_it_generates(production, "LIMIT 1", %q((slice _ 1)))
+      given_it_generates(production, "OFFSET 1", %q((slice 1 _)))
+      given_it_generates(production, "LIMIT 1 OFFSET 2", %q((slice 2 1)))
+      given_it_generates(production, "OFFSET 2 LIMIT 1", %q((slice 2 1)))
     end
   end
 
   # [16]    OrderClause               ::=       'ORDER' 'BY' OrderCondition+
   describe "when matching the [16] OrderClause production rule" do
     with_production(:OrderClause) do |production|
-      given_it_generates(production, "ORDER BY ASC (1)", [:order, [[:asc, RDF::Literal(1)]]])
-      given_it_generates(production, "ORDER BY DESC (?a)", [:order, [[:desc, RDF::Query::Variable.new("a")]]])
-      given_it_generates(production, "ORDER BY ?a ASC (1) isURI(<b>)",
-        [:order,
-          RDF::Query::Variable.new("a"),
-          [[:asc, RDF::Literal(1)]],
-          :isURI, [RDF::URI.new("b")]])
+      given_it_generates(production, "ORDER BY ASC (1)", %q((order ((asc 1)))))
+      given_it_generates(production, "ORDER BY DESC (?a)", %q((order ((desc ?a)))))
+      given_it_generates(production, "ORDER BY ?a ASC (1) isURI(<b>)", %q((order ?a ((asc 1)) isURI (<b>))))
     end
   end
 

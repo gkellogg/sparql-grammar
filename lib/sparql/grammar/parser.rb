@@ -310,11 +310,48 @@ module SPARQL; module Grammar
             add_prod_datum(:bgp, data[:bgp])
           }
         }
+      when :DatasetClause
+        # [9]     DatasetClause             ::=       'FROM' ( DefaultGraphClause | NamedGraphClause )
+        {
+          # Swallow productions, as nothing is generated in SSE for datasets
+        }
+      #when :DefaultGraphClause
+      #  # [10]    DefaultGraphClause        ::=       SourceSelector
+      #  {
+      #    :finish => lambda { |data|
+      #      add_prod_datum(:default, data[:IRIref])
+      #    }
+      #  }
+      #when :NamedGraphClause
+      #  # [11]    NamedGraphClause          ::=       'NAMED' SourceSelector
+      #  {
+      #    :finish => lambda { |data|
+      #      add_prod_datum(:named, data[:IRIref])
+      #    }
+      #  }
       when :WhereClause
         # [13]    WhereClause               ::=       'WHERE'? GroupGraphPattern
         {
           :finish => lambda { |data|
             add_prod_datum(:bgp, data[:bgp])
+          }
+        }
+      when :SolutionModifier
+        # [14]    SolutionModifier          ::=       OrderClause? LimitOffsetClauses?
+        {
+          :finish => lambda { |data|
+            add_prod_datum(:order, data[:order])  # Pass through OrderClause
+            add_prod_datum(:slice, data[:slice])  # Pass through LimitOffsetClauses
+          }
+        }
+      when :LimitOffsetClauses
+        # [15]    LimitOffsetClauses        ::=       ( LimitClause OffsetClause? | OffsetClause LimitClause? )
+        {
+          :finish => lambda { |data|
+            return unless data[:limit] || data[:offset]
+            limit = data[:limit] ? data[:limit].last : :_
+            offset = data[:offset] ? data[:offset].last : :_
+            add_prod_data(:slice, offset, limit)
           }
         }
       when :OrderCondition
