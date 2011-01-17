@@ -37,4 +37,8 @@ module RDF
       end
     end
   end
+
+  class Query::Variable
+    def to_sxp; to_s; end
+  end
 end
