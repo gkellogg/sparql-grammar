@@ -343,10 +343,22 @@ module SPARQL; module Grammar
           }
         }
       when :GroupGraphPattern
-        # [20]    GroupGraphPattern         ::=       '{' TriplesBlock? ( ( GraphPatternNotTriples | Filter ) '.'? TriplesBlock? )* '}'
+        # [20] GroupGraphPattern ::= '{' TriplesBlock? ( ( GraphPatternNotTriples | Filter ) '.'? TriplesBlock? )* '}'
         {
           :finish => lambda { |data|
-            add_prod_data(:bgp, data[:bgp])
+            if data[:join]
+              list = []
+              list << [:bgp] + data[:bgp] if data[:bgp]
+              list += data[:join]
+              add_prod_data(:join, list)
+            elsif data[:leftjoin]
+              list = []
+              list << [:bgp] + data[:bgp] if data[:bgp]
+              list += data[:leftjoin]
+              add_prod_data(:leftjoin, list)
+            else
+              add_prod_data(:bgp, data[:bgp])
+            end
           }
         }
       when :TriplesBlock
@@ -361,6 +373,35 @@ module SPARQL; module Grammar
             # Append triples from ('.' TriplesBlock? )? 
             if data[:bgp]
               add_prod_data(:bgp, data[:bgp])
+            end
+          }
+        }
+      when :OptionalGraphPattern
+        # [23]    OptionalGraphPattern      ::=       'OPTIONAL' GroupGraphPattern
+        {
+          :finish => lambda { |data|
+            add_prod_data(:leftjoin, [[:bgp] + data[:bgp]]) if data[:bgp]
+            add_prod_data(:leftjoin, data[:leftjoin])
+          }
+        }
+      when :GroupOrUnionGraphPattern
+        # [25]    GroupOrUnionGraphPattern  ::=       GroupGraphPattern ( 'UNION' GroupGraphPattern )*
+        {
+          :finish => lambda { |data|
+            if data[:union]
+              add_prod_data(:join, [[:union, [:bgp] + data[:bgp]]]) if data[:bgp]
+            elsif data[:bgp]
+              add_prod_data(:join, [[:bgp] + data[:bgp]]) if data[:bgp]
+            end
+          }
+        }
+      when :_UNION_GroupGraphPattern_Star
+        {
+          :finish => lambda { |data|
+            if data[:union]
+              #
+            elsif data[:bgp]
+              add_prod_data(:union, [:bgp] + data[:bgp])
             end
           }
         }

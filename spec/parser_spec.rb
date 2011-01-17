@@ -18,6 +18,8 @@ module ProductionRequirements
         parser(production, options).call(input).last.should == result
       elsif options[:shift]
         parser(production, options).call(input)[1..-1].should == result
+      elsif result.is_a?(String)
+        parser(production, options).call(input).to_sxp.should == result.gsub(/[\n ]+/m, " ")
       else
         parser(production, options).call(input).should == result
       end
@@ -209,6 +211,7 @@ module ProductionRequirements
   end
 
   def present_results(array, options = {})
+    return array if array.is_a?(String)
     "[" +
     array.map do |e|
       case e
@@ -858,10 +861,63 @@ describe SPARQL::Grammar::Parser do
     end
   end
 
+  # [20]    GroupGraphPattern         ::=       '{' TriplesBlock? ( ( GraphPatternNotTriples | Filter ) '.'? TriplesBlock? )* '}'
   describe "when matching the [20] GroupGraphPattern production rule" do
     with_production(:GroupGraphPattern) do |production|
+      {
+        # From data/Optional/q-opt-1.rq
+        "{<a><b><c> OPTIONAL {<d><e><f>}}" =>
+          %q((leftjoin
+            (bgp (triple <a> <b> <c>))
+            (bgp (triple <d> <e> <f>)))),
+        "{OPTIONAL {<d><e><f>}}" =>
+          %q((leftjoin
+            (bgp (triple <d> <e> <f>)))),
+        # From data/Optional/q-opt-2.rq
+        "{<a><b><c> OPTIONAL {<d><e><f>} OPTIONAL {<g><h><i>}}" =>
+          %q((leftjoin
+              (bgp (triple <a> <b> <c>))
+              (bgp (triple <d> <e> <f>))
+              (bgp (triple <g> <h> <i>)))),
+        "{<a><b><c> {:x :y :z} {<d><e><f>}}" =>
+          %q((join
+              (bgp (triple <a> <b> <c>))
+              (bgp (triple :x :y :z))
+              (bgp (triple <d> <e> <f>)))),
+        # From data/extracted-examples/query-4.1-q1.rq
+       "{{:x :y :z} {<d><e><f>}}" =>
+          %q((join
+              (bgp (triple :x :y :z))
+              (bgp (triple <d> <e> <f>)))),
+        "{<a><b><c> {:x :y :z} . <d><e><f>}" => [:fixme],
+        "{<a><b><c> {:x :y :z} UNION {<d><e><f>}}" => [:fixme],
+        # From data/Optional/q-opt-3.rq
+        "{{:x :y :z} UNION {<d><e><f>}}" =>
+          %q((union
+              (bgp (triple :x :y :z))
+              (bgp (triple <d> <e> <f>)))),
+        "{GRAPH ?src { :x :y :z}}" => %q((graph ?src (bgp (triple :x :y :z)))),
+        "{<a><b><c> GRAPH <graph> {<d><e><f>}}" =>
+          %q((join
+              (bgp (triple <a> <b> <c>))
+              (graph <graph>
+                (bgp (triple <d> <e> <f>))))),
+        "{ ?a :b ?c .  OPTIONAL { ?c :d ?e } . FILTER (! bound(?e))}" =>
+          %q((filter (! (bound ?e))
+              (leftjoin
+                (bgp (triple ?a :b ?c))
+                (bgp (triple ?c :d ?e))))),
+      }.each_pair do |input, result|
+        given_it_generates(production, input, result, :resolve_uris => false)
+      end
+    end
+  end
+
+  # [21]    TriplesBlock              ::=       TriplesSameSubject ( '.' TriplesBlock? )?
+  describe "when matching the [21] TriplesBlock production rule" do
+    with_production(:TriplesBlock) do |production|
       TRIPLES.each_pair do |input, result|
-        given_it_generates(production, "{#{input}}", ([:bgp] + result),
+        given_it_generates(production, input, ([:bgp] + result),
           :prefixes => {nil => "http://example.com/", :rdf => RDF.to_uri.to_s},
           :base_uri => RDF::URI("http://example.org/"),
           :anon_base => "gen0000")
@@ -869,6 +925,7 @@ describe SPARQL::Grammar::Parser do
     end
   end
 
+  # [22] GraphPatternNotTriples ::= OptionalGraphPattern | GroupOrUnionGraphPattern | GraphGraphPattern
   describe "when matching the [22] GraphPatternNotTriples production rule" do
     with_production(:GraphPatternNotTriples) do |production|
       it_rejects_empty_input_using production
@@ -876,13 +933,21 @@ describe SPARQL::Grammar::Parser do
     end
   end
 
+  # [23]    OptionalGraphPattern      ::=       'OPTIONAL' GroupGraphPattern
   describe "when matching the [23] OptionalGraphPattern production rule" do
     with_production(:OptionalGraphPattern) do |production|
       it_rejects_empty_input_using production
-      pending("TODO")
+      {
+        "OPTIONAL {<d><e><f>}" =>
+          [:leftjoin,
+            [:bgp, [:triple, RDF::URI("d"), RDF::URI("e"), RDF::URI("f")]]],
+      }.each_pair do |input, result|
+        given_it_generates(production, input, result)
+      end
     end
   end
 
+  # [24]    GraphGraphPattern         ::=       'GRAPH' VarOrIRIref GroupGraphPattern
   describe "when matching the [24] GraphGraphPattern production rule" do
     with_production(:GraphGraphPattern) do |production|
       it_rejects_empty_input_using production
@@ -890,6 +955,7 @@ describe SPARQL::Grammar::Parser do
     end
   end
 
+  # [25]    GroupOrUnionGraphPattern  ::=       GroupGraphPattern ( 'UNION' GroupGraphPattern )*
   describe "when matching the [25] GroupOrUnionGraphPattern production rule" do
     with_production(:GroupOrUnionGraphPattern) do |production|
       it_rejects_empty_input_using production
@@ -938,17 +1004,6 @@ describe SPARQL::Grammar::Parser do
     with_production(:ConstructTriples) do |production|
       TRIPLES.each_pair do |input, result|
         given_it_generates(production, input, ([:ConstructTriples] + result),
-          :prefixes => {nil => "http://example.com/", :rdf => RDF.to_uri.to_s},
-          :base_uri => RDF::URI("http://example.org/"),
-          :anon_base => "gen0000")
-      end
-    end
-  end
-
-  describe "when matching the [21] TriplesBlock production rule" do
-    with_production(:TriplesBlock) do |production|
-      TRIPLES.each_pair do |input, result|
-        given_it_generates(production, input, ([:bgp] + result),
           :prefixes => {nil => "http://example.com/", :rdf => RDF.to_uri.to_s},
           :base_uri => RDF::URI("http://example.org/"),
           :anon_base => "gen0000")
