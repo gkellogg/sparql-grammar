@@ -31,6 +31,9 @@ rescue Exception => e
     fname = input.respond_to?(:path) ? input.path : "-stdin-"
     STDERR.puts("\nIn #{fname}: #{e.message}")
     raise e
+  else
+    puts "Parse Error: #{e.message}"
+    exit(1)
   end
 end
 
