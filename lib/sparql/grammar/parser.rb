@@ -383,20 +383,25 @@ module SPARQL; module Grammar
         # [20] GroupGraphPattern ::= '{' TriplesBlock? ( ( GraphPatternNotTriples | Filter ) '.'? TriplesBlock? )* '}'
         {
           :finish => lambda { |data|
-            if data[:leftjoin] && data[:bgp]
-              prod = :leftjoin
-              res = [data[:bgp].unshift(:bgp)] + data[:leftjoin]
-            elsif data[:leftjoin]
-              prod = :leftjoin
-              res = [[:table, :unit]] + data[:leftjoin]
-            elsif data[:join] && data[:bgp]
-              prod = :join
-              res = [data[:bgp].unshift(:bgp)] + data[:join]
-            elsif data[:join] || data[:bgp]
-              prod = :bgp
-              res = data[:join] || data[:bgp]
+            production_list = data[:_GraphPatternNotTriples_or_Filter_Dot_Opt_TriplesBlock_Opt]
+            puts "GroupGraphPattern: pl #{production_list.inspect}"
+            puts "GroupGraphPattern: bgp #{data[:bgp].inspect}"
+            
+            if production_list
+              res = data[:bgp] ? data[:bgp].unshift(:bgp) : :"{}"   # Create dummy first element, if necessary, removed later
+              while !production_list.empty?
+                prod_graph = production_list.shift
+                puts "GroupGraphPattern(itr): pg: #{prod_graph.inspect}"
+                puts "GroupGraphPattern(itr): res: #{res.inspect}"
+                prod = prod_graph.first
+                res = [prod] + [res] + [prod_graph.last]
+              end
+              prod = res.shift
+              puts "GroupGraphPattern(end): prod: #{prod} res: #{res.inspect}"
+            elsif data[:bgp]
+              prod, res = :bgp, data[:bgp]
             else
-              return
+              return  # No reason to filter
             end
             
             if data[:filter]
@@ -406,54 +411,27 @@ module SPARQL; module Grammar
             add_prod_datum(prod, res)
           }
         }
-      when :_GraphPatternNotTriples_or_Filter_Dot_Opt_TriplesBlock_Opt_Star
-        # ( ( GraphPatternNotTriples | Filter ) '.'? TriplesBlock? )*
-        {
-          :finish => lambda { |data|
-            if data[:leftjoin] && data[:bgp]
-              prod = :leftjoin
-              res = [data[:bgp].unshift(:bgp)] + data[:leftjoin]
-            elsif data[:leftjoin]
-              prod = :leftjoin
-              res = data[:leftjoin]
-            elsif data[:join] && data[:bgp]
-              prod = :join
-              res = [data[:bgp].unshift(:bgp)] + data[:join]
-            elsif data[:join]
-              prod = :join
-              res = data[:join]
-            elsif data[:bgp]
-              prod = :bgp
-              res = data[:bgp]
-            else
-              return
-            end
-            add_prod_datum(prod, res)
-            add_prod_datum(:filter, data[:filter])
-          }
-        }
       when :_GraphPatternNotTriples_or_Filter_Dot_Opt_TriplesBlock_Opt
-        # Join two graphs
+        # Create a stack of production, graph pairs and resolve in GroupGraphPattern
         {
           :finish => lambda { |data|
-            add_prod_datum(:leftjoin, data[:leftjoin])
-            add_prod_datum(:join, data[:union].unshift(:union)) if data[:union]
-            add_prod_datum(:join, data[:graph].unshift(:graph)) if data[:graph]
-            add_prod_datum(:join, data[:_GraphPatternNotTriples].unshift(:bgp)) if data[:_GraphPatternNotTriples]
-            add_prod_datum(:join, data[:bgp].unshift(:bgp)) if data[:bgp]
+            lhs = data[:_GraphPatternNotTriples_or_Filter]
+            rhs = data[:bgp].unshift(:bgp) if data[:bgp]
+            add_prod_datum(:_GraphPatternNotTriples_or_Filter_Dot_Opt_TriplesBlock_Opt, lhs) if lhs
+            add_prod_data(:_GraphPatternNotTriples_or_Filter_Dot_Opt_TriplesBlock_Opt, [:join, rhs]) if rhs
             add_prod_datum(:filter, data[:filter])
           }
         }
       when :_GraphPatternNotTriples_or_Filter
-        # Pass :filter, :leftjoin, :union or :graph as is up.
-        # Pass :bgp up as :_GraphPatternNotTriples to disambiguate with TriplesBlock_Opt, which uses :bgp
+        # Create a stack of production, graph pairs and resolve in GroupGraphPattern
         {
           :finish => lambda { |data|
             add_prod_datum(:filter, data[:filter])
-            add_prod_datum(:leftjoin, data[:leftjoin])
-            add_prod_datum(:union, data[:union])
-            add_prod_datum(:graph, data[:graph])
-            add_prod_datum(:_GraphPatternNotTriples, data[:bgp])
+
+            add_prod_data(:_GraphPatternNotTriples_or_Filter, data[:leftjoin].unshift(:leftjoin)) if data[:leftjoin]
+            add_prod_data(:_GraphPatternNotTriples_or_Filter, data[:union].unshift(:union)) if data[:union]
+            add_prod_data(:_GraphPatternNotTriples_or_Filter, data[:graph].unshift(:join)) if data[:graph]
+            add_prod_data(:_GraphPatternNotTriples_or_Filter, [:join, data[:bgp].unshift(:bgp)]) if data[:bgp]
           }
         }
       when :TriplesBlock

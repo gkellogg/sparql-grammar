@@ -882,10 +882,6 @@ describe SPARQL::Grammar::Parser do
           %q((join
               (bgp (triple :x :y :z))
               (bgp (triple <d> <e> <f>)))),
-        "{<a><b><c> . <d><e><f>}" =>
-          %q((join
-              (bgp (triple <a> <b> <c>))
-              (bgp (triple <d> <e> <f>)))),
         "{<a><b><c> {:x :y :z} UNION {<d><e><f>}}" =>
           %q((join
               (bgp (triple <a> <b> <c>))
