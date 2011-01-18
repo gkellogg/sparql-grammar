@@ -294,12 +294,17 @@ module ProductionExamples
     parser(production).call(%q(1 || 2)).should == [:Expression, [:"||", RDF::Literal(1), RDF::Literal(2)]]
     parser(production).call(%q(1 || 2 && 3)).should == [:Expression, [:"||", RDF::Literal(1), [:"&&", RDF::Literal(2), RDF::Literal(3)]]]
     parser(production).call(%q(1 && 2 || 3)).should == [:Expression, [:"||", [:"&&", RDF::Literal(1), RDF::Literal(2)], RDF::Literal(3)]]
+
+    parser(production).call(%q(1 || 2 || 3)).should == [:Expression, [:"||", [:"||", RDF::Literal(1), RDF::Literal(2)], RDF::Literal(3)]]
     it_recognizes_conditional_and_expression(production)
   end
 
   # [48]    ConditionalAndExpression ::=       ValueLogical ( '&&' ValueLogical )*
   def it_recognizes_conditional_and_expression(production)
     parser(production).call(%q(1 && 2)).should == [:Expression, [:"&&", RDF::Literal(1), RDF::Literal(2)]]
+    parser(production).call(%q(1 && 2 = 3)).should == [:Expression, [:"&&", RDF::Literal(1), [:"=", RDF::Literal(2), RDF::Literal(3)]]]
+
+    parser(production).call(%q(1 && 2 && 3)).should == [:Expression, [:"&&", [:"&&", RDF::Literal(1), RDF::Literal(2)], RDF::Literal(3)]]
     it_recognizes_value_logical(production)
   end
 
@@ -339,8 +344,8 @@ module ProductionExamples
     parser(production).call(%q(1 - 2)).should == [:Expression, [:"-", RDF::Literal(1), RDF::Literal(2)]]
     parser(production).call(%q(3+4)).should == [:Expression, [:"+", RDF::Literal(3), RDF::Literal(4)]]
 
-    parser(production).call(%q("1" + "2" - "3")).should == [:Expression, [:"+", RDF::Literal("1"), [:"-", RDF::Literal("2"), RDF::Literal("3")]]]
-    parser(production).call(%q("1" - "2" + "3")).should == [:Expression, [:"-", RDF::Literal("1"), [:"+", RDF::Literal("2"), RDF::Literal("3")]]]
+    parser(production).call(%q("1" + "2" - "3")).should == [:Expression, [:"-", [:"+", RDF::Literal("1"), RDF::Literal("2")], RDF::Literal("3")]]
+    parser(production).call(%q("1" - "2" + "3")).should == [:Expression, [:"+", [:"-", RDF::Literal("1"), RDF::Literal("2")], RDF::Literal("3")]]
     
     it_recognizes_multiplicative_expression(production)
   end
@@ -351,8 +356,8 @@ module ProductionExamples
     parser(production).call(%q(1 / 2)).should == [:Expression, [:"/", RDF::Literal(1), RDF::Literal(2)]]
     parser(production).call(%q(3*4)).should == [:Expression, [:"*", RDF::Literal(3), RDF::Literal(4)]]
 
-    parser(production).call(%q("1" * "2" * "3")).should == [:Expression, [:"*", RDF::Literal("1"), [:"*", RDF::Literal("2"), RDF::Literal("3")]]]
-    parser(production).call(%q("1" * "2" / "3")).should == [:Expression, [:"*", RDF::Literal("1"), [:"/", RDF::Literal("2"), RDF::Literal("3")]]]
+    parser(production).call(%q("1" * "2" * "3")).should == [:Expression, [:"*", [:"*", RDF::Literal("1"), RDF::Literal("2")], RDF::Literal("3")]]
+    parser(production).call(%q("1" * "2" / "3")).should == [:Expression, [:"/", [:"*", RDF::Literal("1"), RDF::Literal("2")], RDF::Literal("3")]]
 
     it_recognizes_unary_expression(production)
   end
@@ -851,25 +856,42 @@ describe SPARQL::Grammar::Parser do
             (bgp (triple <d> <e> <f>)))),
         "{OPTIONAL {<d><e><f>}}" =>
           %q((leftjoin
-            (bgp (triple <d> <e> <f>)))),
+            (table unit)
+            (bgp (triple <d> <e> <f>)))),     # XXX Really?
         # From data/Optional/q-opt-2.rq
         "{<a><b><c> OPTIONAL {<d><e><f>} OPTIONAL {<g><h><i>}}" =>
           %q((leftjoin
-              (bgp (triple <a> <b> <c>))
-              (bgp (triple <d> <e> <f>))
+              (leftjoin
+                (bgp (triple <a> <b> <c>))
+                (bgp (triple <d> <e> <f>)))
               (bgp (triple <g> <h> <i>)))),
         "{<a><b><c> {:x :y :z} {<d><e><f>}}" =>
           %q((join
-              (bgp (triple <a> <b> <c>))
-              (bgp (triple :x :y :z))
+              (join
+                (bgp (triple <a> <b> <c>))
+                (bgp (triple :x :y :z)))
+              (bgp (triple <d> <e> <f>)))),
+        "{<a><b><c> {:x :y :z} <d><e><f>}" =>
+          %q((join
+              (join
+                (bgp (triple <a> <b> <c>))
+                (bgp (triple :x :y :z)))
               (bgp (triple <d> <e> <f>)))),
         # From data/extracted-examples/query-4.1-q1.rq
        "{{:x :y :z} {<d><e><f>}}" =>
           %q((join
               (bgp (triple :x :y :z))
               (bgp (triple <d> <e> <f>)))),
-        "{<a><b><c> {:x :y :z} . <d><e><f>}" => [:fixme],
-        "{<a><b><c> {:x :y :z} UNION {<d><e><f>}}" => [:fixme],
+        "{<a><b><c> . <d><e><f>}" =>
+          %q((join
+              (bgp (triple <a> <b> <c>))
+              (bgp (triple <d> <e> <f>)))),
+        "{<a><b><c> {:x :y :z} UNION {<d><e><f>}}" =>
+          %q((join
+              (bgp (triple <a> <b> <c>))
+              (union
+                (bgp (triple :x :y :z))
+                (bgp (triple <d> <e> <f>))))),
         # From data/Optional/q-opt-3.rq
         "{{:x :y :z} UNION {<d><e><f>}}" =>
           %q((union
@@ -887,7 +909,7 @@ describe SPARQL::Grammar::Parser do
                 (bgp (triple ?a :b ?c))
                 (bgp (triple ?c :d ?e))))),
       }.each_pair do |input, result|
-        pending {given_it_generates(production, input, result, :resolve_uris => false)}
+        given_it_generates(production, input, result, :resolve_uris => false)
       end
     end
   end
@@ -908,7 +930,30 @@ describe SPARQL::Grammar::Parser do
   describe "when matching the [22] GraphPatternNotTriples production rule" do
     with_production(:GraphPatternNotTriples) do |production|
       it_rejects_empty_input_using production
-      pending("TODO")
+      {
+        # OptionalGraphPattern
+        "OPTIONAL {<d><e><f>}" => %q((leftjoin (bgp (triple <d> <e> <f>)))),
+
+        # GroupOrUnionGraphPattern
+        "{:x :y :z}" => %q((bgp (triple :x :y :z))),
+        "{:x :y :z} UNION {<d><e><f>}" =>
+          %q((union
+              (bgp (triple :x :y :z))
+              (bgp (triple <d> <e> <f>)))),
+        "{:x :y :z} UNION {<d><e><f>} UNION {?a ?b ?c}" =>
+          %q((union
+              (union
+                (bgp (triple :x :y :z))
+                (bgp (triple <d> <e> <f>)))
+              (bgp (triple ?a ?b ?c)))),
+
+        # GraphGraphPattern
+        "GRAPH ?a {<d><e><f>}" => %q((graph ?a (bgp (triple <d> <e> <f>)))),
+        "GRAPH :a {<d><e><f>}" => %q((graph :a (bgp (triple <d> <e> <f>)))),
+        "GRAPH <a> {<d><e><f>}" => %q((graph <a> (bgp (triple <d> <e> <f>)))),
+      }.each_pair do |input, result|
+        given_it_generates(production, input, result, :resolve_uris => false)
+      end
     end
   end
 
@@ -953,8 +998,9 @@ describe SPARQL::Grammar::Parser do
               (bgp (triple <d> <e> <f>)))),
         "{:x :y :z} UNION {<d><e><f>} UNION {?a ?b ?c}" =>
           %q((union
-              (bgp (triple :x :y :z))
-              (bgp (triple <d> <e> <f>))
+              (union
+                (bgp (triple :x :y :z))
+                (bgp (triple <d> <e> <f>)))
               (bgp (triple ?a ?b ?c)))),
       }.each_pair do |input, result|
         given_it_generates(production, input, result, :resolve_uris => false)

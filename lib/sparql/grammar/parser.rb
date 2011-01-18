@@ -383,19 +383,77 @@ module SPARQL; module Grammar
         # [20] GroupGraphPattern ::= '{' TriplesBlock? ( ( GraphPatternNotTriples | Filter ) '.'? TriplesBlock? )* '}'
         {
           :finish => lambda { |data|
-            add_prod_datum(:bgp, data[:bgp])
+            if data[:leftjoin] && data[:bgp]
+              prod = :leftjoin
+              res = [data[:bgp].unshift(:bgp)] + data[:leftjoin]
+            elsif data[:leftjoin]
+              prod = :leftjoin
+              res = [[:table, :unit]] + data[:leftjoin]
+            elsif data[:join] && data[:bgp]
+              prod = :join
+              res = [data[:bgp].unshift(:bgp)] + data[:join]
+            elsif data[:join] || data[:bgp]
+              prod = :bgp
+              res = data[:join] || data[:bgp]
+            else
+              return
+            end
+            
+            if data[:filter]
+              res = [data[:filter], [prod + res]]
+              prod = :filter
+            end
+            add_prod_datum(prod, res)
           }
         }
       when :_GraphPatternNotTriples_or_Filter_Dot_Opt_TriplesBlock_Opt_Star
+        # ( ( GraphPatternNotTriples | Filter ) '.'? TriplesBlock? )*
         {
           :finish => lambda { |data|
-            add_prod_datum(:bgp, data[:bgp])
+            if data[:leftjoin] && data[:bgp]
+              prod = :leftjoin
+              res = [data[:bgp].unshift(:bgp)] + data[:leftjoin]
+            elsif data[:leftjoin]
+              prod = :leftjoin
+              res = data[:leftjoin]
+            elsif data[:join] && data[:bgp]
+              prod = :join
+              res = [data[:bgp].unshift(:bgp)] + data[:join]
+            elsif data[:join]
+              prod = :join
+              res = data[:join]
+            elsif data[:bgp]
+              prod = :bgp
+              res = data[:bgp]
+            else
+              return
+            end
+            add_prod_datum(prod, res)
+            add_prod_datum(:filter, data[:filter])
           }
         }
       when :_GraphPatternNotTriples_or_Filter_Dot_Opt_TriplesBlock_Opt
+        # Join two graphs
         {
           :finish => lambda { |data|
-            add_prod_datum(:bgp, data[:bgp])
+            add_prod_datum(:leftjoin, data[:leftjoin])
+            add_prod_datum(:join, data[:union].unshift(:union)) if data[:union]
+            add_prod_datum(:join, data[:graph].unshift(:graph)) if data[:graph]
+            add_prod_datum(:join, data[:_GraphPatternNotTriples].unshift(:bgp)) if data[:_GraphPatternNotTriples]
+            add_prod_datum(:join, data[:bgp].unshift(:bgp)) if data[:bgp]
+            add_prod_datum(:filter, data[:filter])
+          }
+        }
+      when :_GraphPatternNotTriples_or_Filter
+        # Pass :filter, :leftjoin, :union or :graph as is up.
+        # Pass :bgp up as :_GraphPatternNotTriples to disambiguate with TriplesBlock_Opt, which uses :bgp
+        {
+          :finish => lambda { |data|
+            add_prod_datum(:filter, data[:filter])
+            add_prod_datum(:leftjoin, data[:leftjoin])
+            add_prod_datum(:union, data[:union])
+            add_prod_datum(:graph, data[:graph])
+            add_prod_datum(:_GraphPatternNotTriples, data[:bgp])
           }
         }
       when :TriplesBlock
@@ -415,19 +473,10 @@ module SPARQL; module Grammar
         # [22]    GraphPatternNotTriples    ::=       OptionalGraphPattern | GroupOrUnionGraphPattern | GraphGraphPattern
         {
           :finish => lambda { |data|
-            if data[:join]
-              list = []
-              list << [:bgp] + data[:bgp] if data[:bgp]
-              list += data[:join]
-              add_prod_datum(:join, list)
-            elsif data[:leftjoin]
-              list = []
-              list << [:bgp] + data[:bgp] if data[:bgp]
-              list += data[:leftjoin]
-              add_prod_datum(:leftjoin, list)
-            else
-              add_prod_datum(:bgp, data[:bgp])
-            end
+            add_prod_datum(:bgp, data[:bgp])
+            add_prod_datum(:leftjoin, data[:leftjoin])
+            add_prod_datum(:union, data[:union])
+            add_prod_datum(:graph, data[:graph])
           }
         }
       when :OptionalGraphPattern
@@ -448,23 +497,11 @@ module SPARQL; module Grammar
       when :GroupOrUnionGraphPattern
         # [25]    GroupOrUnionGraphPattern  ::=       GroupGraphPattern ( 'UNION' GroupGraphPattern )*
         {
-          :finish => lambda { |data|
-            if data[:union]
-              add_prod_data(:union, data[:bgp].unshift(:bgp), *data[:union]) if data[:bgp]
-            else
-              add_prod_datum(:bgp, data[:bgp])
-            end
-          }
+          :finish => lambda { |data| add_graphs(:union, data) }
         }
       when :_UNION_GroupGraphPattern_Star
         {
-          :finish => lambda { |data|
-            if data[:union]
-              add_prod_data(:union, data[:bgp].unshift(:bgp), *data[:union])
-            elsif data[:bgp]
-              add_prod_data(:union, data[:bgp].unshift(:bgp))
-            end
-          }
+          :finish => lambda { |data|  accumulate_graphs(:union, data) }
         }
       when :Constraint
         # [27]    Constraint                ::=       BrackettedExpression | BuiltInCall | FunctionCall
@@ -596,46 +633,22 @@ module SPARQL; module Grammar
       when :ConditionalOrExpression
         # [47]    ConditionalOrExpression   ::=       ConditionalAndExpression ( '||' ConditionalAndExpression )*
         {
-          :finish => lambda { |data|
-            if data[:_OR]
-              add_prod_data(:Expression, data[:_OR].insert(1, *data[:Expression]))
-            else
-              add_prod_datum(:Expression, data[:Expression])
-            end
-          }
+          :finish => lambda { |data| add_operator_expressions(:_OR, data) }
         }
       when :_OR_ConditionalAndExpression
         # This part handles the operator and the rhs of a ConditionalAndExpression
         {
-          :finish => lambda { |data|
-            if data[:_OR]
-              add_prod_data(:_OR, data[:ConditionalOrExpression] + data[:_OR].insert(1, *data[:Expression]))
-            elsif data[:ConditionalOrExpression]
-              add_prod_datum(:_OR, data[:ConditionalOrExpression] + data[:Expression])
-            end
-          }
+          :finish => lambda { |data| accumulate_operator_expressions(:ConditionalOrExpression, :_OR, data) }
         }
       when :ConditionalAndExpression
         # [48]    ConditionalAndExpression  ::=       ValueLogical ( '&&' ValueLogical )*
         {
-          :finish => lambda { |data|
-            if data[:_AND]
-              add_prod_data(:Expression, data[:_AND].insert(1, *data[:Expression]))
-            else
-              add_prod_datum(:Expression, data[:Expression])
-            end
-          }
+          :finish => lambda { |data| add_operator_expressions(:_AND, data) }
         }
       when :_AND_ValueLogical_Star
         # This part handles the operator and the rhs of a ConditionalAndExpression
         {
-          :finish => lambda { |data|
-            if data[:_AND]
-              add_prod_data(:_AND, data[:ConditionalAndExpression] + data[:_AND].insert(1, *data[:Expression]))
-            elsif data[:ConditionalAndExpression]
-              add_prod_datum(:_AND, data[:ConditionalAndExpression] + data[:Expression])
-            end
-          }
+          :finish => lambda { |data| accumulate_operator_expressions(:ConditionalAndExpression, :_AND, data) }
         }
       when :RelationalExpression
         # [50] RelationalExpression ::= NumericExpression (
@@ -667,48 +680,23 @@ module SPARQL; module Grammar
       when :AdditiveExpression
         # [52]    AdditiveExpression ::= MultiplicativeExpression ( '+' MultiplicativeExpression | '-' MultiplicativeExpression )*
         {
-          :finish => lambda { |data|
-            if data[:_Add_Sub]
-              add_prod_data(:Expression, data[:_Add_Sub].insert(1, *data[:Expression]))
-            else
-              add_prod_datum(:Expression, data[:Expression])
-            end
-          }
+          :finish => lambda { |data| add_operator_expressions(:_Add_Sub, data) }
         }
       when :_Add_Sub_MultiplicativeExpression_Star  # ( '+' MultiplicativeExpression | '-' MultiplicativeExpression | ... )*
         # This part handles the operator and the rhs of a AdditiveExpression
         {
-          :finish => lambda { |data|
-            if data[:_Add_Sub]
-              add_prod_datum(:_Add_Sub, data[:AdditiveExpression])
-              add_prod_data(:_Add_Sub, data[:_Add_Sub].insert(1, *data[:Expression]))
-            elsif data[:AdditiveExpression]
-              add_prod_datum(:_Add_Sub, data[:AdditiveExpression] + data[:Expression])
-            end
-          }
+          :finish => lambda { |data| accumulate_operator_expressions(:AdditiveExpression, :_Add_Sub, data) }
         }
       when :MultiplicativeExpression
         # [53]    MultiplicativeExpression  ::=       UnaryExpression ( '*' UnaryExpression | '/' UnaryExpression )*
         {
-          :finish => lambda { |data|
-            if data[:_Mul_Div]
-              add_prod_data(:Expression, data[:_Mul_Div].insert(1, *data[:Expression]))
-            else
-              add_prod_datum(:Expression, data[:Expression])
-            end
-          }
+          :finish => lambda { |data| add_operator_expressions(:_Mul_Div, data) }
         }
       when :_Mul_Div_UnaryExpression_Star # ( '*' UnaryExpression | '/' UnaryExpression )*
         # This part handles the operator and the rhs of a MultiplicativeExpression
         {
-          :finish => lambda { |data|
-            if data [:_Mul_Div]
-              add_prod_datum(:_Mul_Div, data[:MultiplicativeExpression])
-              add_prod_data(:_Mul_Div, data[:_Mul_Div].insert(1, *data[:Expression]))
-            elsif data[:MultiplicativeExpression]
-              add_prod_datum(:_Mul_Div, data[:MultiplicativeExpression] + data[:Expression])
-            end
-          }
+          # Mul or Div with prod_data[:Expression]
+          :finish => lambda { |data| accumulate_operator_expressions(:MultiplicativeExpression, :_Mul_Div, data) }
         }
       when :UnaryExpression
         # [54] UnaryExpression ::=  '!' PrimaryExpression | '+' PrimaryExpression | '-' PrimaryExpression | PrimaryExpression
@@ -1066,6 +1054,51 @@ module SPARQL; module Grammar
       false
     end
     alias_method :fail!, :fail
+
+    # Add joined graphs similar to graph (union graph)* to form (union (union graph graph) graph)
+    def add_graphs(production, data)
+      # Iterate through expression to create binary operations
+      input_prod = [:graph, :join, :leftjoin, :bgp].detect { |prod| data[prod] }
+      res = data[input_prod]
+      if data[production]
+        while !data[production].empty?
+          res = [res.unshift(input_prod), data[production].shift]
+          input_prod = production
+        end
+      end
+      add_prod_datum(input_prod, res)
+    end
+
+    # Accumulate joined graphs in for graph (union graph)* to form (union (union graph graph) graph)
+    def accumulate_graphs(production, data)
+      input_prod = [:graph, :join, :leftjoin, :bgp].detect { |prod| data[prod] }
+      # Add [production rhs] to stack based on "production"
+      add_prod_data(production, data[input_prod].unshift(input_prod)) if data[input_prod]
+      add_prod_datum(production, data[production])
+    end
+
+    # Add joined expressions in for prod1 (op prod2)* to form (op (op 1 2) 3)
+    def add_operator_expressions(production, data)
+      # Iterate through expression to create binary operations
+      res = data[:Expression]
+      while data[production] && !data[production].empty?
+        res = [data[production].shift + res + data[production].shift]
+      end
+      add_prod_datum(:Expression, res)
+    end
+
+    # Accumulate joined expressions in for prod1 (op prod2)* to form (op (op 1 2) 3)
+    def accumulate_operator_expressions(operator, production, data)
+      if data[operator]
+        # Add [op data] to stack based on "production"
+        add_prod_datum(production, [data[operator], data[:Expression]])
+        # Add previous [op data] information
+        add_prod_datum(production, data[production])
+      else
+        # No operator, forward :Expression
+        add_prod_datum(:Expression, data[:Expression])
+      end
+    end
 
     # Add values to production data, values aranged as an array
     def add_prod_datum(sym, values)
