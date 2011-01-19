@@ -714,10 +714,19 @@ describe SPARQL::Grammar::Parser do
         given_it_generates(production, "SELECT * WHERE {{?a ?b ?c} UNION {?d ?e ?f}}", %q((union (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
         given_it_generates(production, "SELECT * WHERE {?a ?b ?c FILTER (?a)}", %q((filter ?a (bgp (triple ?a ?b ?c)))))
 
-        given_it_generates(production, "SELECT ?a ?b WHERE {?a ?b ?c}", %q((project (?a ?b) (bgp (triple ?a ?b ?c)))))
+        describe "Var+" do
+          given_it_generates(production, "SELECT ?a ?b WHERE {?a ?b ?c}", %q((project (?a ?b) (bgp (triple ?a ?b ?c)))))
+        end
 
-        pending("DISTINCT")
-        pending("REDUCED")
+        describe "DISTINCT" do
+          given_it_generates(production, "SELECT DISTINCT * WHERE {?a ?b ?c}", %q((distinct (bgp (triple ?a ?b ?c)))))
+          given_it_generates(production, "SELECT DISTINCT ?a ?b WHERE {?a ?b ?c}", %q((distinct (project (?a ?b) (bgp (triple ?a ?b ?c))))))
+        end
+
+        describe "REDUCED" do
+          given_it_generates(production, "SELECT REDUCED * WHERE {?a ?b ?c}", %q((reduced (bgp (triple ?a ?b ?c)))))
+          given_it_generates(production, "SELECT REDUCED ?a ?b WHERE {?a ?b ?c}", %q((reduced (project (?a ?b) (bgp (triple ?a ?b ?c))))))
+        end
       end
     end
   end
@@ -751,7 +760,9 @@ describe SPARQL::Grammar::Parser do
       given_it_generates(production, "DESCRIBE * WHERE {{?a ?b ?c} UNION {?d ?e ?f}}", %q((union (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
       given_it_generates(production, "DESCRIBE * WHERE {?a ?b ?c FILTER (?a)}", %q((filter ?a (bgp (triple ?a ?b ?c)))))
 
-      given_it_generates(production, "DESCRIBE ?a ?b WHERE {?a ?b ?c}", %q((project (?a ?b) (bgp (triple ?a ?b ?c)))))
+      describe "Var+" do
+        given_it_generates(production, "DESCRIBE ?a ?b WHERE {?a ?b ?c}", %q((project (?a ?b) (bgp (triple ?a ?b ?c)))))
+      end
     end
   end
 
@@ -1387,22 +1398,6 @@ describe SPARQL::Grammar::Parser do
     end
 
     # NOTE: production rules [70..100] are internal to the lexer
-  end
-
-  describe "when parsing ASK queries" do
-    pending("TODO")
-  end
-
-  describe "when parsing SELECT queries" do
-    pending("TODO")
-  end
-
-  describe "when parsing CONSTRUCT queries" do
-    pending("TODO")
-  end
-
-  describe "when parsing DESCRIBE queries" do
-    pending("TODO")
   end
 
   def parser(production = nil, options = {})

@@ -10,7 +10,7 @@ module SPARQL; module Grammar
     include SPARQL::Grammar::Meta
 
     START = SPARQL_GRAMMAR.Query
-    GRAPH_OUTPUTS = [:bgp, :filter, :graph, :join, :leftjoin, :order, :project, :slice, :union]
+    GRAPH_OUTPUTS = [:bgp, :distinct, :filter, :graph, :join, :leftjoin, :order, :project, :reduced, :slice, :union]
 
     ##
     # Initializes a new parser instance.
@@ -314,10 +314,16 @@ module SPARQL; module Grammar
             
             if data[:Var]
               res = res ? res.unshift(prod) : [:null]
-              add_prod_datum(:project, [data[:Var]] + [res])
-            else
-              add_prod_datum(prod, res)
+              res = [data[:Var]] + [res]
+              prod = :project
             end
+
+            if data[:DISTINCT_REDUCED]
+              res = res ? [res.unshift(prod)] : [:null]
+              prod = data[:DISTINCT_REDUCED].first
+            end
+
+            add_prod_datum(prod, res)
           }
         }
       when :ConstructQuery
@@ -931,6 +937,8 @@ module SPARQL; module Grammar
           lambda { |token| add_prod_datum(:BuiltInCall, :datatype) }
         when :DECIMAL
           lambda { |token| add_prod_datum(:literal, RDF::Literal.new(token, :datatype => RDF::XSD.decimal)) }
+        when :DISTINCT, :REDUCED
+          lambda { |token| add_prod_datum(:DISTINCT_REDUCED, token.downcase.to_sym) }
         when :DOUBLE
           lambda { |token| add_prod_datum(:literal, RDF::Literal.new(token, :datatype => RDF::XSD.double)) }
         when :INTEGER
