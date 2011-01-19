@@ -704,6 +704,20 @@ describe SPARQL::Grammar::Parser do
             :base_uri => RDF::URI("http://example.org/"),
             :anon_base => "gen0000")
         end
+        
+        given_it_generates(production, "SELECT * FROM <a> WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
+        given_it_generates(production, "SELECT * FROM NAMED <a> WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
+        given_it_generates(production, "SELECT * WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
+        given_it_generates(production, "SELECT * WHERE {GRAPH <a> {?a ?b ?c}}", %q((graph <a> (bgp (triple ?a ?b ?c)))))
+        given_it_generates(production, "SELECT * WHERE {?a ?b ?c OPTIONAL {?d ?e ?f}}", %q((leftjoin (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
+        given_it_generates(production, "SELECT * WHERE {?a ?b ?c {?d ?e ?f}}", %q((join (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
+        given_it_generates(production, "SELECT * WHERE {{?a ?b ?c} UNION {?d ?e ?f}}", %q((union (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
+        given_it_generates(production, "SELECT * WHERE {?a ?b ?c FILTER (?a)}", %q((filter ?a (bgp (triple ?a ?b ?c)))))
+
+        given_it_generates(production, "SELECT ?a ?b WHERE {?a ?b ?c}", %q((project (?a ?b) (bgp (triple ?a ?b ?c)))))
+
+        pending("DISTINCT")
+        pending("REDUCED")
       end
     end
   end
@@ -713,28 +727,31 @@ describe SPARQL::Grammar::Parser do
     with_production(:ConstructQuery) do |production|
       it_rejects_empty_input_using production
       
-      query = %(
-        PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> 
-        PREFIX  foaf:       <http://xmlns.com/foaf/0.1/>
-
-        CONSTRUCT { ?s foaf:name ?o . }
-        WHERE {
-          ?s foaf:name ?o .
-        }
-      )
-      result = %(
-        (prefix ((rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>)
-                 (foaf: <http://xmlns.com/foaf/0.1/>))
-          (project (?s ?o)
-            (bgp (triple ?s foaf:name ?o))))
-      )
+      given_it_generates(production, "CONSTRUCT {?a ?b ?c} FROM <a> WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
+      given_it_generates(production, "CONSTRUCT {?a ?b ?c} FROM NAMED <a> WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
+      given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
+      given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {GRAPH <a> {?a ?b ?c}}", %q((graph <a> (bgp (triple ?a ?b ?c)))))
+      given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {?a ?b ?c OPTIONAL {?d ?e ?f}}", %q((leftjoin (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
+      given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {?a ?b ?c {?d ?e ?f}}", %q((join (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
+      given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {{?a ?b ?c} UNION {?d ?e ?f}}", %q((union (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
+      given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {?a ?b ?c FILTER (?a)}", %q((filter ?a (bgp (triple ?a ?b ?c)))))
     end
   end
 
   describe "when matching the [7] DescribeQuery production rule" do
     with_production(:DescribeQuery) do |production|
       it_rejects_empty_input_using production
-      pending("TODO")
+
+      given_it_generates(production, "DESCRIBE * FROM <a> WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
+      given_it_generates(production, "DESCRIBE * FROM NAMED <a> WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
+      given_it_generates(production, "DESCRIBE * WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
+      given_it_generates(production, "DESCRIBE * WHERE {GRAPH <a> {?a ?b ?c}}", %q((graph <a> (bgp (triple ?a ?b ?c)))))
+      given_it_generates(production, "DESCRIBE * WHERE {?a ?b ?c OPTIONAL {?d ?e ?f}}", %q((leftjoin (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
+      given_it_generates(production, "DESCRIBE * WHERE {?a ?b ?c {?d ?e ?f}}", %q((join (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
+      given_it_generates(production, "DESCRIBE * WHERE {{?a ?b ?c} UNION {?d ?e ?f}}", %q((union (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
+      given_it_generates(production, "DESCRIBE * WHERE {?a ?b ?c FILTER (?a)}", %q((filter ?a (bgp (triple ?a ?b ?c)))))
+
+      given_it_generates(production, "DESCRIBE ?a ?b WHERE {?a ?b ?c}", %q((project (?a ?b) (bgp (triple ?a ?b ?c)))))
     end
   end
 
@@ -742,13 +759,14 @@ describe SPARQL::Grammar::Parser do
     with_production(:AskQuery) do |production|
       it_rejects_empty_input_using production
 
-      it "recognizes a DatasetClause nonterminal" do
-        parser(production).call(%q(ASK FROM <http://example.org/>)) #.should == [:prologue, [:base, RDF::URI('http://example.org/')]] # FIXME
-      end
-
-      it "recognizes a WhereClause nonterminal" do
-        pending("TODO")
-      end
+      given_it_generates(production, "ASK FROM <a> WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
+      given_it_generates(production, "ASK FROM NAMED <a> WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
+      given_it_generates(production, "ASK WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
+      given_it_generates(production, "ASK WHERE {GRAPH <a> {?a ?b ?c}}", %q((graph <a> (bgp (triple ?a ?b ?c)))))
+      given_it_generates(production, "ASK WHERE {?a ?b ?c OPTIONAL {?d ?e ?f}}", %q((leftjoin (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
+      given_it_generates(production, "ASK WHERE {?a ?b ?c {?d ?e ?f}}", %q((join (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
+      given_it_generates(production, "ASK WHERE {{?a ?b ?c} UNION {?d ?e ?f}}", %q((union (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
+      given_it_generates(production, "ASK WHERE {?a ?b ?c FILTER (?a)}", %q((filter ?a (bgp (triple ?a ?b ?c)))))
     end
   end
 
@@ -774,6 +792,13 @@ describe SPARQL::Grammar::Parser do
           :base_uri => RDF::URI("http://example.org/"),
           :anon_base => "gen0000")
       end
+
+      given_it_generates(production, "WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
+      given_it_generates(production, "WHERE {GRAPH <a> {?a ?b ?c}}", %q((graph <a> (bgp (triple ?a ?b ?c)))))
+      given_it_generates(production, "WHERE {?a ?b ?c OPTIONAL {?d ?e ?f}}", %q((leftjoin (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
+      given_it_generates(production, "WHERE {?a ?b ?c {?d ?e ?f}}", %q((join (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
+      given_it_generates(production, "WHERE {{?a ?b ?c} UNION {?d ?e ?f}}", %q((union (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
+      given_it_generates(production, "WHERE {?a ?b ?c FILTER (?a)}", %q((filter ?a (bgp (triple ?a ?b ?c)))))
     end
   end
 
@@ -794,7 +819,7 @@ describe SPARQL::Grammar::Parser do
       given_it_generates(production, "ORDER BY ?a ASC (1)", %q((order (?a (asc 1)))))
       given_it_generates(production, "ORDER BY ?a ASC (1) isURI(<b>)", %q((order (?a (asc 1) (isURI <b>)))))
       
-      # XXX Can't test both together, as they are handled individually in [5] SelectQuery
+      # Can't test both together, as they are handled individually in [5] SelectQuery
     end
   end
 
@@ -1054,7 +1079,7 @@ describe SPARQL::Grammar::Parser do
   describe "when matching the [30] ConstructTemplate production rule" do
     with_production(:ConstructTemplate) do |production|
       TRIPLES.each_pair do |input, result|
-        given_it_generates(production, "{#{input}}", ([:ConstructTriples] + result),
+        given_it_generates(production, "{#{input}}", ([:ConstructTemplate] + result),
           :prefixes => {nil => "http://example.com/", :rdf => RDF.to_uri.to_s},
           :base_uri => RDF::URI("http://example.org/"),
           :anon_base => "gen0000")
@@ -1062,16 +1087,7 @@ describe SPARQL::Grammar::Parser do
     end
   end
 
-  describe "when matching the [31] ConstructTriples production rule" do
-    with_production(:ConstructTriples) do |production|
-      TRIPLES.each_pair do |input, result|
-        given_it_generates(production, input, ([:ConstructTriples] + result),
-          :prefixes => {nil => "http://example.com/", :rdf => RDF.to_uri.to_s},
-          :base_uri => RDF::URI("http://example.org/"),
-          :anon_base => "gen0000")
-      end
-    end
-  end
+  # Not testing [31] ConstructTriples
 
   # Productions that can be tested individually
   describe "individual nonterminal productions" do

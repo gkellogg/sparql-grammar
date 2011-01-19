@@ -10,6 +10,7 @@ module SPARQL; module Grammar
     include SPARQL::Grammar::Meta
 
     START = SPARQL_GRAMMAR.Query
+    GRAPH_OUTPUTS = [:bgp, :filter, :graph, :join, :leftjoin, :order, :project, :slice, :union]
 
     ##
     # Initializes a new parser instance.
@@ -307,7 +308,42 @@ module SPARQL; module Grammar
         # [5]     SelectQuery               ::=       'SELECT' ( 'DISTINCT' | 'REDUCED' )? ( Var+ | '*' ) DatasetClause* WhereClause SolutionModifier
         {
           :finish => lambda { |data|
-            add_prod_datum(:bgp, data[:bgp])
+            prod = GRAPH_OUTPUTS.map.detect {|p| data[p]}
+            
+            res = data[prod] if prod
+            
+            if data[:Var]
+              res = res ? res.unshift(prod) : [:null]
+              add_prod_datum(:project, [data[:Var]] + [res])
+            else
+              add_prod_datum(prod, res)
+            end
+          }
+        }
+      when :ConstructQuery
+        # [6]     ConstructQuery            ::=       'CONSTRUCT' ConstructTemplate DatasetClause* WhereClause SolutionModifier
+        {
+          # Nothing output for ConstructTemplate
+          :finish => lambda { |data|
+            prod = GRAPH_OUTPUTS.map.detect {|p| data[p.to_sym]}
+            
+            add_prod_datum(prod, data[prod]) if prod
+          }
+        }
+      when :DescribeQuery
+        # [7]     DescribeQuery             ::=       'DESCRIBE' ( VarOrIRIref+ | '*' ) DatasetClause* WhereClause? SolutionModifier
+        {
+          :finish => lambda { |data|
+            prod = GRAPH_OUTPUTS.map.detect {|p| data[p.to_sym]}
+            
+            res = data[prod] if prod
+            
+            if data[:Var]
+              res = res ? res.unshift(prod) : [:null]
+              add_prod_data(:project, data[:Var], res)
+            else
+              add_prod_datum(prod, res)
+            end
           }
         }
       when :DatasetClause
@@ -333,7 +369,8 @@ module SPARQL; module Grammar
         # [13]    WhereClause               ::=       'WHERE'? GroupGraphPattern
         {
           :finish => lambda { |data|
-            add_prod_datum(:bgp, data[:bgp])
+            prod = GRAPH_OUTPUTS.map.detect {|p| data[p.to_sym]}
+            add_prod_datum(prod, data[prod])
           }
         }
       when :SolutionModifier
@@ -533,18 +570,18 @@ module SPARQL; module Grammar
         {
           :finish => lambda { |data| data.values.each {|v| add_prod_datum(:ArgList, v)} }
         }
-      when :ConstructTriples
-        # [31]    ConstructTriples          ::=       TriplesSameSubject ( '.' ConstructTriples? )?
+      when :ConstructTemplate
+        # [30]    ConstructTemplate ::=       '{' ConstructTriples? '}'
         {
           :finish => lambda { |data|
             if data[:triple]
               triples = data[:triple].map {|v| [:triple, v[:subject], v[:predicate], v[:object]]}
-              add_prod_datum(:ConstructTriples, triples)
+              add_prod_datum(:ConstructTemplate, triples)
             end
         
             # Append triples from ('.' ConstructTriples? )? 
-            if data[:ConstructTriples]
-              add_prod_datum(:ConstructTriples, data[:ConstructTriples])
+            if data[:ConstructTemplate]
+              add_prod_datum(:ConstructTemplate, data[:ConstructTemplate])
             end
           }
         }
@@ -994,10 +1031,7 @@ module SPARQL; module Grammar
     # Generate an S-Exp for the final query
     # Inputs are :BaseDecl, :PrefixDecl, and :Query
     def finalize_query(data)
-      %w(
-        bgp Union Join LeftJoin Filter
-        ToList OrderBy Project Distinct Slice
-      ).map(&:to_sym).each do |key|
+      GRAPH_OUTPUTS.each do |key|
         next unless sxp = data[key]
 
         # Wrap in :base or :prefix or just use key
