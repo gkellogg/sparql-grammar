@@ -340,8 +340,8 @@ module SPARQL; module Grammar
         # [14]    SolutionModifier          ::=       OrderClause? LimitOffsetClauses?
         {
           :finish => lambda { |data|
-            add_prod_datum(:order, data[:order])  # Pass through OrderClause
-            add_prod_datum(:slice, data[:slice])  # Pass through LimitOffsetClauses
+            add_prod_datum(:order, data[:order])
+            add_prod_datum(:slice, data[:slice])
           }
         }
       when :LimitOffsetClauses
@@ -354,14 +354,26 @@ module SPARQL; module Grammar
             add_prod_data(:slice, offset, limit)
           }
         }
+      when :OrderClause
+        # [16]    OrderClause               ::=       'ORDER' 'BY' OrderCondition+
+        {
+          :finish => lambda { |data|
+            # Output 2puls of order conditions from left to right
+            res = data[:OrderCondition]
+            if res = data[:OrderCondition]
+              res = [res] if [:asc, :desc].include?(res[0]) # Special case when there's only one condition and it's ASC (x) or DESC (x)
+              add_prod_data(:order, res)
+            end
+          }
+        }
       when :OrderCondition
         # [17]    OrderCondition            ::=       ( ( 'ASC' | 'DESC' ) BrackettedExpression ) | ( Constraint | Var )
         {
           :finish => lambda { |data|
-            if data[:OrderDirection]
-              add_prod_data(:order, [data[:OrderDirection] + data[:Expression]])
+             if data[:OrderDirection]
+              add_prod_datum(:OrderCondition, [data[:OrderDirection] + data[:Expression]])
             else
-              add_prod_datum(:order, data[:Constraint] || data[:Var])
+              add_prod_datum(:OrderCondition, data[:Constraint] || data[:Var])
             end
           }
         }
@@ -410,7 +422,7 @@ module SPARQL; module Grammar
             end
             
             if data[:filter]
-              res = [data[:filter], [prod + res]]
+              res = data[:filter] + [[prod] + res]
               prod = :filter
             end
             add_prod_datum(prod, res)
@@ -496,7 +508,16 @@ module SPARQL; module Grammar
         # [27]    Constraint                ::=       BrackettedExpression | BuiltInCall | FunctionCall
         {
           :finish => lambda { |data|
-            add_prod_datum(:Constraint, data[:Expression] || data[:BuiltInCall] || data[:Function])
+            if data[:Expression]
+              # Resolve expression to the point it is either an atom or an s-exp
+              res = data[:Expression]
+              res = res[0] while res.is_a?(Array) && res.length == 1
+              add_prod_data(:Constraint, res)
+            elsif data[:BuiltInCall]
+              add_prod_datum(:Constraint, data[:BuiltInCall])
+            elsif data[:Function]
+              add_prod_datum(:Constraint, data[:Function])
+            end
           }
         }
       when :FunctionCall
@@ -736,19 +757,19 @@ module SPARQL; module Grammar
         #                    | RegexExpression
         {
           :finish => lambda { |data|
-            if data[:REGEX]
-              add_prod_datum(:BuiltInCall, [data[:REGEX]].unshift(:REGEX))
+            if data[:regex]
+              add_prod_datum(:BuiltInCall, [data[:regex].unshift(:regex)])
             elsif data[:BOUND]
-              add_prod_datum(:BuiltInCall, [data[:Var]].unshift(:BOUND))
+              add_prod_datum(:BuiltInCall, [data[:Var].unshift(:bound)])
             elsif data[:BuiltInCall]
-              add_prod_datum(:BuiltInCall, data[:BuiltInCall] + [data[:Expression]])
+              add_prod_data(:BuiltInCall, data[:BuiltInCall] + data[:Expression])
             end
           }
         }
       when :RegexExpression
         # [58]    RegexExpression           ::=       'REGEX' '(' Expression ',' Expression ( ',' Expression )? ')'
         {
-          :finish => lambda { |data| add_prod_datum(:REGEX, data[:Expression]) }
+          :finish => lambda { |data| add_prod_datum(:regex, data[:Expression]) }
         }
       when :IRIrefOrFunction
         # [59]    IRIrefOrFunction          ::=       IRIref ArgList?
@@ -868,9 +889,9 @@ module SPARQL; module Grammar
             add_prod_datum(:literal, RDF::Literal.new(token, :datatype => RDF::XSD.boolean))
           }
         when :BOUND
-          lambda { |token| add_prod_datum(:BOUND, :BOUND) }
+          lambda { |token| add_prod_datum(:BOUND, :bound) }
         when :DATATYPE
-          lambda { |token| add_prod_datum(:BuiltInCall, :DATATYPE) }
+          lambda { |token| add_prod_datum(:BuiltInCall, :datatype) }
         when :DECIMAL
           lambda { |token| add_prod_datum(:literal, RDF::Literal.new(token, :datatype => RDF::XSD.decimal)) }
         when :DOUBLE
@@ -888,9 +909,9 @@ module SPARQL; module Grammar
         when :ISURI
           lambda { |token| add_prod_datum(:BuiltInCall, :isURI) }
         when :LANG
-          lambda { |token| add_prod_datum(:BuiltInCall, :LANG) }
+          lambda { |token| add_prod_datum(:BuiltInCall, :lang) }
         when :LANGMATCHES
-          lambda { |token| add_prod_datum(:BuiltInCall, :LANGMATCHES) }
+          lambda { |token| add_prod_datum(:BuiltInCall, :langMatches) }
         when :LANGTAG
           lambda { |token| add_prod_datum(:language, token) }
         when :NIL
@@ -903,7 +924,7 @@ module SPARQL; module Grammar
             prod_data[:prefix] = token && token.to_sym      # [4]  PrefixDecl := 'PREFIX' PNAME_NS IRI_REF";
           }
         when :STR
-          lambda { |token| add_prod_datum(:BuiltInCall, :STR) }
+          lambda { |token| add_prod_datum(:BuiltInCall, :str) }
         when :SAMETERM
           lambda { |token| add_prod_datum(:BuiltInCall, :sameTerm) }
         when :STRING_LITERAL1, :STRING_LITERAL2, :STRING_LITERAL_LONG1, :STRING_LITERAL_LONG2

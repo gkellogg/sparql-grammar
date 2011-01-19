@@ -411,24 +411,23 @@ module ProductionExamples
   #                        | 'isLITERAL' '(' Expression ')'
   #                        | RegexExpression
   def it_recognizes_built_in_call(production)
-    parser(production).call(%q(STR ("foo")))[1..-1].should == %q((str "foo"))
-    parser(production).call(%q(STR (("foo"))))[1..-1].to_sxp.should == %q((str "foo"))
-    parser(production).call(%q(LANG ("foo")))[1..-1].should == %q((lang "foo"))
-    parser(production).call(%q(LANGMATCHES ("foo", "bar")))[1..-1].should == %q((langMatches "foo" "bar"))
-    parser(production).call(%q(DATATYPE ("foo")))[1..-1].should == %q((datatype "foo"))
-    parser(production).call(%q(sameTerm ("foo", "bar")))[1..-1].should == %q((sameTerm "foo" "bar"))
-    parser(production).call(%q(isIRI ("foo")))[1..-1].should == %q((isIRI "foo"))
-    parser(production).call(%q(isURI ("foo")))[1..-1].should == %q((isURI "foo"))
-    parser(production).call(%q(isBLANK ("foo")))[1..-1].should == %q((isBLANK "foo"))
-    parser(production).call(%q(isLITERAL ("foo")))[1..-1].should == %q((isLITERAL "foo"))
-    parser(production).call(%q(BOUND (?foo)))[1..-1].should ==  %q((bound "foo"))
-    parser(production).call(%q(REGEX ("foo", "bar")))[1..-1].should == %q((regex "foo" "bar"))
+    parser(production).call(%q(STR ("foo"))).last.should == [:str, RDF::Literal("foo")]
+    parser(production).call(%q(LANG ("foo"))).last.should == [:lang, RDF::Literal("foo")]
+    parser(production).call(%q(LANGMATCHES ("foo", "bar"))).last.should == [:langMatches, RDF::Literal("foo"), RDF::Literal("bar")]
+    parser(production).call(%q(DATATYPE ("foo"))).last.should == [:datatype, RDF::Literal("foo")]
+    parser(production).call(%q(sameTerm ("foo", "bar"))).last.should == [:sameTerm, RDF::Literal("foo"), RDF::Literal("bar")]
+    parser(production).call(%q(isIRI ("foo"))).last.should == [:isIRI, RDF::Literal("foo")]
+    parser(production).call(%q(isURI ("foo"))).last.should == [:isURI, RDF::Literal("foo")]
+    parser(production).call(%q(isBLANK ("foo"))).last.should == [:isBLANK, RDF::Literal("foo")]
+    parser(production).call(%q(isLITERAL ("foo"))).last.should == [:isLITERAL, RDF::Literal("foo")]
+    parser(production).call(%q(BOUND (?foo))).last.should == [:bound, RDF::Query::Variable.new("foo")]
+    parser(production).call(%q(REGEX ("foo", "bar"))).last.should == [:regex, RDF::Literal("foo"), RDF::Literal("bar")]
   end
 
   # [58]    RegexExpression ::=       'REGEX' '(' Expression ',' Expression ( ',' Expression )? ')'
   def it_recognizes_regex_expression(production)
     lambda { parser(production).call(%q(REGEX ("foo"))) }.should raise_error
-    parser(production).call(%q(REGEX ("foo", "bar"))).should == %q((regex "foo" "bar"))
+    parser(production).call(%q(REGEX ("foo", "bar"))).to_sxp.should == %q((regex "foo" "bar"))
   end
 
   # [59]    IRIrefOrFunction ::=       IRIref ArgList?
@@ -788,9 +787,12 @@ describe SPARQL::Grammar::Parser do
       given_it_generates(production, "LIMIT 1 OFFSET 2", %q((slice 2 1)))
       given_it_generates(production, "OFFSET 2 LIMIT 1", %q((slice 2 1)))
 
+      given_it_generates(production, "ORDER BY ?a", %q((order (?a))))
       given_it_generates(production, "ORDER BY ASC (1)", %q((order ((asc 1)))))
       given_it_generates(production, "ORDER BY DESC (?a)", %q((order ((desc ?a)))))
-      given_it_generates(production, "ORDER BY ?a ASC (1) isURI(<b>)", %q((order ?a ((asc 1)) isURI (<b>))))
+
+      given_it_generates(production, "ORDER BY ?a ASC (1)", %q((order (?a (asc 1)))))
+      given_it_generates(production, "ORDER BY ?a ASC (1) isURI(<b>)", %q((order (?a (asc 1) (isURI <b>)))))
       
       # XXX Can't test both together, as they are handled individually in [5] SelectQuery
     end
@@ -811,15 +813,16 @@ describe SPARQL::Grammar::Parser do
     with_production(:OrderClause) do |production|
       given_it_generates(production, "ORDER BY ASC (1)", %q((order ((asc 1)))))
       given_it_generates(production, "ORDER BY DESC (?a)", %q((order ((desc ?a)))))
-      given_it_generates(production, "ORDER BY ?a ASC (1) isURI(<b>)", %q((order ?a ((asc 1)) isURI (<b>))))
+      given_it_generates(production, "ORDER BY ?a ?b ?c", %q((order (?a ?b ?c))))
+      given_it_generates(production, "ORDER BY ?a ASC (1) isURI(<b>)", %q((order (?a (asc 1) (isURI <b>)))))
     end
   end
 
   # [17]    OrderCondition            ::=       ( ( 'ASC' | 'DESC' ) BrackettedExpression ) | ( Constraint | Var )
   describe "when matching the [17] OrderCondition production rule" do
     with_production(:OrderCondition) do |production|
-      given_it_generates(production, "ASC (1)", [:order, [[:asc, RDF::Literal(1)]]])
-      given_it_generates(production, "DESC (?a)", [:order, [[:desc, RDF::Query::Variable.new("a")]]])
+      given_it_generates(production, "ASC (1)", [:OrderCondition, [:asc, RDF::Literal(1)]])
+      given_it_generates(production, "DESC (?a)", [:OrderCondition, [:desc, RDF::Query::Variable.new("a")]])
 
       # Constraint
       it_recognizes_bracketted_expression_using production
@@ -1011,18 +1014,14 @@ describe SPARQL::Grammar::Parser do
       given_it_generates(production, %(FILTER (1)), %q((filter 1)))
       given_it_generates(production, %(FILTER ((1))), %q((filter 1)))
       given_it_generates(production, %(FILTER ("foo")), %q((filter "foo")))
-      #given_it_generates(production, %(FILTER STR ("foo")), %q((filter STR ("foo"))))
-      #given_it_generates(production, %(FILTER LANGMATCHES ("foo", "bar")), %q((filter LANGMATCHES ("foo", "bar"))))
-      #given_it_generates(production, %(FILTER isIRI ("foo")), %q((filter isIRI ("foo"))))
-      #given_it_generates(production, %(FILTER REGEX ("foo", "bar")), %q((filter REGEX ("foo", "bar"))))
-      #given_it_generates(production, %(FILTER (fun "arg")), %q((filter (fun "arg"))))
-
-
       given_it_generates(production, %(FILTER STR ("foo")), %q((filter (str "foo"))))
-
-      given_it_generates(production, %(FILTER BOUND ?e), %q((filter (bound ?e))))
-      given_it_generates(production, %(FILTER (BOUND ?e)), %q((filter (bound ?e))))
-      given_it_generates(production, %(FILTER (! BOUND ?e)), %q((filter (! (bound ?e)))))
+      given_it_generates(production, %(FILTER LANGMATCHES ("foo", "bar")), %q((filter (langMatches "foo" "bar"))))
+      given_it_generates(production, %(FILTER isIRI ("foo")), %q((filter (isIRI "foo"))))
+      given_it_generates(production, %(FILTER REGEX ("foo", "bar")), %q((filter (regex "foo" "bar"))))
+      given_it_generates(production, %(FILTER <fun> ("arg")), %q((filter (<fun> "arg"))))
+      given_it_generates(production, %(FILTER BOUND (?e)), %q((filter (bound ?e))))
+      given_it_generates(production, %(FILTER (BOUND (?e))), %q((filter (bound ?e))))
+      given_it_generates(production, %(FILTER (! BOUND (?e))), %q((filter (! (bound ?e)))))
     end
   end
 
@@ -1181,7 +1180,7 @@ describe SPARQL::Grammar::Parser do
       end
     end
 
-    describe "when matching the [57] BuiltInCall production rule", :focus => true do
+    describe "when matching the [57] BuiltInCall production rule" do
       with_production(:BuiltInCall) do |production|
         it_recognizes_built_in_call_using production
       end
