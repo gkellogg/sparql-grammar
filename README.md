@@ -21,12 +21,14 @@ Examples
     require 'rubygems'
     require 'sparql/grammar'
 
-### Tokenizing a SPARQL query string
+### Parsing a SPARQL query string
 
-    lexer = SPARQL::Grammar.tokenize("SELECT * WHERE { ?s ?p ?o }")
-    lexer.each_token do |token|
-      puts token.inspect
-    end
+    syntax_tree = SPARQL::Grammar.parse("SELECT * WHERE { ?s ?p ?o }")
+    syntax_tree.to_sse
+
+### Command line processing
+    sparql2sse input.rq
+    sparql2sse -e "SELECT * WHERE { ?s ?p ?o }"
 
 Documentation
 -------------
@@ -37,11 +39,29 @@ Documentation
   * {SPARQL::Grammar::Parser}
   * {SPARQL::Grammar::Lexer}
 
+Implementation Notes
+--------------------
+The parser is driven through a rules table contained in lib/sparql/grammar/parser/meta.rb. This includes
+branch rules to indicate productions to be taken based on a current production.
+
+The meta.rb file is generated from etc/sparql-selectors.n3 which is the result of parsing
+http://www.w3.org/2000/10/swap/grammar/sparql.n3 (along with bnf-token-rules.n3) using cwm using the following command sequence:
+
+    cwm ../grammar/sparql.n3 bnf-token-rules.n3 --think --purge --data > sparql-selectors.n3
+
+sparql-selectors.n3 is itself used to generate lib/sparql/grammar/parser/meta.rb using script/build_meta.
+
+Note that The SWAP version of sparql.n3 is an older version of the grammar with the newest in http://www.w3.org/2001/sw/DataAccess/rq23/parsers/sparql.ttl,
+which uses the EBNF form. Sparql.n3 file has been updated by hand to be consistent with the etc/sparql.ttl version.
+A future direction will be to generate rules from etc/sparql.ttl to generate branch tables similar to those
+expressed in meta.rb, but this requires rules not currently available.
+
 Dependencies
 ------------
 
 * [Ruby](http://ruby-lang.org/) (>= 1.8.7) or (>= 1.8.1 with [Backports][])
 * [RDF.rb](http://rubygems.org/gems/rdf) (>= 0.3.0)
+* [SXP](https://rubygems.org/gems/sxp) (>= 0.0.13)
 
 Installation
 ------------
