@@ -411,23 +411,24 @@ module ProductionExamples
   #                        | 'isLITERAL' '(' Expression ')'
   #                        | RegexExpression
   def it_recognizes_built_in_call(production)
-    parser(production).call(%q(STR ("foo")))[1..-1].should == [:STR, [RDF::Literal("foo")]]
-    parser(production).call(%q(LANG ("foo")))[1..-1].should == [:LANG, [RDF::Literal("foo")]]
-    parser(production).call(%q(LANGMATCHES ("foo", "bar")))[1..-1].should == [:LANGMATCHES, [RDF::Literal("foo"), RDF::Literal("bar")]]
-    parser(production).call(%q(DATATYPE ("foo")))[1..-1].should == [:DATATYPE, [RDF::Literal("foo")]]
-    parser(production).call(%q(sameTerm ("foo", "bar")))[1..-1].should == [:sameTerm, [RDF::Literal("foo"), RDF::Literal("bar")]]
-    parser(production).call(%q(isIRI ("foo")))[1..-1].should == [:isIRI, [RDF::Literal("foo")]]
-    parser(production).call(%q(isURI ("foo")))[1..-1].should == [:isURI, [RDF::Literal("foo")]]
-    parser(production).call(%q(isBLANK ("foo")))[1..-1].should == [:isBLANK, [RDF::Literal("foo")]]
-    parser(production).call(%q(isLITERAL ("foo")))[1..-1].should == [:isLITERAL, [RDF::Literal("foo")]]
-    parser(production).call(%q(BOUND (?foo)))[1..-1].should == [:BOUND, [RDF::Query::Variable.new("foo")]]
-    parser(production).call(%q(REGEX ("foo", "bar")))[1..-1].should == [:REGEX, [RDF::Literal("foo"), RDF::Literal("bar")]]
+    parser(production).call(%q(STR ("foo")))[1..-1].should == %q((str "foo"))
+    parser(production).call(%q(STR (("foo"))))[1..-1].to_sxp.should == %q((str "foo"))
+    parser(production).call(%q(LANG ("foo")))[1..-1].should == %q((lang "foo"))
+    parser(production).call(%q(LANGMATCHES ("foo", "bar")))[1..-1].should == %q((langMatches "foo" "bar"))
+    parser(production).call(%q(DATATYPE ("foo")))[1..-1].should == %q((datatype "foo"))
+    parser(production).call(%q(sameTerm ("foo", "bar")))[1..-1].should == %q((sameTerm "foo" "bar"))
+    parser(production).call(%q(isIRI ("foo")))[1..-1].should == %q((isIRI "foo"))
+    parser(production).call(%q(isURI ("foo")))[1..-1].should == %q((isURI "foo"))
+    parser(production).call(%q(isBLANK ("foo")))[1..-1].should == %q((isBLANK "foo"))
+    parser(production).call(%q(isLITERAL ("foo")))[1..-1].should == %q((isLITERAL "foo"))
+    parser(production).call(%q(BOUND (?foo)))[1..-1].should ==  %q((bound "foo"))
+    parser(production).call(%q(REGEX ("foo", "bar")))[1..-1].should == %q((regex "foo" "bar"))
   end
 
   # [58]    RegexExpression ::=       'REGEX' '(' Expression ',' Expression ( ',' Expression )? ')'
   def it_recognizes_regex_expression(production)
     lambda { parser(production).call(%q(REGEX ("foo"))) }.should raise_error
-    parser(production).call(%q(REGEX ("foo", "bar"))).should == [:REGEX, RDF::Literal("foo"), RDF::Literal("bar")]
+    parser(production).call(%q(REGEX ("foo", "bar"))).should == %q((regex "foo" "bar"))
   end
 
   # [59]    IRIrefOrFunction ::=       IRIref ArgList?
@@ -1004,6 +1005,27 @@ describe SPARQL::Grammar::Parser do
     end
   end
 
+  # [26]    Filter                    ::=       'FILTER' Constraint
+  describe "when matching the [26] Filter production rule" do
+    with_production(:Filter) do |production|
+      given_it_generates(production, %(FILTER (1)), %q((filter 1)))
+      given_it_generates(production, %(FILTER ((1))), %q((filter 1)))
+      given_it_generates(production, %(FILTER ("foo")), %q((filter "foo")))
+      #given_it_generates(production, %(FILTER STR ("foo")), %q((filter STR ("foo"))))
+      #given_it_generates(production, %(FILTER LANGMATCHES ("foo", "bar")), %q((filter LANGMATCHES ("foo", "bar"))))
+      #given_it_generates(production, %(FILTER isIRI ("foo")), %q((filter isIRI ("foo"))))
+      #given_it_generates(production, %(FILTER REGEX ("foo", "bar")), %q((filter REGEX ("foo", "bar"))))
+      #given_it_generates(production, %(FILTER (fun "arg")), %q((filter (fun "arg"))))
+
+
+      given_it_generates(production, %(FILTER STR ("foo")), %q((filter (str "foo"))))
+
+      given_it_generates(production, %(FILTER BOUND ?e), %q((filter (bound ?e))))
+      given_it_generates(production, %(FILTER (BOUND ?e)), %q((filter (bound ?e))))
+      given_it_generates(production, %(FILTER (! BOUND ?e)), %q((filter (! (bound ?e)))))
+    end
+  end
+
   # [27] Constraint ::=  BrackettedExpression | BuiltInCall | FunctionCall
   describe "when matching the [27] Constraint production rule" do
     with_production(:Constraint) do |production|
@@ -1159,7 +1181,7 @@ describe SPARQL::Grammar::Parser do
       end
     end
 
-    describe "when matching the [57] BuiltInCall production rule" do
+    describe "when matching the [57] BuiltInCall production rule", :focus => true do
       with_production(:BuiltInCall) do |production|
         it_recognizes_built_in_call_using production
       end

@@ -384,20 +384,25 @@ module SPARQL; module Grammar
         {
           :finish => lambda { |data|
             production_list = data[:_GraphPatternNotTriples_or_Filter_Dot_Opt_TriplesBlock_Opt]
-            puts "GroupGraphPattern: pl #{production_list.inspect}"
-            puts "GroupGraphPattern: bgp #{data[:bgp].inspect}"
+            debug "GroupGraphPattern", "pl #{production_list.to_a.to_sxp}"
+            debug "GroupGraphPattern", "bgp #{data[:bgp].to_a.to_sxp}"
             
             if production_list
-              res = data[:bgp] ? data[:bgp].unshift(:bgp) : :"{}"   # Create dummy first element, if necessary, removed later
+              res = data[:bgp] ? data[:bgp].unshift(:bgp) : [:"table unit"]   # Create dummy first element, if necessary, removed later
               while !production_list.empty?
                 prod_graph = production_list.shift
-                puts "GroupGraphPattern(itr): pg: #{prod_graph.inspect}"
-                puts "GroupGraphPattern(itr): res: #{res.inspect}"
+                debug "GroupGraphPattern(itr)", "<= pg: #{prod_graph.to_a.to_sxp}"
+                debug "GroupGraphPattern(itr)", "<= res: #{res.to_a.to_sxp}"
                 prod = prod_graph.first
-                res = [prod] + [res] + [prod_graph.last]
+                if res == [:"table unit"] && prod == :join
+                  # Don't need empty node except for leftjoin
+                  res = prod_graph.last
+                else
+                  res = [prod] + [res] + [prod_graph.last]
+                end
+                debug "GroupGraphPattern(itr)", "=> res: #{res.to_a.to_sxp}"
               end
               prod = res.shift
-              puts "GroupGraphPattern(end): prod: #{prod} res: #{res.inspect}"
             elsif data[:bgp]
               prod, res = :bgp, data[:bgp]
             else
@@ -429,8 +434,9 @@ module SPARQL; module Grammar
             add_prod_datum(:filter, data[:filter])
 
             add_prod_data(:_GraphPatternNotTriples_or_Filter, data[:leftjoin].unshift(:leftjoin)) if data[:leftjoin]
-            add_prod_data(:_GraphPatternNotTriples_or_Filter, data[:union].unshift(:union)) if data[:union]
-            add_prod_data(:_GraphPatternNotTriples_or_Filter, data[:graph].unshift(:join)) if data[:graph]
+            add_prod_data(:_GraphPatternNotTriples_or_Filter, data[:join].unshift(:join)) if data[:join]
+            add_prod_data(:_GraphPatternNotTriples_or_Filter, [:join, data[:union].unshift(:union)]) if data[:union]
+            add_prod_data(:_GraphPatternNotTriples_or_Filter, [:join, data[:graph].unshift(:graph)]) if data[:graph]
             add_prod_data(:_GraphPatternNotTriples_or_Filter, [:join, data[:bgp].unshift(:bgp)]) if data[:bgp]
           }
         }
@@ -480,6 +486,11 @@ module SPARQL; module Grammar
       when :_UNION_GroupGraphPattern_Star
         {
           :finish => lambda { |data|  accumulate_graphs(:union, data) }
+        }
+      when :Filter
+        # [26]    Filter                    ::=       'FILTER' Constraint
+        {
+          :finish => lambda { |data| add_prod_datum(:filter, data[:Constraint]) }
         }
       when :Constraint
         # [27]    Constraint                ::=       BrackettedExpression | BuiltInCall | FunctionCall
@@ -799,7 +810,7 @@ module SPARQL; module Grammar
       @productions << prod
       if context
         # Create a new production data element, potentially allowing handler to customize before pushing on the @prod_data stack
-        progress("#{prod}(:start):#{@prod_data.length}", prod_data.inspect)
+        progress("#{prod}(:start):#{@prod_data.length}", prod_data.to_a.to_sxp)
         data = {}
         context[:start].call(data) if context.has_key?(:start)
         @prod_data << data
@@ -817,7 +828,7 @@ module SPARQL; module Grammar
         # Pop production data element from stack, potentially allowing handler to use it
         data = @prod_data.pop
         context[:finish].call(data) if context.has_key?(:finish)
-        progress("#{prod}(:finish):#{@prod_data.length}", prod_data.inspect, :depth => (@productions.length + 1))
+        progress("#{prod}(:finish):#{@prod_data.length}", prod_data.to_a.to_sxp, :depth => (@productions.length + 1))
       else
         progress("#{prod}(:finish)", '', :depth => (@productions.length + 1))
       end
@@ -918,7 +929,7 @@ module SPARQL; module Grammar
         token_production = token_productions(parentProd.to_sym, prod.to_sym)
         if token_production
           token_production.call(token)
-          progress("#{prod}<#{parentProd}(:token)", "#{token}: #{prod_data.inspect}", :depth => (@productions.length + 1))
+          progress("#{prod}<#{parentProd}(:token)", "#{token}: #{prod_data.to_a.to_sxp}", :depth => (@productions.length + 1))
         else
           progress("#{prod}<#{parentProd}(:token)", token, :depth => (@productions.length + 1))
         end
