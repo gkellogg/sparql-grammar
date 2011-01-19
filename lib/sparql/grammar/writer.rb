@@ -18,19 +18,7 @@ module RDF
       when XSD.boolean, XSD.integer, XSD.double, XSD.decimal, XSD.time
         object.to_sxp
       else
-        text = value.gsub(/[\n\t\r\b\f\"\'\\]/) do |c|
-          case c
-          when "\n" then "\\n"
-          when "\t" then "\\t"
-          when "\r" then "\\r"
-          when "\b" then "\\b"
-          when "\f" then "\\f"
-          when "\"" then "\\\""
-          when "\'" then "\\'"
-          when "\\" then "\\\\"
-          else c
-          end
-        end
+        text = value.dump
         text << "@#{language}" if self.has_language?
         text << "^^#{datatype.to_sxp}" if self.has_datatype?
         text
