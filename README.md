@@ -21,12 +21,14 @@ Examples
     require 'rubygems'
     require 'sparql/grammar'
 
-### Tokenizing a SPARQL query string
+### Parsing a SPARQL query string
 
-    lexer = SPARQL::Grammar.tokenize("SELECT * WHERE { ?s ?p ?o }")
-    lexer.each_token do |token|
-      puts token.inspect
-    end
+    syntax_tree = SPARQL::Grammar.parse("SELECT * WHERE { ?s ?p ?o }")
+    syntax_tree.to_sse
+
+### Command line processing
+    sparql2sse input.rq
+    sparql2sse -e "SELECT * WHERE { ?s ?p ?o }"
 
 Documentation
 -------------
@@ -59,6 +61,7 @@ Dependencies
 
 * [Ruby](http://ruby-lang.org/) (>= 1.8.7) or (>= 1.8.1 with [Backports][])
 * [RDF.rb](http://rubygems.org/gems/rdf) (>= 0.3.0)
+* [SXP](https://rubygems.org/gems/sxp) (>= 0.0.13)
 
 Installation
 ------------

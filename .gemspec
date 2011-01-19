@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby -rubygems
 # -*- encoding: utf-8 -*-
 
-GEMSPEC = Gem::Specification.new do |gem|
+Gem::Specification.new do |gem|
   gem.version            = File.read('VERSION').chomp
   gem.date               = File.mtime('VERSION').strftime('%Y-%m-%d')
 
@@ -10,15 +10,15 @@ GEMSPEC = Gem::Specification.new do |gem|
   gem.license            = 'Public Domain' if gem.respond_to?(:license=)
   gem.summary            = 'SPARQL lexer and parser for RDF.rb.'
   gem.description        = gem.summary
-  gem.rubyforge_project  = 'sparql'
+  gem.rubyforge_project  = 'rdf'
 
-  gem.author             = 'Arto Bendiken'
+  gem.authors            = ['Gregg Kellogg', 'Arto Bendiken']
   gem.email              = 'public-rdf-ruby@w3.org'
 
   gem.platform           = Gem::Platform::RUBY
-  gem.files              = %w(AUTHORS CREDITS README UNLICENSE VERSION) + Dir.glob('lib/**/*.rb')
+  gem.files              = %w(AUTHORS CREDITS README UNLICENSE VERSION bin/sparql2sse) + Dir.glob('lib/**/*.rb')
   gem.bindir             = %q(bin)
-  gem.executables        = %w()
+  gem.executables        = %w(sparql2sse)
   gem.default_executable = gem.executables.first
   gem.require_paths      = %w(lib)
   gem.extensions         = %w()
@@ -27,11 +27,12 @@ GEMSPEC = Gem::Specification.new do |gem|
 
   gem.required_ruby_version      = '>= 1.8.1'
   gem.requirements               = []
-  gem.add_runtime_dependency     'rdf',        '= 0.3.0'
-  gem add_development_dependency 'open-uri-cached'
-  gem.add_development_dependency 'yard' ,      '>= 0.6.0'
-  gem.add_development_dependency 'rspec',      '>= 2.1.0'
-  gem.add_development_dependency 'rdf-spec',   '= 0.3.0'
-  gem.add_development_dependency 'rdf-n3',     '>= 0.3.0'
+  gem.add_runtime_dependency     'rdf',        '>= 0.3.0'
+  gem.add_runtime_dependency     'sxp',        '>= 0.0.13'
+  gem.add_runtime_dependency     'json',      '>= 1.4.6'
+  gem.add_development_dependency 'open-uri-cached'
+  gem.add_development_dependency 'yard',        '>= 0.6.0'
+  gem.add_development_dependency 'rspec',       '>= 2.1.0'
+  gem.add_development_dependency 'rdf-spec',    '~> 0.3.0'
   gem.post_install_message       = nil
 end
