@@ -218,27 +218,7 @@ module ProductionRequirements
 
   def present_results(array, options = {})
     return array if array.is_a?(String)
-    "[" +
-    array.map do |e|
-      case e
-      when Array                then present_results(e, options)
-      when Symbol               then ":#{e}"
-      when RDF::Node            then e.to_s
-      when RDF::Query::Variable then e.to_s
-      when RDF::Literal        then RDF::NTriples::Writer.new.format_value(e)
-      when RDF::URI
-        if options[:prefixes] && (start = options[:prefixes].values.detect {|v| e.to_s.index(v) == 0})
-          prefix = options[:prefixes].invert[start].to_s
-          "#{prefix}:#{e.to_s.sub(start, '')}"
-        elsif options[:base_uri] && e.to_s.index(options[:base_uri]) == 0
-          "<#{e.to_s.sub(options[:base_uri], '')}>"
-        else
-          "<#{e}>"
-        end
-      else                           e.inspect
-      end
-    end.join(", ") +
-    "]"
+    return array.to_sxp
   end
 end
 
