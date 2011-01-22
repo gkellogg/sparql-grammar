@@ -107,7 +107,7 @@ module SPARQL; module Grammar
     # Algebra is based on the SPARQL Algebra notes
     # @param [Symbol, #to_s] prod The starting production for the parser.
     #   It may be a URI from the grammar, or a symbol representing the local_name portion of the grammar URI.
-    # @result [Array]
+    # @return [Array]
     # @see http://www.w3.org/2001/sw/DataAccess/rq23/rq24-algebra.html
     # @see http://axel.deri.ie/sparqltutorial/ESWC2007_SPARQL_Tutorial_unit2b.pdf
     def parse(prod = START)
