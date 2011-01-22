@@ -10,8 +10,9 @@ Features
 --------
 
 * 100% free and unencumbered [public domain](http://unlicense.org/) software.
-* Implements a complete lexical analyzer for the [SPARQL 1.0][]
-  [grammar][] (a full parser is in the works).
+* Implements a complete parser for the [SPARQL 1.0][]
+  [grammar][].
+* Generates SPARQL S-Expressions [SSE][] syntax, and implemented in the [SXP][] library for Ruby.
 * Compatible with Ruby 1.8.7+, Ruby 1.9.x, and JRuby 1.4/1.5.
 * Supports Unicode query strings both on Ruby 1.8.x and 1.9.x.
 
@@ -56,8 +57,8 @@ which uses the EBNF form. Sparql.n3 file has been updated by hand to be consiste
 A future direction will be to generate rules from etc/sparql.ttl to generate branch tables similar to those
 expressed in meta.rb, but this requires rules not currently available.
 
-Net Steps
----------
+Next Steps for Parsing EBNF
+---------------------------
 A more modern approach is to use the EBNF grammar (e.g., etc/sparql.bnf) to generate a Turtle/N3 representation of the grammar, transform
 this to and LL1 representation and use this to create meta.rb.
 
@@ -74,7 +75,72 @@ Using SWAP utilities, this would seemingly be done as follows:
       --think --data > etc/sparql-ll1.n3
       
 At this point, a variation of script/build_meta should be able to extract first/follow information to re-create the meta branch tables.
-    
+
+SPARQL S-Expressions [SSE][]
+--------------------------
+The SSE generated closely follows that of [OpenJena ARQ](http://openjena.org/ARQ/), which is intended principally for
+running the SPARQL rules. However, this syntax does not transform all of the semantic content of a SPARQL query. In particular:
+
+* CONSTRUCT, ASK, and DESCRIBE operate no differently than SELECT.
+* Dataset operators are ignored.
+
+The following table illustrates example SPARQL transformations:
+
+<table border="1">
+  <tr><th>SPARQL</th><th>SSE</th></tr>
+  <tr><td>
+    SELECT * WHERE { ?a ?b ?c }
+  </td><td>
+    (bgp (triple ?a ?b ?c))
+  </td></tr>
+  <tr><td>
+    SELECT * FROM <a> WHERE { ?a ?b ?c }
+  </td><td>
+    (bgp (triple ?a ?b ?c))
+  </td></tr>
+  <tr><td>
+    SELECT * FROM NAMED <a> WHERE { ?a ?b ?c }
+  </td><td>
+    (bgp (triple ?a ?b ?c))
+  </td></tr>
+  <tr><td>
+    SELECT DISTINCT * WHERE {?a ?b ?c}
+  </td><td>
+    (distinct (bgp (triple ?a ?b ?c)))
+  </td></tr>
+  <tr><td>
+    SELECT ?a ?b WHERE {?a ?b ?c}
+  </td><td>
+    (project (?a ?b) (bgp (triple ?a ?b ?c)))
+  </td></tr>
+  <tr><td>
+    CONSTRUCT {?a ?b ?c} WHERE {?a ?b ?c FILTER (?a)}
+  </td><td>
+    (filter ?a (bgp (triple ?a ?b ?c)))
+  </td></tr>
+  <tr><td>
+    CONSTRUCT {?a ?b ?c} WHERE {?a ?b ?c FILTER (?a)}
+  </td><td>
+    (filter ?a (bgp (triple ?a ?b ?c)))
+  </td></tr>
+</table>
+
+To extend this, so that SPARQL::Algebra does not need independent knowledge of datasets and output formats:
+
+<table border="1">
+  <tr><th>SPARQL</th><th>SSE</th></tr>
+  <tr><td>
+    SELECT * FROM <a> WHERE { ?a ?b ?c }
+  </td><td>
+    (dataset <a> (bgp (triple ?a ?b ?c)))
+  </td></tr>
+  <tr><td>
+    SELECT * FROM NAMED <a> WHERE { ?a ?b ?c }
+  </td><td>
+    (dataset (named <a>) (bgp (triple ?a ?b ?c)))
+  </td></tr>
+</table>
+
 Dependencies
 ------------
 
@@ -110,6 +176,7 @@ Mailing List
 Author
 ------
 
+* [Gregg Kellogg](http://github.com/gkellogg) - <http://kellogg-assoc.com/>
 * [Arto Bendiken](http://github.com/bendiken) - <http://ar.to/>
 
 Contributors
@@ -143,6 +210,8 @@ see <http://unlicense.org/> or the accompanying {file:UNLICENSE} file.
 [SPARQL]:     http://en.wikipedia.org/wiki/SPARQL
 [SPARQL 1.0]: http://www.w3.org/TR/rdf-sparql-query/
 [SPARQL 1.1]: http://www.w3.org/TR/sparql11-query/
+[SSE]:        http://openjena.org/wiki/SSE
+[SXP]:        http://sxp.rubyforge.org/
 [grammar]:    http://www.w3.org/TR/rdf-sparql-query/#grammar
 [RDF.rb]:     http://rdf.rubyforge.org/
 [YARD]:       http://yardoc.org/
