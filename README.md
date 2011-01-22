@@ -56,6 +56,25 @@ which uses the EBNF form. Sparql.n3 file has been updated by hand to be consiste
 A future direction will be to generate rules from etc/sparql.ttl to generate branch tables similar to those
 expressed in meta.rb, but this requires rules not currently available.
 
+Net Steps
+---------
+A more modern approach is to use the EBNF grammar (e.g., etc/sparql.bnf) to generate a Turtle/N3 representation of the grammar, transform
+this to and LL1 representation and use this to create meta.rb.
+
+Using SWAP utilities, this would seemingly be done as follows:
+
+    python http://www.w3.org/2000/10/swap/grammar/ebnf2turtle.py \
+      http://www.w3.org/2001/sw/DataAccess/rq23/parsers/sparql.bnf \
+      en \
+      'http://www.w3.org/2001/sw/DataAccess/parsers/sparql#' > etc/sparql.ttl
+      
+    python http://www.w3.org/2000/10/swap/cwm.py etc/sparql.ttl \
+      http://www.w3.org/2000/10/swap/grammar/ebnf2bnf.n3 \
+      http://www.w3.org/2000/10/swap/grammar/first_follow.n3 \
+      --think --data > etc/sparql-ll1.n3
+      
+At this point, a variation of script/build_meta should be able to extract first/follow information to re-create the meta branch tables.
+    
 Dependencies
 ------------
 
