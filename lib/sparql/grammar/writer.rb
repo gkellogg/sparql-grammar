@@ -26,6 +26,18 @@ module RDF
     end
   end
 
+  class Statement
+    def to_sxp
+      [:triple, subject, predicate, object].to_sxp
+    end
+  end
+  
+  class Query
+    def to_sxp
+      patterns.dup.unshift(:bgp).to_sxp
+    end
+  end
+  
   class Query::Variable
     def to_sxp; to_s; end
   end
