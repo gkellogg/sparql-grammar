@@ -10,7 +10,7 @@ module SPARQL; module Grammar
     include SPARQL::Grammar::Meta
 
     START = SPARQL_GRAMMAR.Query
-    GRAPH_OUTPUTS = [:bgp, :distinct, :filter, :graph, :join, :leftjoin, :order, :project, :reduced, :slice, :union]
+    GRAPH_OUTPUTS = [:bgp, :distinct, :filter, :join, :leftjoin, :order, :project, :reduced, :slice, :union]
 
     ##
     # Initializes a new parser instance.
@@ -176,10 +176,16 @@ module SPARQL; module Grammar
       end
       
       # The last thing on the @prod_data stack is the result
-      @result = prod_data
-      if @result.is_a?(Hash) && !@result.empty?
-        key = @result.keys.first
-        @result = [key] + result[key]  # Creates [:bgp, [:triple], ...]
+      @result = case
+      when !prod_data.is_a?(Hash)
+        prod_data
+      when prod_data.empty?
+        nil
+      when prod_data[:bgp]
+        prod_data[:bgp].is_a?(Array) && prod_data[:bgp].length == 1 ? prod_data[:bgp].first : prod_data[:bgp]
+      else
+        key = prod_data.keys.first
+        @result = [key] + prod_data[key]  # Creates [:bgp, [:triple], ...]
       end
     end
     
@@ -313,13 +319,30 @@ module SPARQL; module Grammar
             res = data[prod] if prod
             
             if data[:Var]
-              res = res ? res.unshift(prod) : [:null]
+              res = if res
+                if prod == :bgp
+                  res.first
+                else
+                  res.unshift(prod)
+                end
+              else
+                RDF::Query.new
+              end
               res = [data[:Var]] + [res]
               prod = :project
             end
 
             if data[:DISTINCT_REDUCED]
-              res = res ? [res.unshift(prod)] : [:null]
+              res = if res
+                if prod == :bgp
+                  res.first
+                else
+                  res.unshift(prod)
+                end
+              else
+                RDF::Query.new
+              end
+              res = [res]
               prod = data[:DISTINCT_REDUCED].first
             end
 
@@ -345,7 +368,15 @@ module SPARQL; module Grammar
             res = data[prod] if prod
             
             if data[:Var]
-              res = res ? res.unshift(prod) : [:null]
+              res = if res
+                if prod == :bgp
+                  res.first
+                else
+                  res.unshift(prod)
+                end
+              else
+                RDF::Query.new
+              end
               add_prod_data(:project, data[:Var], res)
             else
               add_prod_datum(prod, res)
@@ -413,7 +444,7 @@ module SPARQL; module Grammar
         # [17]    OrderCondition            ::=       ( ( 'ASC' | 'DESC' ) BrackettedExpression ) | ( Constraint | Var )
         {
           :finish => lambda { |data|
-             if data[:OrderDirection]
+            if data[:OrderDirection]
               add_prod_datum(:OrderCondition, [data[:OrderDirection] + data[:Expression]])
             else
               add_prod_datum(:OrderCondition, data[:Constraint] || data[:Var])
@@ -440,24 +471,25 @@ module SPARQL; module Grammar
           :finish => lambda { |data|
             production_list = data[:_GraphPatternNotTriples_or_Filter_Dot_Opt_TriplesBlock_Opt]
             debug "GroupGraphPattern", "pl #{production_list.to_a.to_sxp}"
-            debug "GroupGraphPattern", "bgp #{data[:bgp].to_a.to_sxp}"
+            debug "GroupGraphPattern", "bgp #{data[:bgp] ? data[:bgp].first.to_sxp : 'nil'}"
             
             if production_list
-              res = data[:bgp] ? data[:bgp].unshift(:bgp) : [:"table unit"]   # Create dummy first element, if necessary, removed later
+              res = data[:bgp].first if data[:bgp]
               while !production_list.empty?
                 prod_graph = production_list.shift
                 debug "GroupGraphPattern(itr)", "<= pg: #{prod_graph.to_a.to_sxp}"
-                debug "GroupGraphPattern(itr)", "<= res: #{res.to_a.to_sxp}"
+                debug "GroupGraphPattern(itr)", "<= res: #{res ? res.to_sxp : 'nil'}"
                 prod = prod_graph.first
-                if res == [:"table unit"] && prod == :join
+                if res.nil? && prod == :join
                   # Don't need empty node except for leftjoin
                   res = prod_graph.last
                 else
+                  res ||= RDF::Query.new
                   res = [prod] + [res] + [prod_graph.last]
                 end
-                debug "GroupGraphPattern(itr)", "=> res: #{res.to_a.to_sxp}"
+                debug "GroupGraphPattern(itr)", "=> res: #{res ? res.to_sxp : 'nil'}"
               end
-              prod = res.shift
+              prod = res.is_a?(Array) ? res.shift : :bgp
             elsif data[:bgp]
               prod, res = :bgp, data[:bgp]
             else
@@ -465,7 +497,7 @@ module SPARQL; module Grammar
             end
             
             if data[:filter]
-              res = data[:filter] + [[prod] + res]
+              res = data[:filter] + (prod == :bgp ? res : [[prod] + res])
               prod = :filter
             end
             add_prod_datum(prod, res)
@@ -476,7 +508,7 @@ module SPARQL; module Grammar
         {
           :finish => lambda { |data|
             lhs = data[:_GraphPatternNotTriples_or_Filter]
-            rhs = data[:bgp].unshift(:bgp) if data[:bgp]
+            rhs = data[:bgp].first if data[:bgp]
             add_prod_datum(:_GraphPatternNotTriples_or_Filter_Dot_Opt_TriplesBlock_Opt, lhs) if lhs
             add_prod_data(:_GraphPatternNotTriples_or_Filter_Dot_Opt_TriplesBlock_Opt, [:join, rhs]) if rhs
             add_prod_datum(:filter, data[:filter])
@@ -491,21 +523,21 @@ module SPARQL; module Grammar
             add_prod_data(:_GraphPatternNotTriples_or_Filter, data[:leftjoin].unshift(:leftjoin)) if data[:leftjoin]
             add_prod_data(:_GraphPatternNotTriples_or_Filter, data[:join].unshift(:join)) if data[:join]
             add_prod_data(:_GraphPatternNotTriples_or_Filter, [:join, data[:union].unshift(:union)]) if data[:union]
-            add_prod_data(:_GraphPatternNotTriples_or_Filter, [:join, data[:graph].unshift(:graph)]) if data[:graph]
-            add_prod_data(:_GraphPatternNotTriples_or_Filter, [:join, data[:bgp].unshift(:bgp)]) if data[:bgp]
+            
+            add_prod_data(:_GraphPatternNotTriples_or_Filter, [:join, data[:bgp].first]) if data[:bgp]
           }
         }
       when :TriplesBlock
         # [21]    TriplesBlock ::= TriplesSameSubject ( '.' TriplesBlock? )?
         {
           :finish => lambda { |data|
-            if data[:triple]
-              triples = data[:triple].map {|v| [:triple, v[:subject], v[:predicate], v[:object]]}
-              add_prod_datum(:bgp, triples)
-            end
+            query = RDF::Query.new
+            data[:pattern].each {|p| query << p}
         
-            # Append triples from ('.' TriplesBlock? )? 
-            add_prod_datum(:bgp, data[:bgp])
+            # Append triples from ('.' TriplesBlock? )?
+            # XXX Refactor using RDF::Query + RDF::Query
+            data[:bgp].each {|q| query += q} if data[:bgp]
+            add_prod_datum(:bgp, query)
           }
         }
       when :GraphPatternNotTriples
@@ -515,14 +547,13 @@ module SPARQL; module Grammar
             add_prod_datum(:bgp, data[:bgp])
             add_prod_datum(:leftjoin, data[:leftjoin])
             add_prod_datum(:union, data[:union])
-            add_prod_datum(:graph, data[:graph])
           }
         }
       when :OptionalGraphPattern
         # [23]    OptionalGraphPattern      ::=       'OPTIONAL' GroupGraphPattern
         {
           :finish => lambda { |data|
-            add_prod_data(:leftjoin, data[:bgp].unshift(:bgp)) if data[:bgp]
+            add_prod_data(:leftjoin, data[:bgp].first) if data[:bgp]
             add_prod_datum(:leftjoin, data[:leftjoin])
           }
         }
@@ -530,7 +561,11 @@ module SPARQL; module Grammar
         # [24]    GraphGraphPattern         ::=       'GRAPH' VarOrIRIref GroupGraphPattern
         {
           :finish => lambda { |data|
-            add_prod_data(:graph, (data[:Var] || data[:IRIref]).last, data[:bgp].unshift(:bgp)) if data[:bgp]
+            if data[:bgp]
+              query = data[:bgp].first
+              query.context = (data[:Var] || data[:IRIref]).last
+              add_prod_data(:bgp, query)
+            end
           }
         }
       when :GroupOrUnionGraphPattern
@@ -580,12 +615,9 @@ module SPARQL; module Grammar
         # [30]    ConstructTemplate ::=       '{' ConstructTriples? '}'
         {
           :finish => lambda { |data|
-            if data[:triple]
-              triples = data[:triple].map {|v| [:triple, v[:subject], v[:predicate], v[:object]]}
-              add_prod_datum(:ConstructTemplate, triples)
-            end
+            add_prod_datum(:ConstructTemplate, data[:pattern])
         
-            # Append triples from ('.' ConstructTriples? )? 
+            # Append patterns from ('.' ConstructTriples? )? 
             if data[:ConstructTemplate]
               add_prod_datum(:ConstructTemplate, data[:ConstructTemplate])
             end
@@ -594,7 +626,7 @@ module SPARQL; module Grammar
       when :TriplesSameSubject
         # [32]    TriplesSameSubject ::= VarOrTerm PropertyListNotEmpty | TriplesNode PropertyList
         {
-          :finish => lambda { |data| add_prod_datum(:triple, data[:triple]) }
+          :finish => lambda { |data| add_prod_datum(:pattern, data[:pattern]) }
         }
       when :PropertyListNotEmpty
         # [33]    PropertyListNotEmpty ::= Verb ObjectList ( ';' ( Verb ObjectList )? )*
@@ -604,7 +636,7 @@ module SPARQL; module Grammar
             error(nil, "Expected VarOrTerm or TriplesNode or GraphNode", :production => :PropertyListNotEmpty) if validate? && !subject
             data[:Subject] = subject
           },
-          :finish => lambda {|data| add_prod_datum(:triple, data[:triple])}
+          :finish => lambda {|data| add_prod_datum(:pattern, data[:pattern])}
         }
       when :ObjectList
         # [35]    ObjectList ::= Object ( ',' Object )*
@@ -622,7 +654,7 @@ module SPARQL; module Grammar
               error(nil, "Expected Verb", :production => :ObjectList) if validate?
             end
           },
-          :finish => lambda { |data| add_prod_datum(:triple, data[:triple]) }
+          :finish => lambda { |data| add_prod_datum(:pattern, data[:pattern]) }
         }
       when :Object
         # [36]    Object ::= GraphNode
@@ -630,8 +662,8 @@ module SPARQL; module Grammar
           :finish => lambda { |data|
             object = data[:VarOrTerm] || data[:TriplesNode] || data[:GraphNode]
             if object
-              add_triple(:Object, :subject => prod_data[:Subject], :predicate => prod_data[:Verb], :object => object)
-              add_prod_datum(:triple, data[:triple])
+              add_pattern(:Object, :subject => prod_data[:Subject], :predicate => prod_data[:Verb], :object => object)
+              add_prod_datum(:pattern, data[:pattern])
             end
           }
         }
@@ -647,7 +679,7 @@ module SPARQL; module Grammar
         {
           :start => lambda { |data| data[:TriplesNode] = gen_node() },
           :finish => lambda { |data| 
-            add_prod_datum(:triple, data[:triple])
+            add_prod_datum(:pattern, data[:pattern])
             add_prod_datum(:TriplesNode, data[:TriplesNode])
           }
         }
@@ -662,7 +694,7 @@ module SPARQL; module Grammar
         {
           :finish => lambda { |data|
             term = data[:VarOrTerm] || data[:TriplesNode]
-            add_prod_datum(:triple, data[:triple])
+            add_prod_datum(:pattern, data[:pattern])
             add_prod_datum(:GraphNode, term)
           }
         }
@@ -874,7 +906,7 @@ module SPARQL; module Grammar
       @productions << prod
       if context
         # Create a new production data element, potentially allowing handler to customize before pushing on the @prod_data stack
-        progress("#{prod}(:start):#{@prod_data.length}", prod_data.to_a.to_sxp)
+        progress("#{prod}(:start):#{@prod_data.length}", prod_data)
         data = {}
         context[:start].call(data) if context.has_key?(:start)
         @prod_data << data
@@ -892,7 +924,7 @@ module SPARQL; module Grammar
         # Pop production data element from stack, potentially allowing handler to use it
         data = @prod_data.pop
         context[:finish].call(data) if context.has_key?(:finish)
-        progress("#{prod}(:finish):#{@prod_data.length}", prod_data.to_a.to_sxp, :depth => (@productions.length + 1))
+        progress("#{prod}(:finish):#{@prod_data.length}", prod_data, :depth => (@productions.length + 1))
       else
         progress("#{prod}(:finish)", '', :depth => (@productions.length + 1))
       end
@@ -995,7 +1027,7 @@ module SPARQL; module Grammar
         token_production = token_productions(parentProd.to_sym, prod.to_sym)
         if token_production
           token_production.call(token)
-          progress("#{prod}<#{parentProd}(:token)", "#{token}: #{prod_data.to_a.to_sxp}", :depth => (@productions.length + 1))
+          progress("#{prod}<#{parentProd}(:token)", "#{token}: #{prod_data}", :depth => (@productions.length + 1))
         else
           progress("#{prod}<#{parentProd}(:token)", token, :depth => (@productions.length + 1))
         end
@@ -1041,17 +1073,18 @@ module SPARQL; module Grammar
     def finalize_query(data)
       GRAPH_OUTPUTS.each do |key|
         next unless sxp = data[key]
+        sxp_1 = key == :bgp ? sxp.first : sxp.unshift(key)
 
         # Wrap in :base or :prefix or just use key
         if data[:PrefixDecl] && data[:BaseDecl] && !options[:expand_uris]
           add_prod_datum(:base, *data[:BaseDecl])
-          add_prod_data(:base, data[:PrefixDecl].unshift(:prefix) + [sxp.unshift(key)])
+          add_prod_data(:base, data[:PrefixDecl].unshift(:prefix) + [sxp_1])
         elsif data[:PrefixDecl] && !options[:expand_uris]
           add_prod_datum(:prefix, data[:PrefixDecl])
-          add_prod_data(:prefix, sxp.unshift(key))
+          add_prod_data(:prefix, sxp_1)
         elsif data[:BaseDecl] && !options[:expand_uris]
           add_prod_datum(:base, *data[:BaseDecl])
-          add_prod_data(:base, sxp.unshift(key))
+          add_prod_data(:base, sxp_1)
         else
           add_prod_datum(key, sxp)
         end
@@ -1065,7 +1098,7 @@ module SPARQL; module Grammar
     # @param [Hash] data Production Data
     def expand_collection(data)
       # Add any triples generated from deeper productions
-      add_prod_datum(:triple, data[:triple])
+      add_prod_datum(:pattern, data[:pattern])
       
       # Create list items for each element in data[:GraphNode]
       first = col = data[:Collection]
@@ -1073,16 +1106,16 @@ module SPARQL; module Grammar
       last = list.pop
 
       list.each do |r|
-        add_triple(:Collection, :subject => first, :predicate => RDF["first"], :object => r)
+        add_pattern(:Collection, :subject => first, :predicate => RDF["first"], :object => r)
         rest = gen_node()
-        add_triple(:Collection, :subject => first, :predicate => RDF["rest"], :object => rest)
+        add_pattern(:Collection, :subject => first, :predicate => RDF["rest"], :object => rest)
         first = rest
       end
       
       if last
-        add_triple(:Collection, :subject => first, :predicate => RDF["first"], :object => last)
+        add_pattern(:Collection, :subject => first, :predicate => RDF["first"], :object => last)
       end
-      add_triple(:Collection, :subject => first, :predicate => RDF["rest"], :object => RDF["nil"])
+      add_pattern(:Collection, :subject => first, :predicate => RDF["rest"], :object => RDF["nil"])
     end
 
   private
@@ -1110,11 +1143,14 @@ module SPARQL; module Grammar
     # Add joined graphs similar to graph (union graph)* to form (union (union graph graph) graph)
     def add_graphs(production, data)
       # Iterate through expression to create binary operations
-      input_prod = [:graph, :join, :leftjoin, :bgp].detect { |prod| data[prod] }
-      res = data[input_prod]
+      input_prod = [:join, :leftjoin, :bgp].detect { |prod| data[prod] }
+      res = input_prod == :bgp ? data[input_prod].first : data[input_prod]
       if data[production]
         while !data[production].empty?
-          res = [res.unshift(input_prod), data[production].shift]
+          #puts "add_graphs: res: #{res}, input_prod: #{input_prod}, data[#{production}]: #{data[production].first}"
+          lhs = input_prod == :bgp ? res : res.unshift(input_prod)
+          rhs = data[production].shift
+          res = [lhs, rhs]
           input_prod = production
         end
       end
@@ -1123,9 +1159,15 @@ module SPARQL; module Grammar
 
     # Accumulate joined graphs in for graph (union graph)* to form (union (union graph graph) graph)
     def accumulate_graphs(production, data)
-      input_prod = [:graph, :join, :leftjoin, :bgp].detect { |prod| data[prod] }
+      input_prod = [:join, :leftjoin, :bgp].detect { |prod| data[prod] }
       # Add [production rhs] to stack based on "production"
-      add_prod_data(production, data[input_prod].unshift(input_prod)) if data[input_prod]
+      if data[input_prod]
+        if input_prod == :bgp
+          add_prod_data(production, data[input_prod].first)
+        else
+          add_prod_data(production, data[input_prod].unshift(input_prod))
+        end
+      end
       add_prod_datum(production, data[production])
     end
 
@@ -1196,36 +1238,36 @@ module SPARQL; module Grammar
     end
     
     def ns(prefix, suffix)
-      if options[:resolve_uris]
-        base = prefix(prefix).to_s
-        suffix = suffix.to_s.sub(/^\#/, "") if base.index("#")
-        debug("ns(#{prefix.inspect})", "base: '#{base}', suffix: '#{suffix}'")
-        uri(base + suffix.to_s)
-      else
-        "#{prefix}:#{suffix}".to_sym
-      end
+      base = prefix(prefix).to_s
+      suffix = suffix.to_s.sub(/^\#/, "") if base.index("#")
+      debug("ns(#{prefix.inspect})", "base: '#{base}', suffix: '#{suffix}'")
+      uri = uri(base + suffix.to_s)
+      # Cause URI to be serialized as a qname
+      uri.qname = "#{prefix}:#{suffix}" unless options[:resolve_uris]
+      uri
     end
     
-    # add a statement
+    # add a pattern
     #
-    # @param [String] production:: Production generating triple
-    # @param [RDF::Term] subject:: the subject of the statement
-    # @param [RDF::Term] predicate:: the predicate of the statement
-    # @param [RDF::Term, Node, Literal] object:: the object of the statement
-    def add_triple(production, options)
-      progress(production, "[:triple, #{options[:subject]}, #{options[:predicate]}, #{options[:object]}]")
-      triples = {}
+    # @param [String] production:: Production generating pattern
+    # @param [RDF::Term] subject:: the subject of the pattern
+    # @param [RDF::Term] predicate:: the predicate of the pattern
+    # @param [RDF::Term, Node, Literal] object:: the object of the pattern
+    def add_pattern(production, options)
+      progress(production, "add_pattern: #{options.inspect}")
+      progress(production, "[:pattern, #{options[:subject]}, #{options[:predicate]}, #{options[:object]}]")
+      triple = {}
       options.each_pair do |r, v|
         if v.is_a?(Array) && v.flatten.length == 1
           v = v.flatten.first
         end
         if validate? && !v.is_a?(RDF::Term)
-          error("add_triple", "Expected #{r} to be a resource, but it was #{v.inspect}",
+          error("add_pattern", "Expected #{r} to be a resource, but it was #{v.inspect}",
             :production => production)
         end
-        triples[r] = v
+        triple[r] = v
       end
-      add_prod_data(:triple, triples)
+      add_prod_data(:pattern, RDF::Query::Pattern.new(triple))
     end
 
     instance_methods.each { |method| public method } # DEBUG
