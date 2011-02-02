@@ -39,6 +39,9 @@ describe "RDF::Query#to_sxp" do
       pattern [RDF::URI("a"), RDF::URI("b"), RDF::URI("c")]
       pattern [RDF::URI("d"), RDF::URI("e"), RDF::URI("f")]
     } => %q((bgp (triple <a> <b> <c>) (triple <d> <e> <f>))),
+    RDF::Query.new(nil, :context => RDF::URI("http://example.com/")) {
+      pattern [RDF::URI("a"), RDF::URI("b"), RDF::URI("c")]
+    } => %q((graph <http://example.com/> (bgp (triple <a> <b> <c>)))),
   }.each_pair do |st, sxp|
     it "generates #{sxp} given #{st}" do
       st.to_sxp.should == sxp

@@ -1,11 +1,16 @@
 # Extensions for RDF classes
+
 module RDF
   class URI
     ##
     # Returns the SXP representation of this object.
     #
     # @return [String]
-    def to_sxp; "<#{self}>"; end
+    def to_sxp; qname || "<#{self}>"; end
+    
+    # Override qname to save value for SXP serialization
+    def qname=(value); @qname = value; end
+    def qname; @qname; end
   end
 
   class Literal
@@ -27,14 +32,34 @@ module RDF
   end
 
   class Statement
+    # Transform Query into an Array form of an SXP
+    # @return [Statement]
+    def to_sxa
+      [:triple, subject, predicate, object]
+    end
+
+    # Transform Statement into an SXP
+    # @return [String]
     def to_sxp
-      [:triple, subject, predicate, object].to_sxp
+      to_sxa.to_sxp
     end
   end
   
   class Query
+    # Transform Query into an Array form of an SXP
+    #
+    # If Query is named, it's treated as a GroupGraphPattern, otherwise, a BGP
+    #
+    # @return [Array]
+    def to_sxa
+      res = [:bgp] + patterns
+      named? ? [:graph, context, res] : res
+    end
+    
+    # Transform Query into an SXP
+    # @return [String]
     def to_sxp
-      patterns.dup.unshift(:bgp).to_sxp
+      to_sxa.to_sxp
     end
   end
   
