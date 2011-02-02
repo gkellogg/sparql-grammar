@@ -13,6 +13,7 @@ module SPARQL
     autoload :Parser,  'sparql/grammar/parser'
     autoload :Meta,    'sparql/grammar/parser/meta'
     autoload :VERSION, 'sparql/grammar/version'
+    require            'sparql/grammar/parser/query'  # FIXME: Remove when patches integrated
 
     METHODS   = %w(SELECT CONSTRUCT DESCRIBE ASK).map(&:to_sym)
     KEYWORDS  = %w(BASE PREFIX LIMIT OFFSET DISTINCT REDUCED
