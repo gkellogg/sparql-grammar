@@ -32,6 +32,10 @@ module RDF
   end
 
   class Statement
+    def inspect
+      to_sxa.map(&:to_sxp).inspect
+    end
+    
     # Transform Query into an Array form of an SXP
     # @return [Statement]
     def to_sxa
@@ -80,6 +84,10 @@ module RDF
       options[:context]
     end
 
+    def inspect
+      "RDF::Query(#{context ? context.to_sxp : 'nil'})#{patterns.inspect}"
+    end
+
     # Transform Query into an Array form of an SXP
     #
     # If Query is named, it's treated as a GroupGraphPattern, otherwise, a BGP
@@ -120,6 +128,7 @@ module RDF
     # Initializes a new algebra query.
     #
     # @param  [Array<RDF::Query>] queries
+    #   Queries to be operated upon
     # @param  [to_sym] operation (:join)
     #   Must be one of :join, :leftjoin, or :union
     # @param  [Hash{Symbol => Object}] options
@@ -142,11 +151,37 @@ module RDF
       end
     end
     
+    ##
+    # Appends the given query to this query.
+    #
+    # @param  [RDF::Query] query
+    #   a query
+    # @return [void] self
+    def <<(query)
+      @queries << query
+      self
+    end
+
+    ##
+    # Appends the given query to this query.
+    #
+    # @param  [RDF::Query] query
+    #   a query
+    # @return [void] self
+    def query(query)
+      @queries << query
+      self
+    end
+
+    def inspect
+      "RDF::AlgebraQuery(#{operation})#{queries.inspect}"
+    end
+    
     # Transform AlgebraQuery into an Array form of an SXP
     #
     # @return [Array]
     def to_sxa
-      [operation] + queries.map {|q| [q.to_sxa]}
+      [operation] + queries.map {|q| q.to_sxa}
     end
   end
   
