@@ -1,7 +1,6 @@
 require 'rdf' # @see http://rubygems.org/gems/rdf
 require 'json'
 require 'sxp'
-require 'sparql/grammar/writer'
 
 module SPARQL
   ##
@@ -13,7 +12,6 @@ module SPARQL
     autoload :Parser,  'sparql/grammar/parser'
     autoload :Meta,    'sparql/grammar/parser/meta'
     autoload :VERSION, 'sparql/grammar/version'
-    require            'sparql/grammar/parser/query'  # FIXME: Remove when patches integrated
 
     METHODS   = %w(SELECT CONSTRUCT DESCRIBE ASK).map(&:to_sym)
     KEYWORDS  = %w(BASE PREFIX LIMIT OFFSET DISTINCT REDUCED
@@ -76,3 +74,5 @@ module SPARQL
     class SPARQL_GRAMMAR < RDF::Vocabulary("http://www.w3.org/2000/10/swap/grammar/sparql#"); end
   end # Grammar
 end # SPARQL
+
+require 'sparql/grammar/extensions'
