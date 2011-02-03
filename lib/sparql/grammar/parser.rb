@@ -10,7 +10,7 @@ module SPARQL; module Grammar
     include SPARQL::Grammar::Meta
 
     START = SPARQL_GRAMMAR.Query
-    GRAPH_OUTPUTS = [:query, :distinct, :filter, :join, :leftjoin, :order, :project, :reduced, :slice, :union]
+    GRAPH_OUTPUTS = [:query, :distinct, :filter, :join, :leftjoin, :order, :project, :reduced, :slice]
 
     ##
     # Initializes a new parser instance.
@@ -524,7 +524,6 @@ module SPARQL; module Grammar
 
             add_prod_data(:_GraphPatternNotTriples_or_Filter, data[:leftjoin].unshift(:leftjoin)) if data[:leftjoin]
             add_prod_data(:_GraphPatternNotTriples_or_Filter, data[:join].unshift(:join)) if data[:join]
-            add_prod_data(:_GraphPatternNotTriples_or_Filter, [:join, data[:union].unshift(:union)]) if data[:union]
             
             add_prod_data(:_GraphPatternNotTriples_or_Filter, [:join, data[:query].first]) if data[:query]
           }
@@ -547,7 +546,6 @@ module SPARQL; module Grammar
           :finish => lambda { |data|
             add_prod_datum(:query, data[:query].to_a.first)
             add_prod_datum(:leftjoin, data[:leftjoin])
-            add_prod_datum(:union, data[:union])
           }
         }
       when :OptionalGraphPattern
@@ -572,11 +570,29 @@ module SPARQL; module Grammar
       when :GroupOrUnionGraphPattern
         # [25]    GroupOrUnionGraphPattern  ::=       GroupGraphPattern ( 'UNION' GroupGraphPattern )*
         {
-          :finish => lambda { |data| add_graphs(:union, data) }
+          :finish => lambda { |data|
+            # Iterate through expression to create binary operations
+            input_prod = [:join, :leftjoin, :query].detect { |prod| data[prod] }
+            res = data[input_prod].first if input_prod
+            if data[:union]
+              while !data[:union].empty?
+                puts "add_graphs: res: #{res}, input_prod: #{input_prod}, data[:union]: #{data[:union].first}"
+                lhs = res
+                rhs = data[:union].shift
+                res = RDF::AlgebraQuery.new([lhs, rhs], :union)
+              end
+            end
+            add_prod_datum(:query, res)
+          }
         }
       when :_UNION_GroupGraphPattern_Star
         {
-          :finish => lambda { |data|  accumulate_graphs(:union, data) }
+          :finish => lambda { |data|
+            input_prod = [:join, :leftjoin, :query].detect { |prod| data[prod] }
+            # Add [:union rhs] to stack based on ":union"
+            add_prod_data(:union, data[input_prod].first) if input_prod
+            add_prod_data(:union, data[:union].first) if data[:union]
+          }
         }
       when :Filter
         # [26]    Filter                    ::=       'FILTER' Constraint
@@ -1130,37 +1146,6 @@ module SPARQL; module Grammar
       false
     end
     alias_method :fail!, :fail
-
-    # Add joined graphs similar to graph (union graph)* to form (union (union graph graph) graph)
-    def add_graphs(production, data)
-      # Iterate through expression to create binary operations
-      input_prod = [:join, :leftjoin, :query].detect { |prod| data[prod] }
-      res = input_prod == :query ? data[input_prod].first : data[input_prod]
-      if data[production]
-        while !data[production].empty?
-          #puts "add_graphs: res: #{res}, input_prod: #{input_prod}, data[#{production}]: #{data[production].first}"
-          lhs = input_prod == :query ? res : res.unshift(input_prod)
-          rhs = data[production].shift
-          res = [lhs, rhs]
-          input_prod = production
-        end
-      end
-      add_prod_datum(input_prod, res)
-    end
-
-    # Accumulate joined graphs in for graph (union graph)* to form (union (union graph graph) graph)
-    def accumulate_graphs(production, data)
-      input_prod = [:join, :leftjoin, :query].detect { |prod| data[prod] }
-      # Add [production rhs] to stack based on "production"
-      if data[input_prod]
-        if input_prod == :query
-          add_prod_data(production, data[input_prod].first)
-        else
-          add_prod_data(production, data[input_prod].unshift(input_prod))
-        end
-      end
-      add_prod_datum(production, data[production])
-    end
 
     # Add joined expressions in for prod1 (op prod2)* to form (op (op 1 2) 3)
     def add_operator_expressions(production, data)
