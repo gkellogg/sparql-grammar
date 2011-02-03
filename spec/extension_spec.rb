@@ -30,21 +30,138 @@ describe "RDF::Statement#to_sxp" do
   end
 end
 
-describe "RDF::Query#to_sxp" do
-  {
-    RDF::Query.new {
-      pattern [RDF::URI("a"), RDF::URI("b"), RDF::URI("c")]
-    } => %q((bgp (triple <a> <b> <c>))),
-    RDF::Query.new {
-      pattern [RDF::URI("a"), RDF::URI("b"), RDF::URI("c")]
-      pattern [RDF::URI("d"), RDF::URI("e"), RDF::URI("f")]
-    } => %q((bgp (triple <a> <b> <c>) (triple <d> <e> <f>))),
-    RDF::Query.new(nil, :context => RDF::URI("http://example.com/")) {
-      pattern [RDF::URI("a"), RDF::URI("b"), RDF::URI("c")]
-    } => %q((graph <http://example.com/> (bgp (triple <a> <b> <c>)))),
-  }.each_pair do |st, sxp|
-    it "generates #{sxp} given #{st}" do
-      st.to_sxp.should == sxp
+describe RDF::Query do
+  subject { RDF::Query.new }
+
+  describe "#context" do
+    it "returns nil by default" do
+      subject.context.should be_nil
+    end
+    
+    it "sets and returns a context" do
+      subject.context = RDF.first
+      subject.context.should == RDF.first
+    end
+  end
+  
+  describe "#named?" do
+    it "returns false with no context" do
+      subject.named?.should be_false
+    end
+    
+    it "returns true with a context" do
+      subject.context = RDF.first
+      subject.named?.should be_true
+    end
+  end
+  
+  describe "#unnamed?" do
+    it "returns true with no context" do
+      subject.unnamed?.should be_true
+    end
+    
+    it "returns false with a context" do
+      subject.context = RDF.first
+      subject.unnamed?.should be_false
+    end
+  end
+  
+  describe "#+" do
+    it "returns a new RDF::Query" do
+      rhs = RDF::Query.new
+      q = subject + rhs
+      q.should_not be_equal(subject)
+      q.should_not be_equal(rhs)
+    end
+    
+    it "contains patterns from each query in order" do
+      subject.pattern [RDF.first, RDF.second, RDF.third]
+      rhs = RDF::Query.new
+      subject.pattern [RDF.a, RDF.b, RDF.c]
+      q = subject + rhs
+      q.patterns.should == [[RDF.first, RDF.second, RDF.third], [RDF.a, RDF.b, RDF.c]]
+    end
+  end
+  
+  describe "#to_sxp" do
+    {
+      RDF::Query.new {
+        pattern [RDF::URI("a"), RDF::URI("b"), RDF::URI("c")]
+      } => %q((bgp (triple <a> <b> <c>))),
+      RDF::Query.new {
+        pattern [RDF::URI("a"), RDF::URI("b"), RDF::URI("c")]
+        pattern [RDF::URI("d"), RDF::URI("e"), RDF::URI("f")]
+      } => %q((bgp (triple <a> <b> <c>) (triple <d> <e> <f>))),
+      RDF::Query.new(nil, :context => RDF::URI("http://example.com/")) {
+        pattern [RDF::URI("a"), RDF::URI("b"), RDF::URI("c")]
+      } => %q((graph <http://example.com/> (bgp (triple <a> <b> <c>)))),
+      RDF::Query.new() {} => %q((bgp))
+    }.each_pair do |st, sxp|
+      it "generates #{sxp} given #{st.inspect}" do
+        st.to_sxp.should == sxp
+      end
     end
   end
 end
+
+describe RDF::AlgebraQuery do
+  subject { RDF::AlgebraQuery.new }
+  before(:each) do
+    @q1 = RDF::Query.new(nil, :context => "foo")
+    @q2 = RDF::Query.new(nil, :context => "bar")
+  end
+
+  describe ".new" do
+    it "sets operation to :join by default" do
+      subject.operation.should == :join
+    end
+    
+    it "contains no queries by default" do
+      subject.queries.should == []
+    end
+    
+    it "contains queries" do
+      aq = RDF::AlgebraQuery.new([@q1, @q2])
+      aq.queries.should == [@q1, @q2]
+    end
+  end
+  
+  describe "#query" do
+    it "adds a query" do
+      subject.query(@q1)
+      subject.queries.should == [@q1]
+    end
+  end
+  
+  describe "#<<" do
+    it "adds a query" do
+      subject << @q1
+      subject.queries.should == [@q1]
+    end
+  end
+  
+  describe "#to_sxp" do
+    {
+      RDF::AlgebraQuery.new {
+        query RDF::Query.new([RDF::Statement.new(RDF::URI("a"), RDF::URI("b"), RDF::URI("c"))])
+      } => %q((join (bgp (triple <a> <b> <c>)))),
+      RDF::AlgebraQuery.new {
+        query RDF::Query.new([RDF::Statement.new(RDF::URI("a"), RDF::URI("b"), RDF::URI("c"))])
+        query RDF::Query.new([RDF::Statement.new(RDF::URI("d"), RDF::URI("e"), RDF::URI("f"))])
+      } => %q((join (bgp (triple <a> <b> <c>)) (bgp (triple <d> <e> <f>)))),
+      RDF::AlgebraQuery.new([], :union) {
+        query RDF::Query.new([RDF::Statement.new(RDF::URI("a"), RDF::URI("b"), RDF::URI("c"))])
+        query RDF::Query.new([RDF::Statement.new(RDF::URI("d"), RDF::URI("e"), RDF::URI("f"))])
+      } => %q((union (bgp (triple <a> <b> <c>)) (bgp (triple <d> <e> <f>)))),
+      RDF::AlgebraQuery.new {
+        query RDF::Query.new(nil, :context => "foo")
+      } => %q((join (graph "foo" (bgp)))),
+      RDF::AlgebraQuery.new() {} => %q((join))
+    }.each_pair do |st, sxp|
+      it "generates #{sxp} given #{st.inspect}" do
+        st.to_sxp.should == sxp
+      end
+    end
+  end
+end
+
