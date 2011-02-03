@@ -496,8 +496,10 @@ module SPARQL; module Grammar
               return  # No reason to filter
             end
             
+            debug "GroupGraphPattern(pre-filter)", "prod: #{prod.inspect}, res: #{res ? res.to_sxp : 'nil'}"
+
             if data[:filter]
-              res = data[:filter] + (prod == :query ? res : [[prod] + res])
+              res = data[:filter] + (prod == :query ? [res].flatten : [[prod] + res])
               prod = :filter
             end
             add_prod_datum(prod, res)

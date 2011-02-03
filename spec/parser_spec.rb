@@ -724,7 +724,6 @@ describe SPARQL::Grammar::Parser do
         given_it_generates(production, "SELECT * WHERE {?a ?b ?c OPTIONAL {?d ?e ?f}}", %q((leftjoin (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
         given_it_generates(production, "SELECT * WHERE {?a ?b ?c {?d ?e ?f}}", %q((join (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
         given_it_generates(production, "SELECT * WHERE {{?a ?b ?c} UNION {?d ?e ?f}}", %q((union (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
-        given_it_generates(production, "SELECT * WHERE {?a ?b ?c FILTER (?a)}", %q((filter ?a (bgp (triple ?a ?b ?c)))))
 
         describe "Var+" do
           given_it_generates(production, "SELECT ?a ?b WHERE {?a ?b ?c}", %q((project (?a ?b) (bgp (triple ?a ?b ?c)))))
@@ -738,6 +737,12 @@ describe SPARQL::Grammar::Parser do
         describe "REDUCED" do
           given_it_generates(production, "SELECT REDUCED * WHERE {?a ?b ?c}", %q((reduced (bgp (triple ?a ?b ?c)))))
           given_it_generates(production, "SELECT REDUCED ?a ?b WHERE {?a ?b ?c}", %q((reduced (project (?a ?b) (bgp (triple ?a ?b ?c))))))
+        end
+        
+        describe "FILTER" do
+          given_it_generates(production, "SELECT * WHERE {?a ?b ?c FILTER (?a)}", %q((filter ?a (bgp (triple ?a ?b ?c)))))
+          given_it_generates(production, "SELECT * WHERE {FILTER (?a) ?a ?b ?c}", %q((filter ?a (bgp (triple ?a ?b ?c)))))
+          given_it_generates(production, "SELECT * WHERE { FILTER (?o>5) . ?s ?p ?o }", %q((filter (> ?o 5) (bgp (triple ?s ?p ?o)))))
         end
       end
     end
