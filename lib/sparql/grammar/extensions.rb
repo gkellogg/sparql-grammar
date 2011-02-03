@@ -163,6 +163,17 @@ module RDF
     end
 
     ##
+    # Prepends the given query to this query.
+    #
+    # @param  [RDF::Query] query
+    #   a query
+    # @return [void] self
+    def unshift(query)
+      @queries.unshift(query)
+      self
+    end
+
+    ##
     # Appends the given query to this query.
     #
     # @param  [RDF::Query] query

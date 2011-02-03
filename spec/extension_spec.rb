@@ -140,6 +140,14 @@ describe RDF::AlgebraQuery do
     end
   end
   
+  describe "#unshift" do
+    it "prepends a query" do
+      subject << @q2
+      subject.unshift(@q1)
+      subject.queries.should == [@q1, @q2]
+    end
+  end
+  
   describe "#to_sxp" do
     {
       RDF::AlgebraQuery.new {
