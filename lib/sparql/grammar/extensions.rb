@@ -84,6 +84,11 @@ module RDF
       options[:context]
     end
 
+    # Query has no patterns
+    def empty?
+      patterns.empty?
+    end
+
     def inspect
       "RDF::Query(#{context ? context.to_sxp : 'nil'})#{patterns.inspect}"
     end
@@ -139,7 +144,7 @@ module RDF
     # @yieldreturn [void] ignored
     def initialize(queries = [], operation = :join, options = {}, &block)
       super(nil, options) do
-        @queries = queries
+        @queries = [queries].flatten.compact
         @operation = operation
 
         if block_given?
@@ -182,6 +187,11 @@ module RDF
     def query(query)
       @queries << query
       self
+    end
+
+    # Query has no queries
+    def empty?
+      queries.empty?
     end
 
     def inspect
