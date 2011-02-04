@@ -454,16 +454,12 @@ module SPARQL; module Grammar
       when :LimitClause
         # [18]    LimitClause               ::=       'LIMIT' INTEGER
         {
-          :finish => lambda { |data|
-            add_prod_datum(:limit, data[:literal])
-          }
+          :finish => lambda { |data| add_prod_datum(:limit, data[:literal]) }
         }
       when :OffsetClause
         # [19]    OffsetClause              ::=       'OFFSET' INTEGER
         {
-          :finish => lambda { |data|
-            add_prod_datum(:offset, data[:literal])
-          }
+          :finish => lambda { |data| add_prod_datum(:offset, data[:literal]) }
         }
       when :GroupGraphPattern
         # [20] GroupGraphPattern ::= '{' TriplesBlock? ( ( GraphPatternNotTriples | Filter ) '.'? TriplesBlock? )* '}'
@@ -548,11 +544,6 @@ module SPARQL; module Grammar
             add_prod_datum(:query, query)
           }
         }
-      when :GraphPatternNotTriples
-        # [22]    GraphPatternNotTriples    ::=       OptionalGraphPattern | GroupOrUnionGraphPattern | GraphGraphPattern
-        {
-          :finish => lambda { |data| add_prod_datum(:query, data[:query].to_a.first) }
-        }
       when :OptionalGraphPattern
         # [23]    OptionalGraphPattern      ::=       'OPTIONAL' GroupGraphPattern
         {
@@ -619,10 +610,7 @@ module SPARQL; module Grammar
       when :FunctionCall
         # [28]    FunctionCall              ::=       IRIref ArgList
         {
-          :finish => lambda { |data|
-            # Function is (func arg1 arg2 ...)
-            add_prod_data(:Function, data[:IRIref] + data[:ArgList])
-          }
+          :finish => lambda { |data| add_prod_data(:Function, data[:IRIref] + data[:ArgList]) }
         }
       when :ArgList
         # [29]    ArgList                   ::=       ( NIL | '(' Expression ( ',' Expression )* ')' )
@@ -1172,7 +1160,7 @@ module SPARQL; module Grammar
       end
     end
 
-    # Add values to production data, values aranged as an array
+    # Add a single value to prod_data, allows for values to be an array
     def add_prod_datum(sym, values)
       case values
       when Array
@@ -1245,7 +1233,7 @@ module SPARQL; module Grammar
         end
         triple[r] = v
       end
-      add_prod_data(:pattern, RDF::Query::Pattern.new(triple))
+      add_prod_datum(:pattern, RDF::Query::Pattern.new(triple))
     end
 
     instance_methods.each { |method| public method } # DEBUG
