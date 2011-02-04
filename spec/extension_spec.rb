@@ -104,8 +104,8 @@ describe RDF::Query do
   end
 end
 
-describe RDF::AlgebraQuery do
-  subject { RDF::AlgebraQuery.new }
+describe RDF::GroupQuery do
+  subject { RDF::GroupQuery.new }
   before(:each) do
     @q1 = RDF::Query.new(nil, :context => "foo")
     @q2 = RDF::Query.new(nil, :context => "bar")
@@ -121,8 +121,8 @@ describe RDF::AlgebraQuery do
     end
     
     it "contains queries" do
-      aq = RDF::AlgebraQuery.new([@q1, @q2])
-      aq.queries.should == [@q1, @q2]
+      gq = RDF::GroupQuery.new([@q1, @q2])
+      gq.queries.should == [@q1, @q2]
     end
   end
   
@@ -150,21 +150,21 @@ describe RDF::AlgebraQuery do
   
   describe "#to_sxp" do
     {
-      RDF::AlgebraQuery.new {
+      RDF::GroupQuery.new {
         query RDF::Query.new([RDF::Statement.new(RDF::URI("a"), RDF::URI("b"), RDF::URI("c"))])
       } => %q((join (bgp (triple <a> <b> <c>)))),
-      RDF::AlgebraQuery.new {
+      RDF::GroupQuery.new {
         query RDF::Query.new([RDF::Statement.new(RDF::URI("a"), RDF::URI("b"), RDF::URI("c"))])
         query RDF::Query.new([RDF::Statement.new(RDF::URI("d"), RDF::URI("e"), RDF::URI("f"))])
       } => %q((join (bgp (triple <a> <b> <c>)) (bgp (triple <d> <e> <f>)))),
-      RDF::AlgebraQuery.new([], :union) {
+      RDF::GroupQuery.new([], :union) {
         query RDF::Query.new([RDF::Statement.new(RDF::URI("a"), RDF::URI("b"), RDF::URI("c"))])
         query RDF::Query.new([RDF::Statement.new(RDF::URI("d"), RDF::URI("e"), RDF::URI("f"))])
       } => %q((union (bgp (triple <a> <b> <c>)) (bgp (triple <d> <e> <f>)))),
-      RDF::AlgebraQuery.new {
+      RDF::GroupQuery.new {
         query RDF::Query.new(nil, :context => "foo")
       } => %q((join (graph "foo" (bgp)))),
-      RDF::AlgebraQuery.new() {} => %q((join))
+      RDF::GroupQuery.new() {} => %q((join))
     }.each_pair do |st, sxp|
       it "generates #{sxp} given #{st.inspect}" do
         st.to_sxp.should == sxp

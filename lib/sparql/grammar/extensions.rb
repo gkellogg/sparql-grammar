@@ -117,8 +117,8 @@ module RDF
   #
   # Variables, solutions, and patterns can be derived via an operation on the constituent graphs.
   # This may be done after execution of sub-components, or as an optimization phase to resolve
-  # a AlgebraQuery object into a new QueryAlebra object with a simpler graph, or to a Query object
-  class AlgebraQuery < Query
+  # a GroupQuery object into a new GroupQuery object with a simpler graph, or to a Query object
+  class GroupQuery < Query
     ##
     # Queries included. No greater than 2.
     # @return [RDF::Query]
@@ -140,7 +140,7 @@ module RDF
     #   any additional keyword options
     # @option options [RDF::Query::Solutions] :solutions (Solutions.new)
     # @yield  [query]
-    # @yieldparam  [RDF::AlgebraQuery] query
+    # @yieldparam  [RDF::GroupQuery] query
     # @yieldreturn [void] ignored
     def initialize(queries = [], operation = :join, options = {}, &block)
       super(nil, options) do
@@ -195,10 +195,10 @@ module RDF
     end
 
     def inspect
-      "RDF::AlgebraQuery(#{operation})#{queries.inspect}"
+      "RDF::GroupQuery(#{operation})#{queries.inspect}"
     end
     
-    # Transform AlgebraQuery into an Array form of an SXP
+    # Transform GroupQuery into an Array form of an SXP
     #
     # @return [Array]
     def to_sxa
