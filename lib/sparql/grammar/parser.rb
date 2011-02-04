@@ -477,17 +477,17 @@ module SPARQL; module Grammar
               lhs = data[:query].to_a.first
               while !query_list.empty?
                 rhs = query_list.shift
-                # Make the right-hand-side a triveal AlgebraQuery, if it's not alaready
-                rhs = RDF::AlgebraQuery.new([rhs], :join) unless rhs.is_a?(RDF::AlgebraQuery)
+                # Make the right-hand-side a triveal GroupQuery, if it's not alaready
+                rhs = RDF::GroupQuery.new([rhs], :join) unless rhs.is_a?(RDF::GroupQuery)
                 debug "GroupGraphPattern(itr)", "<= q: #{rhs.inspect}"
                 debug "GroupGraphPattern(itr)", "<= lhs: #{lhs ? lhs.inspect : 'nil'}"
                 lhs ||= RDF::Query.new if rhs.operation == :leftjoin
                 lhs = lhs ? rhs.unshift(lhs) : rhs
-                lhs = lhs.queries.last if lhs.is_a?(RDF::AlgebraQuery) && lhs.queries.length == 1
+                lhs = lhs.queries.last if lhs.is_a?(RDF::GroupQuery) && lhs.queries.length == 1
                 debug "GroupGraphPattern(itr)", "=> lhs: #{lhs.inspect}"
               end
               # Triveal simplification for :join or :union of one query
-              if lhs.is_a?(RDF::AlgebraQuery) && lhs.queries.empty? && lhs.operation != :leftjoin
+              if lhs.is_a?(RDF::GroupQuery) && lhs.queries.empty? && lhs.operation != :leftjoin
                 puts "lhs.queries.empty?: #{lhs.queries.empty?}"
                 puts "lhs.operation: #{lhs.operation}"
                 lhs = lhs.queries.last
@@ -512,13 +512,13 @@ module SPARQL; module Grammar
           }
         }
       when :_GraphPatternNotTriples_or_Filter_Dot_Opt_TriplesBlock_Opt
-        # Create a stack of AlgebraGraphs having a single graph element and resolve in GroupGraphPattern
+        # Create a stack of GroupQuerys having a single graph element and resolve in GroupGraphPattern
         {
           :finish => lambda { |data|
             lhs = data[:_GraphPatternNotTriples_or_Filter]
             rhs = data[:query]
             add_prod_datum(:query_list, lhs) if lhs
-            rhs = RDF::AlgebraQuery.new(rhs, :join) if rhs && #!rhs.is_a?(RDF::AlgebraQuery)
+            rhs = RDF::GroupQuery.new(rhs, :join) if rhs && #!rhs.is_a?(RDF::GroupQuery)
             add_prod_data(:query_list, rhs) if rhs
             add_prod_datum(:filter, data[:filter])
           }
@@ -531,7 +531,7 @@ module SPARQL; module Grammar
 
             if data[:query]
               res = data[:query].to_a.first
-              res = RDF::AlgebraQuery.new(res, :join) unless res.is_a?(RDF::AlgebraQuery) && res.operation != :union
+              res = RDF::GroupQuery.new(res, :join) unless res.is_a?(RDF::GroupQuery) && res.operation != :union
               add_prod_data(:_GraphPatternNotTriples_or_Filter, res)
             end
           }
@@ -557,7 +557,7 @@ module SPARQL; module Grammar
         # [23]    OptionalGraphPattern      ::=       'OPTIONAL' GroupGraphPattern
         {
           :finish => lambda { |data|
-            add_prod_data(:query, RDF::AlgebraQuery.new(data[:query], :leftjoin)) if data[:query]
+            add_prod_data(:query, RDF::GroupQuery.new(data[:query], :leftjoin)) if data[:query]
           }
         }
       when :GraphGraphPattern
@@ -582,7 +582,7 @@ module SPARQL; module Grammar
                 #puts "res: res: #{res}, input_prod: #{input_prod}, data[:union]: #{data[:union].first}"
                 lhs = res
                 rhs = data[:union].shift
-                res = RDF::AlgebraQuery.new([lhs, rhs], :union)
+                res = RDF::GroupQuery.new([lhs, rhs], :union)
               end
             end
             add_prod_datum(:query, res)
