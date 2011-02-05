@@ -61,9 +61,23 @@ module SPARQL; module Grammar
     # represented using symbols and arrays.
     #
     # Symbols are have meaning as follows:
-    # :+, :-, :/, :*:: Arithmetic or Unary operations
-    #
-    #
+    # :"+", :"-", :"/", :"*", :"!"::
+    #   Arithmetic or Unary operations for example [:"+", 1, 2], [:"-", 1]
+    # :"&&", :"||", :"=", :"!=", :"<", :">", :"<=", :">="::
+    #   Logical operations, for example [:"=", 2, [:"+", 1, 1]]
+    # :project::
+    #   Project a set of results, for example [:project [:?a, :?b], RDF::Query]
+    # :distinct, :reduce::
+    #   Trim result set, for example [:distinct RDF::Query] or [:reduce RDF::Query]
+    # :order, :slice::
+    #   Subset and order results
+    # :filter::
+    #   Filter result set using builtins, functions or expressions. For example,
+    #   [:filter, [:!, [:bound, ?e]], RDF::Query]
+    # :str, :lang, :langMatches, :datatype, :bound, :sameTerm, :isIRI, :isURI, :isBLANK, :isLITERAL::
+    #   Builtin functions, for example [:isURI <a>]
+    # :regex::
+    #   Regular Expression, for example [:regex, ?title, "web", "i"]
     # @return [Array]
     attr_accessor :result
 
