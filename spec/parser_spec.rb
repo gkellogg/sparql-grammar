@@ -656,7 +656,7 @@ describe SPARQL::Grammar::Parser do
           [:base, RDF::URI("http://baz/"), [:prefix, [[:":", RDF::URI("http://foo#")], [:"bar:", RDF::URI("http://bar#")]],
             RDF::Query.new { pattern [RDF::URI("http://baz/a"), RDF::URI("http://foo#b"), RDF::URI("http://bar#c")]}]],
       }.each_pair do |input, result|
-        given_it_generates(production, input, result)
+        given_it_generates(production, input, result, :resolve_uris => false)
       end
 
       BGP.each_pair do |input, result|
@@ -712,7 +712,7 @@ describe SPARQL::Grammar::Parser do
   describe "when matching the [2] Prologue production rule" do
     with_production(:Prologue) do |production|
       it "sets base_uri to <http://example.org> given 'BASE <http://example.org/>'" do
-        p = parser.call(%q(BASE <http://example.org/>))
+        p = parser(nil, :resolve_uris => true).call(%q(BASE <http://example.org/>))
         p.parse(production)
         p.base_uri.should == RDF::URI('http://example.org/')
       end
@@ -720,7 +720,7 @@ describe SPARQL::Grammar::Parser do
       given_it_generates(production, %q(BASE <http://example.org/>), [:BaseDecl, [RDF::URI("http://example.org/")]])
 
       it "sets prefix : to 'foobar' given 'PREFIX : <foobar>'" do
-        p = parser.call(%q(PREFIX : <foobar>))
+        p = parser(nil, :resolve_uris => true).call(%q(PREFIX : <foobar>))
         p.parse(production)
         p.prefix(nil).should == 'foobar'
         p.prefixes[nil].should == 'foobar'
@@ -729,7 +729,7 @@ describe SPARQL::Grammar::Parser do
       given_it_generates(production, %q(PREFIX : <foobar>), [:PrefixDecl, [[:":", RDF::URI("foobar")]]], :resolve_uris => false)
 
       it "sets prefix foo: to 'bar' given 'PREFIX foo: <bar>'" do
-        p = parser.call(%q(PREFIX foo: <bar>))
+        p = parser(nil, :resolve_uris => true).call(%q(PREFIX foo: <bar>))
         p.parse(production)
         p.prefix(:foo).should == 'bar'
         p.prefix("foo").should == 'bar'
@@ -1001,6 +1001,13 @@ describe SPARQL::Grammar::Parser do
               (leftjoin
                 (bgp (triple ?a :b ?c))
                 (bgp (triple ?c :d ?e))))),
+        # From data/Expr1/expr-2
+        "{ ?book dc:title ?title . 
+          OPTIONAL
+            { ?book x:price ?price . 
+              FILTER (?price < 15) .
+            } .
+        }" => %q((leftjoin (bgp (triple ?book dc:title ?title)) (bgp (triple ?book x:price ?price)) (< ?price 15))),
       }.each_pair do |input, result|
         given_it_generates(production, input, result, :resolve_uris => false)
       end
@@ -1055,7 +1062,9 @@ describe SPARQL::Grammar::Parser do
     with_production(:OptionalGraphPattern) do |production|
       it_rejects_empty_input_using production
       {
-        "OPTIONAL {<d><e><f>}" => %q((leftjoin (bgp (triple <d> <e> <f>))))
+        "OPTIONAL {<d><e><f>}" => %q((leftjoin (bgp (triple <d> <e> <f>)))),
+        "OPTIONAL {?book :price, ?price . FILTER (?price < 15)}" =>
+          %q((leftjoin (bgp (triple ?book :price ?price)) (< ?price 15)))
       }.each_pair do |input, result|
         given_it_generates(production, input, result)
       end
