@@ -5,6 +5,6 @@ irb = RUBY_PLATFORM =~ /(:?mswin|mingw)/ ? 'irb.bat' : 'irb'
 libs =  " -r irb/completion"
 RDF = File.expand_path(File.join(File.dirname(__FILE__), "..", "..", "rdf", "lib"))
 libs << " -I #{RDF}" if File.directory?(RDF)
-libs <<  " -r #{File.join(File.expand_path(File.dirname(__FILE__)), "..", "lib", "rdf", "n3.rb")}"
-puts "Loading rdf-n3 gem"
+libs << " -I #{File.join(File.expand_path(File.dirname(__FILE__)), "..", "lib")} -r sparql/grammar"
+puts "Loading sparql-grammar gem"
 exec "#{irb} #{libs} --simple-prompt"
