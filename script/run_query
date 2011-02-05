@@ -1,0 +1,17 @@
+#!/usr/bin/env ruby
+$:.unshift(File.expand_path(File.join(File.dirname(__FILE__), "..", 'lib')))
+
+require 'sparql/grammar'
+require 'rdf/n3'
+
+g = RDF::Graph.load(ARGV[0])
+p = SPARQL::Grammar::Parser.new(File.open(ARGV[1]), :resolve_uris => true)
+q = p.parse
+
+if q.is_a?(RDF::Query)
+  q.execute(g).each do |solution|
+    puts solution.inspect
+  end
+else
+  puts "Can't run query directly, SSE: #{p.to_sse}"
+end
