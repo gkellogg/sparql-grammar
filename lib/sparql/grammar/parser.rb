@@ -185,7 +185,7 @@ module SPARQL; module Grammar
         prod_data[:query].to_a.length == 1 ? prod_data[:query].first : prod_data[:query]
       else
         key = prod_data.keys.first
-        @result = [key] + prod_data[key]  # Creates [:key, [:triple], ...]
+        [key] + prod_data[key]  # Creates [:key, [:triple], ...]
       end
     end
     
@@ -1070,7 +1070,7 @@ module SPARQL; module Grammar
     def finalize_query(data)
       GRAPH_OUTPUTS.each do |key|
         next unless sxp = data[key]
-        sxp_1 = key == :query ? sxp.first : sxp.unshift(key)
+        sxp_1 = sxp.first
 
         # Wrap in :base or :prefix or just use key
         if data[:PrefixDecl] && data[:BaseDecl] && !options[:expand_uris]

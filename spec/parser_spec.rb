@@ -665,6 +665,47 @@ describe SPARQL::Grammar::Parser do
           :base_uri => RDF::URI("http://example.org/"),
           :anon_base => "gen0000")
       end
+
+      given_it_generates(production, "SELECT * FROM <a> WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
+      given_it_generates(production, "SELECT * FROM NAMED <a> WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
+      given_it_generates(production, "SELECT * WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
+      given_it_generates(production, "SELECT * WHERE {GRAPH <a> {?a ?b ?c}}", %q((graph <a> (bgp (triple ?a ?b ?c)))))
+      given_it_generates(production, "SELECT * WHERE {?a ?b ?c OPTIONAL {?d ?e ?f}}", %q((leftjoin (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
+      given_it_generates(production, "SELECT * WHERE {?a ?b ?c {?d ?e ?f}}", %q((join (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
+      given_it_generates(production, "SELECT * WHERE {{?a ?b ?c} UNION {?d ?e ?f}}", %q((union (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
+
+      describe "Var+" do
+        given_it_generates(production, "SELECT ?a ?b WHERE {?a ?b ?c}", %q((project (?a ?b) (bgp (triple ?a ?b ?c)))))
+      end
+
+      describe "DISTINCT" do
+        given_it_generates(production, "SELECT DISTINCT * WHERE {?a ?b ?c}", %q((distinct (bgp (triple ?a ?b ?c)))))
+        given_it_generates(production, "SELECT DISTINCT ?a ?b WHERE {?a ?b ?c}", %q((distinct (project (?a ?b) (bgp (triple ?a ?b ?c))))))
+      end
+
+      describe "REDUCED" do
+        given_it_generates(production, "SELECT REDUCED * WHERE {?a ?b ?c}", %q((reduced (bgp (triple ?a ?b ?c)))))
+        given_it_generates(production, "SELECT REDUCED ?a ?b WHERE {?a ?b ?c}", %q((reduced (project (?a ?b) (bgp (triple ?a ?b ?c))))))
+      end
+      
+      describe "FILTER" do
+        given_it_generates(production, "SELECT * WHERE {?a ?b ?c FILTER (?a)}", %q((filter ?a (bgp (triple ?a ?b ?c)))))
+        given_it_generates(production, "SELECT * WHERE {FILTER (?a) ?a ?b ?c}", %q((filter ?a (bgp (triple ?a ?b ?c)))))
+        given_it_generates(production, "SELECT * WHERE { FILTER (?o>5) . ?s ?p ?o }", %q((filter (> ?o 5) (bgp (triple ?s ?p ?o)))))
+      end
+
+      given_it_generates(production, "CONSTRUCT {?a ?b ?c} FROM <a> WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
+      given_it_generates(production, "CONSTRUCT {?a ?b ?c} FROM NAMED <a> WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
+      given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
+      given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {GRAPH <a> {?a ?b ?c}}", %q((graph <a> (bgp (triple ?a ?b ?c)))))
+      given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {?a ?b ?c OPTIONAL {?d ?e ?f}}", %q((leftjoin (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
+      given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {?a ?b ?c {?d ?e ?f}}", %q((join (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
+      given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {{?a ?b ?c} UNION {?d ?e ?f}}", %q((union (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
+      given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {?a ?b ?c FILTER (?a)}", %q((filter ?a (bgp (triple ?a ?b ?c)))))
+
+      given_it_generates(production, "DESCRIBE * FROM <a> WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
+
+      given_it_generates(production, "ASK WHERE {GRAPH <a> {?a ?b ?c}}", %q((graph <a> (bgp (triple ?a ?b ?c)))))
     end
   end
 
@@ -716,34 +757,33 @@ describe SPARQL::Grammar::Parser do
             :base_uri => RDF::URI("http://example.org/"),
             :anon_base => "gen0000")
         end
-        
-        given_it_generates(production, "SELECT * FROM <a> WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
-        given_it_generates(production, "SELECT * FROM NAMED <a> WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
-        given_it_generates(production, "SELECT * WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
-        given_it_generates(production, "SELECT * WHERE {GRAPH <a> {?a ?b ?c}}", %q((graph <a> (bgp (triple ?a ?b ?c)))))
-        given_it_generates(production, "SELECT * WHERE {?a ?b ?c OPTIONAL {?d ?e ?f}}", %q((leftjoin (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
-        given_it_generates(production, "SELECT * WHERE {?a ?b ?c {?d ?e ?f}}", %q((join (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
-        given_it_generates(production, "SELECT * WHERE {{?a ?b ?c} UNION {?d ?e ?f}}", %q((union (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
+      end
+      given_it_generates(production, "SELECT * FROM <a> WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
+      given_it_generates(production, "SELECT * FROM NAMED <a> WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
+      given_it_generates(production, "SELECT * WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
+      given_it_generates(production, "SELECT * WHERE {GRAPH <a> {?a ?b ?c}}", %q((graph <a> (bgp (triple ?a ?b ?c)))))
+      given_it_generates(production, "SELECT * WHERE {?a ?b ?c OPTIONAL {?d ?e ?f}}", %q((leftjoin (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
+      given_it_generates(production, "SELECT * WHERE {?a ?b ?c {?d ?e ?f}}", %q((join (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
+      given_it_generates(production, "SELECT * WHERE {{?a ?b ?c} UNION {?d ?e ?f}}", %q((union (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
 
-        describe "Var+" do
-          given_it_generates(production, "SELECT ?a ?b WHERE {?a ?b ?c}", %q((project (?a ?b) (bgp (triple ?a ?b ?c)))))
-        end
+      describe "Var+" do
+        given_it_generates(production, "SELECT ?a ?b WHERE {?a ?b ?c}", %q((project (?a ?b) (bgp (triple ?a ?b ?c)))))
+      end
 
-        describe "DISTINCT" do
-          given_it_generates(production, "SELECT DISTINCT * WHERE {?a ?b ?c}", %q((distinct (bgp (triple ?a ?b ?c)))))
-          given_it_generates(production, "SELECT DISTINCT ?a ?b WHERE {?a ?b ?c}", %q((distinct (project (?a ?b) (bgp (triple ?a ?b ?c))))))
-        end
+      describe "DISTINCT" do
+        given_it_generates(production, "SELECT DISTINCT * WHERE {?a ?b ?c}", %q((distinct (bgp (triple ?a ?b ?c)))))
+        given_it_generates(production, "SELECT DISTINCT ?a ?b WHERE {?a ?b ?c}", %q((distinct (project (?a ?b) (bgp (triple ?a ?b ?c))))))
+      end
 
-        describe "REDUCED" do
-          given_it_generates(production, "SELECT REDUCED * WHERE {?a ?b ?c}", %q((reduced (bgp (triple ?a ?b ?c)))))
-          given_it_generates(production, "SELECT REDUCED ?a ?b WHERE {?a ?b ?c}", %q((reduced (project (?a ?b) (bgp (triple ?a ?b ?c))))))
-        end
-        
-        describe "FILTER" do
-          given_it_generates(production, "SELECT * WHERE {?a ?b ?c FILTER (?a)}", %q((filter ?a (bgp (triple ?a ?b ?c)))))
-          given_it_generates(production, "SELECT * WHERE {FILTER (?a) ?a ?b ?c}", %q((filter ?a (bgp (triple ?a ?b ?c)))))
-          given_it_generates(production, "SELECT * WHERE { FILTER (?o>5) . ?s ?p ?o }", %q((filter (> ?o 5) (bgp (triple ?s ?p ?o)))))
-        end
+      describe "REDUCED" do
+        given_it_generates(production, "SELECT REDUCED * WHERE {?a ?b ?c}", %q((reduced (bgp (triple ?a ?b ?c)))))
+        given_it_generates(production, "SELECT REDUCED ?a ?b WHERE {?a ?b ?c}", %q((reduced (project (?a ?b) (bgp (triple ?a ?b ?c))))))
+      end
+      
+      describe "FILTER" do
+        given_it_generates(production, "SELECT * WHERE {?a ?b ?c FILTER (?a)}", %q((filter ?a (bgp (triple ?a ?b ?c)))))
+        given_it_generates(production, "SELECT * WHERE {FILTER (?a) ?a ?b ?c}", %q((filter ?a (bgp (triple ?a ?b ?c)))))
+        given_it_generates(production, "SELECT * WHERE { FILTER (?o>5) . ?s ?p ?o }", %q((filter (> ?o 5) (bgp (triple ?s ?p ?o)))))
       end
     end
   end
