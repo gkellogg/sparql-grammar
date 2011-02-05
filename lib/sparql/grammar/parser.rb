@@ -57,7 +57,12 @@ module SPARQL; module Grammar
     attr_reader   :tokens
 
     ##
-    # The internal S-Exp of the result.
+    # The internal representation of the result using hierarch of RDF objects and SPARQL Algebra operations
+    # represented using symbols and arrays.
+    #
+    # Symbols are have meaning as follows:
+    # :+, :-, :/, :*:: Arithmetic or Unary operations
+    #
     #
     # @return [Array]
     attr_accessor :result
