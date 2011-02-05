@@ -293,8 +293,11 @@ module SPARQL; module Grammar
         # [2]     Prologue                  ::=       BaseDecl? PrefixDecl*
         {
           :finish => lambda { |data|
-            add_prod_data(:BaseDecl, data[:BaseDecl])
-            add_prod_data(:PrefixDecl, data[:PrefixDecl]) if data[:PrefixDecl]
+            unless options[:resolve_uris] || true
+              # Only output if we're not resolving URIs internally
+              add_prod_datum(:BaseDecl, data[:BaseDecl])
+              add_prod_data(:PrefixDecl, data[:PrefixDecl]) if data[:PrefixDecl]
+            end
           }
         }
       when :BaseDecl
