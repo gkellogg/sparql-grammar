@@ -644,19 +644,28 @@ describe SPARQL::Grammar::Parser do
 
       {
         "BASE <foo/> SELECT * WHERE { <a> <b> <c> }" =>
-          [:base, RDF::URI("foo/"),
-            RDF::Query.new { pattern [RDF::URI("foo/a"), RDF::URI("foo/b"), RDF::URI("foo/c")]}],
+          %q((base <foo/> (bgp (triple <a> <b> <c>)))),
         "PREFIX : <http://example.com/> SELECT * WHERE { :a :b :c }" =>
-          [:prefix, [[:":", RDF::URI("http://example.com/")]],
-            RDF::Query.new { pattern [RDF::URI("http://example.com/a"), RDF::URI("http://example.com/b"), RDF::URI("http://example.com/c")]}],
+          %q((prefix ((: <http://example.com/>)) (bgp (triple :a :b :c)))),
         "PREFIX : <foo#> PREFIX bar: <bar#> SELECT * WHERE { :a :b bar:c }" =>
-          [:prefix, [[:":", RDF::URI("foo#")], [:"bar:", RDF::URI("bar#")]],
-            RDF::Query.new { pattern [RDF::URI("foo#a"), RDF::URI("foo#b"), RDF::URI("bar#c")]}],
+          %q((prefix ((: <foo#>) (bar: <bar#>)) (bgp (triple :a :b bar:c)))),
         "BASE <http://baz/> PREFIX : <http://foo#> PREFIX bar: <http://bar#> SELECT * WHERE { <a> :b bar:c }" =>
-          [:base, RDF::URI("http://baz/"), [:prefix, [[:":", RDF::URI("http://foo#")], [:"bar:", RDF::URI("http://bar#")]],
-            RDF::Query.new { pattern [RDF::URI("http://baz/a"), RDF::URI("http://foo#b"), RDF::URI("http://bar#c")]}]],
+        %q((base <http://baz/> (prefix ((: <http://foo#>) (bar: <http://bar#>)) (bgp (triple <a> :b bar:c))))),
       }.each_pair do |input, result|
         given_it_generates(production, input, result, :resolve_uris => false)
+      end
+
+      {
+        "BASE <foo/> SELECT * WHERE { <a> <b> <c> }" =>
+          RDF::Query.new { pattern [RDF::URI("foo/a"), RDF::URI("foo/b"), RDF::URI("foo/c")]},
+        "PREFIX : <http://example.com/> SELECT * WHERE { :a :b :c }" =>
+          RDF::Query.new { pattern [RDF::URI("http://example.com/a"), RDF::URI("http://example.com/b"), RDF::URI("http://example.com/c")]},
+        "PREFIX : <foo#> PREFIX bar: <bar#> SELECT * WHERE { :a :b bar:c }" =>
+          RDF::Query.new { pattern [RDF::URI("foo#a"), RDF::URI("foo#b"), RDF::URI("bar#c")]},
+        "BASE <http://baz/> PREFIX : <http://foo#> PREFIX bar: <http://bar#> SELECT * WHERE { <a> :b bar:c }" =>
+          RDF::Query.new { pattern [RDF::URI("http://baz/a"), RDF::URI("http://foo#b"), RDF::URI("http://bar#c")]},
+      }.each_pair do |input, result|
+        given_it_generates(production, input, result, :resolve_uris => true)
       end
 
       BGP.each_pair do |input, result|
@@ -717,7 +726,7 @@ describe SPARQL::Grammar::Parser do
         p.base_uri.should == RDF::URI('http://example.org/')
       end
 
-      given_it_generates(production, %q(BASE <http://example.org/>), [:BaseDecl, [RDF::URI("http://example.org/")]])
+      given_it_generates(production, %q(BASE <http://example.org/>), [:BaseDecl, RDF::URI("http://example.org/")], :resolve_uris => false)
 
       it "sets prefix : to 'foobar' given 'PREFIX : <foobar>'" do
         p = parser(nil, :resolve_uris => true).call(%q(PREFIX : <foobar>))
