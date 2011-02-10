@@ -701,6 +701,7 @@ describe SPARQL::Grammar::Parser do
         given_it_generates(production, "SELECT * WHERE {?a ?b ?c FILTER (?a)}", %q((filter ?a (bgp (triple ?a ?b ?c)))))
         given_it_generates(production, "SELECT * WHERE {FILTER (?a) ?a ?b ?c}", %q((filter ?a (bgp (triple ?a ?b ?c)))))
         given_it_generates(production, "SELECT * WHERE { FILTER (?o>5) . ?s ?p ?o }", %q((filter (> ?o 5) (bgp (triple ?s ?p ?o)))))
+        given_it_generates(production, "SELECT  ?title ?price WHERE { ?book dc:title ?title . OPTIONAL { ?book x:price ?price . FILTER (?price < 15) .} .}", %q((project (?title ?price) (leftjoin (bgp (triple ?book dc:title ?title)) (bgp (triple ?book x:price ?price)) (< ?price 15)))), :resolve_uris => false)
       end
 
       given_it_generates(production, "CONSTRUCT {?a ?b ?c} FROM <a> WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
@@ -1072,10 +1073,10 @@ describe SPARQL::Grammar::Parser do
       it_rejects_empty_input_using production
       {
         "OPTIONAL {<d><e><f>}" => %q((leftjoin (bgp (triple <d> <e> <f>)))),
-        "OPTIONAL {?book :price, ?price . FILTER (?price < 15)}" =>
+        "OPTIONAL {?book :price ?price . FILTER (?price < 15)}" =>
           %q((leftjoin (bgp (triple ?book :price ?price)) (< ?price 15)))
       }.each_pair do |input, result|
-        given_it_generates(production, input, result)
+        given_it_generates(production, input, result, :resolve_uris => false)
       end
     end
   end

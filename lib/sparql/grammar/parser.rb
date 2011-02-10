@@ -570,7 +570,14 @@ module SPARQL; module Grammar
         # [23]    OptionalGraphPattern      ::=       'OPTIONAL' GroupGraphPattern
         {
           :finish => lambda { |data|
-            add_prod_data(:query, RDF::GroupQuery.new(data[:query], :leftjoin)) if data[:query]
+            if data[:query]
+              add_prod_data(:query, RDF::GroupQuery.new(data[:query], :leftjoin))
+            elsif data[:filter]
+              # Data in form of (filter (expr) (bgp))
+              expr, query = data[:filter]
+              query = RDF::GroupQuery.new(query, :leftjoin, :filter => expr)
+              add_prod_data(:query, query)
+            end
           }
         }
       when :GraphGraphPattern
