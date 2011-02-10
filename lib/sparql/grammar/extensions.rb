@@ -145,12 +145,15 @@ module RDF
     # @param  [Hash{Symbol => Object}] options
     #   any additional keyword options
     # @option options [RDF::Query::Solutions] :solutions (Solutions.new)
+    # @option options [Array] :filter (nil)
+    #   Filter to apply (leftjoin only)
     # @yield  [query]
     # @yieldparam  [RDF::GroupQuery] query
     # @yieldreturn [void] ignored
     def initialize(queries = [], operation = :join, options = {}, &block)
       super(nil, options) do
         @queries = [queries].flatten.compact
+        @filter = options[:filter]
         @operation = operation
 
         if block_given?
@@ -252,7 +255,9 @@ module RDF
     #
     # @return [Array]
     def to_sxa
-      [operation] + queries.map {|q| q.to_sxa}
+      sse = [operation] + queries.map {|q| q.to_sxa}
+      sse << @filter if @filter
+      sse
     end
   end
   

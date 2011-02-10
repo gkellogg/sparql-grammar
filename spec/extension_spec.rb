@@ -124,6 +124,12 @@ describe RDF::GroupQuery do
       gq = RDF::GroupQuery.new([@q1, @q2])
       gq.queries.should == [@q1, @q2]
     end
+    
+    it "adds filter" do
+      gq = RDF::GroupQuery.new([@q1, @q2], :join, :filter => [:foo])
+      gq.queries.should == [@q1, @q2]
+      gq.filter.should == [:foo]
+    end
   end
   
   describe "#query" do
