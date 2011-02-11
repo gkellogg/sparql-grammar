@@ -75,4 +75,5 @@ module SPARQL
   end # Grammar
 end # SPARQL
 
+require 'sxp'
 require 'sparql/grammar/extensions'
