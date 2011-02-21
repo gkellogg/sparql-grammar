@@ -67,8 +67,8 @@ module SPARQL; module Grammar
     #   Logical operations, for example [:"=", 2, [:"+", 1, 1]]
     # :project::
     #   Project a set of results, for example [:project [:?a, :?b], RDF::Query]
-    # :distinct, :reduce::
-    #   Trim result set, for example [:distinct RDF::Query] or [:reduce RDF::Query]
+    # :distinct, :reduced::
+    #   Trim result set, for example [:distinct RDF::Query] or [:reduced RDF::Query]
     # :order, :slice::
     #   Subset and order results
     # :filter::
