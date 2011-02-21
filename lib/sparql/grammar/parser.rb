@@ -892,7 +892,7 @@ module SPARQL; module Grammar
               lit = data.dup
               str = lit.delete(:string).last 
               lit[:datatype] = lit.delete(:IRIref).last if lit[:IRIref]
-              lit[:language] = lit.delete(:language).last if lit[:language]
+              lit[:language] = lit.delete(:language).last.downcase if lit[:language]
               add_prod_datum(:literal, RDF::Literal.new(str, lit)) if str
             end
           }

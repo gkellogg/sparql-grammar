@@ -433,7 +433,7 @@ module ProductionExamples
   # [60] RDFLiteral
   def it_recognizes_rdf_literal_with_language(production)
     parser(production).call(%q(""@en)).last.should == RDF::Literal.new("", :language => :en)
-    parser(production).call(%q("foobar"@en-US)).last.should == RDF::Literal.new("foobar", :language => :'en-US')
+    parser(production).call(%q("foobar"@en-US)).last.should == RDF::Literal.new("foobar", :language => :'en-us')
   end
 
   # [60] RDFLiteral
