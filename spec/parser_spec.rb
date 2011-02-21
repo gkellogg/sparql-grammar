@@ -1134,6 +1134,9 @@ describe SPARQL::Grammar::Parser do
       given_it_generates(production, %(FILTER BOUND (?e)), %q((filter (bound ?e))))
       given_it_generates(production, %(FILTER (BOUND (?e))), %q((filter (bound ?e))))
       given_it_generates(production, %(FILTER (! BOUND (?e))), %q((filter (! (bound ?e)))))
+      
+      # Doubled filters
+      given_it_generates(production, %(FILTER (?v = 2) FILTER (?w = 3)), %q((filter (exprlist (= ?v 2) (= ?w 3)))))
     end
   end
 
