@@ -22,6 +22,10 @@ class RDF::Query
   # @param  [Object] other
   # @return [Boolean]
   def ==(other)
-    other.is_a?(RDF::Query) && patterns == other.patterns
+    other.is_a?(RDF::Query) && patterns == other.patterns && context == other.context
+  end
+
+  def inspect
+    "RDF::Query(#{context ? context.to_sxp : 'nil'})#{patterns.inspect}"
   end
 end
