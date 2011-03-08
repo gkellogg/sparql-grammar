@@ -1,22 +1,25 @@
 $:.unshift "."
 require File.join(File.dirname(__FILE__), 'spec_helper')
+require 'sparql/spec'
 
 describe SPARQL::Grammar::Parser do
   describe "w3c dawg SPARQL syntax tests" do
-    require 'dawg_test'
-
-    {
-      :syntax1  => Fixtures::SPARQL::Syn1,
-      :syntax2  => Fixtures::SPARQL::Syn2,
-      :syntax3  => Fixtures::SPARQL::Syn3,
-      :syntax4  => Fixtures::SPARQL::Syn4,
-      :syntax5  => Fixtures::SPARQL::Syn5,
-    }.each_pair do |suite, tests|
-      describe suite do
+    SPARQL::Spec.load_sparql1_0_syntax_tests.group_by(&:manifest).each do |man, tests|
+      describe man.to_s.split("/")[-2] do
         tests.each do |t|
-          specify "#{t.name}" do
-            #puts t.inspect
-            SPARQL::Grammar::Parser.new(Kernel.open(t.action)).parse
+          case t.type
+          when MF.PositiveSyntaxTest
+            it "parses #{t.name}" do
+              query = SPARQL::Grammar::Parser.new(t.action.query_string).parse
+            end
+          when MF.NegativeSyntaxTest
+            it "throws error for #{t.name}" do
+              lambda {SPARQL::Grammar::Parser.new(t.action.query_string).parse}.should raise_error(SPARQL::Grammar::Parser::Error)
+            end
+          else
+            it "??? #{t.name}" do
+              fail "Unknown test type #{t.type}"
+            end
           end
         end
       end
