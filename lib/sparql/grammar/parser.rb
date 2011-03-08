@@ -10,7 +10,6 @@ module SPARQL; module Grammar
     include SPARQL::Grammar::Meta
 
     START = SPARQL_GRAMMAR.Query
-    GRAPH_OUTPUTS = [:query, :distinct, :filter, :order, :project, :reduced, :slice]
 
     ##
     # Initializes a new parser instance.
@@ -318,7 +317,7 @@ module SPARQL; module Grammar
         # [3]     BaseDecl      ::=       'BASE' IRI_REF
         {
           :finish => lambda { |data|
-            self.base_uri = uri(data[:iri].last) if options[:resolve_uris]
+            self.base_uri = uri(data[:iri].last)
             add_prod_datum(:BaseDecl, data[:iri].last)
           }
         }
@@ -336,100 +335,52 @@ module SPARQL; module Grammar
         # [5]     SelectQuery               ::=       'SELECT' ( 'DISTINCT' | 'REDUCED' )? ( Var+ | '*' ) DatasetClause* WhereClause SolutionModifier
         {
           :finish => lambda { |data|
-            prod = GRAPH_OUTPUTS.map.detect {|p| data[p]}
-            
-            res = data[prod] if prod
-            
-            if data[:Var]
-              res = if res
-                if prod == :query
-                  res.first
-                else
-                  res.unshift(prod)
-                end
-              else
-                RDF::Query.new
-              end
-              res = [data[:Var]] + [res]
-              prod = :project
-            end
-
-            if data[:DISTINCT_REDUCED]
-              res = if res
-                if prod == :query
-                  res.first
-                else
-                  res.unshift(prod)
-                end
-              else
-                RDF::Query.new
-              end
-              res = [res]
-              prod = data[:DISTINCT_REDUCED].first
-            end
-
-            add_prod_datum(prod, res)
+            query = merge_modifiers(data)
+            add_prod_datum(:query, query) if query
           }
         }
       when :ConstructQuery
         # [6]     ConstructQuery            ::=       'CONSTRUCT' ConstructTemplate DatasetClause* WhereClause SolutionModifier
         {
-          # Nothing output for ConstructTemplate
           :finish => lambda { |data|
-            prod = GRAPH_OUTPUTS.map.detect {|p| data[p.to_sym]}
+            query = merge_modifiers(data)
+            template = data[:ConstructTemplate]
             
-            add_prod_datum(prod, data[prod]) if prod
+            add_prod_datum(:query, Algebra::Expression[:construct, template, query]) if template && query
           }
         }
       when :DescribeQuery
         # [7]     DescribeQuery             ::=       'DESCRIBE' ( VarOrIRIref+ | '*' ) DatasetClause* WhereClause? SolutionModifier
         {
           :finish => lambda { |data|
-            prod = GRAPH_OUTPUTS.map.detect {|p| data[p.to_sym]}
-            
-            res = data[prod] if prod
-            
-            if data[:Var]
-              res = if res
-                if prod == :query
-                  res.first
-                else
-                  res.unshift(prod)
-                end
-              else
-                RDF::Query.new
-              end
-              add_prod_data(:project, data[:Var], res)
-            else
-              add_prod_datum(prod, res)
-            end
+            puts data.inspect
+            data[:query] ||= [RDF::Query.new]
+            query = merge_modifiers(data)
+            to_describe = data[:VarOrIRIref] || []
+            query = Algebra::Expression[:describe, to_describe, query]
+            add_prod_datum(:query, query) if query
           }
         }
-      when :DatasetClause
-        # [9]     DatasetClause             ::=       'FROM' ( DefaultGraphClause | NamedGraphClause )
-        {
-          # Swallow productions, as nothing is generated in SSE for datasets
-        }
-      #when :DefaultGraphClause
-      #  # [10]    DefaultGraphClause        ::=       SourceSelector
-      #  {
-      #    :finish => lambda { |data|
-      #      add_prod_datum(:default, data[:IRIref])
-      #    }
-      #  }
-      #when :NamedGraphClause
-      #  # [11]    NamedGraphClause          ::=       'NAMED' SourceSelector
-      #  {
-      #    :finish => lambda { |data|
-      #      add_prod_datum(:named, data[:IRIref])
-      #    }
-      #  }
-      when :WhereClause
-        # [13]    WhereClause               ::=       'WHERE'? GroupGraphPattern
+      when :AskQuery
+        # [8]     AskQuery                  ::=       'ASK' DatasetClause* WhereClause
         {
           :finish => lambda { |data|
-            prod = GRAPH_OUTPUTS.map.detect {|p| data[p.to_sym]}
-            add_prod_datum(prod, data[prod])
+            query = merge_modifiers(data)
+            add_prod_datum(:query, Algebra::Expression[:ask, query]) if query
+          }
+        }
+      when :DefaultGraphClause
+        # [10]    DefaultGraphClause        ::=       SourceSelector
+        {
+          :finish => lambda { |data|
+            add_prod_datum(:dataset, data[:IRIref])
+          }
+        }
+      when :NamedGraphClause
+        # [11]    NamedGraphClause          ::=       'NAMED' SourceSelector
+        {
+          :finish => lambda { |data|
+            add_prod_data(:dataset, data[:IRIref].unshift(:named))
           }
         }
       when :SolutionModifier
@@ -467,7 +418,7 @@ module SPARQL; module Grammar
         {
           :finish => lambda { |data|
             if data[:OrderDirection]
-              add_prod_datum(:OrderCondition, [data[:OrderDirection] + data[:Expression]])
+              add_prod_datum(:OrderCondition, Algebra::Expression.for(data[:OrderDirection] + data[:Expression]))
             else
               add_prod_datum(:OrderCondition, data[:Constraint] || data[:Var])
             end
@@ -495,38 +446,44 @@ module SPARQL; module Grammar
               lhs = data[:query].to_a.first
               while !query_list.empty?
                 rhs = query_list.shift
-                # Make the right-hand-side a triveal GroupQuery, if it's not alaready
-                rhs = RDF::GroupQuery.new([rhs], :join) unless rhs.is_a?(RDF::GroupQuery)
+                # Make the right-hand-side a Join with only a single operand, if it's not already and Operator
+                rhs = Algebra::Expression.for(:join, :placeholder, rhs) unless rhs.is_a?(Algebra::Operator)
                 debug "GroupGraphPattern(itr)", "<= q: #{rhs.inspect}"
                 debug "GroupGraphPattern(itr)", "<= lhs: #{lhs ? lhs.inspect : 'nil'}"
-                lhs ||= RDF::Query.new if rhs.operation == :leftjoin
-                lhs = lhs ? rhs.unshift(lhs) : rhs
-                lhs = lhs.queries.last if lhs.is_a?(RDF::GroupQuery) && lhs.queries.length == 1
+                lhs ||= RDF::Query.new if rhs.is_a?(Algebra::Operator::LeftJoin)
+                if lhs
+                  if rhs.operand(0) == :placeholder
+                    rhs.operands[0] = lhs
+                  else
+                    rhs = Algebra::Operator::Join.new(lhs, rhs)
+                  end
+                end
+                lhs = rhs
+                lhs = lhs.operand(1) if lhs.operand(0) == :placeholder
                 debug "GroupGraphPattern(itr)", "=> lhs: #{lhs.inspect}"
               end
-              # Triveal simplification for :join or :union of one query
-              if lhs.is_a?(RDF::GroupQuery) && lhs.queries.empty? && lhs.operation != :leftjoin
-                puts "lhs.queries.empty?: #{lhs.queries.empty?}"
-                puts "lhs.operation: #{lhs.operation}"
-                lhs = lhs.queries.last
-                debug "GroupGraphPattern(simplify)", "=> lhs: #{lhs.inspect}"
+              # Trivial simplification for :join or :union of one query
+              case lhs
+              when Algebra::Operator::Join, Algebra::Operator::Union
+                if lhs.operand(0) == :placeholder
+                  lhs = lhs.operand(1)
+                  debug "GroupGraphPattern(simplify)", "=> lhs: #{lhs.inspect}"
+                end
               end
               res = lhs
             elsif data[:query]
               res = data[:query].first
-            else
-              return  # No reason to filter
             end
             
             debug "GroupGraphPattern(pre-filter)", "res: #{res.inspect}"
 
             if data[:filter]
-              res = data[:filter] + [res]
-              prod = :filter
-            else
-              prod = :query
+              expr, query = flatten_filter(data[:filter])
+              query = res || RDF::Query.new
+              # query should be nil
+              res = Algebra::Operator::Filter.new(expr, query)
             end
-            add_prod_datum(prod, res)
+            add_prod_datum(:query, res)
           }
         }
       when :_GraphPatternNotTriples_or_Filter_Dot_Opt_TriplesBlock_Opt
@@ -536,20 +493,20 @@ module SPARQL; module Grammar
             lhs = data[:_GraphPatternNotTriples_or_Filter]
             rhs = data[:query]
             add_prod_datum(:query_list, lhs) if lhs
-            rhs = RDF::GroupQuery.new(rhs, :join) if rhs && #!rhs.is_a?(RDF::GroupQuery)
+            rhs = Algebra::Expression.for(:join, :placeholder, rhs.first) if rhs
             add_prod_data(:query_list, rhs) if rhs
             add_prod_datum(:filter, data[:filter])
           }
         }
       when :_GraphPatternNotTriples_or_Filter
-        # Create a stack of production, graph pairs and resolve in GroupGraphPattern
+        # Create a stack of Single operand Operators and resolve in GroupGraphPattern
         {
           :finish => lambda { |data|
             add_prod_datum(:filter, data[:filter])
 
             if data[:query]
               res = data[:query].to_a.first
-              res = RDF::GroupQuery.new(res, :join) unless res.is_a?(RDF::GroupQuery) && res.operation != :union
+              res = Algebra::Expression.for(:join, :placeholder, res) unless res.is_a?(Algebra::Operator)
               add_prod_data(:_GraphPatternNotTriples_or_Filter, res)
             end
           }
@@ -571,12 +528,15 @@ module SPARQL; module Grammar
         {
           :finish => lambda { |data|
             if data[:query]
-              add_prod_data(:query, RDF::GroupQuery.new(data[:query], :leftjoin))
-            elsif data[:filter]
-              # Data in form of (filter (expr) (bgp))
-              expr, query = data[:filter]
-              query = RDF::GroupQuery.new(query, :leftjoin, :filter => expr)
-              add_prod_data(:query, query)
+              expr = nil
+              query = data[:query].first
+              if query.is_a?(Algebra::Operator::Filter)
+                # Change to expression on left-join with query element
+                expr, query = query.operands
+                add_prod_data(:query, Algebra::Expression.for(:leftjoin, :placeholder, query, expr))
+              else
+                add_prod_data(:query, Algebra::Expression.for(:leftjoin, :placeholder, query))
+              end
             end
           }
         }
@@ -585,9 +545,13 @@ module SPARQL; module Grammar
         {
           :finish => lambda { |data|
             if data[:query]
-              query = data[:query].first
-              query.context = (data[:Var] || data[:IRIref]).last
-              add_prod_data(:query, query)
+              context = (data[:VarOrIRIref]).last
+              bgp = data[:query].first
+              if context
+                add_prod_data(:query, Algebra::Expression.for(:graph, context, bgp))
+              else
+                add_prod_data(:query, bgp)
+              end
             end
           }
         }
@@ -599,10 +563,11 @@ module SPARQL; module Grammar
             res = data[:query].to_a.first
             if data[:union]
               while !data[:union].empty?
+                # Join union patterns together as Union operators
                 #puts "res: res: #{res}, input_prod: #{input_prod}, data[:union]: #{data[:union].first}"
                 lhs = res
                 rhs = data[:union].shift
-                res = RDF::GroupQuery.new([lhs, rhs], :union)
+                res = Algebra::Expression.for(:union, lhs, rhs)
               end
             end
             add_prod_datum(:query, res)
@@ -729,6 +694,11 @@ module SPARQL; module Grammar
         {
           :finish => lambda { |data| data.values.each {|v| add_prod_datum(:VarOrTerm, v)} }
         }
+      when :VarOrIRIref
+        # [43]    VarOrIRIref               ::=       Var | IRIref
+        {
+          :finish => lambda { |data| data.values.each {|v| add_prod_datum(:VarOrIRIref, v)} }
+        }
       when :GraphTerm
         # [45]    GraphTerm ::= IRIref | RDFLiteral | NumericLiteral | BooleanLiteral | BlankNode | NIL
         {
@@ -773,8 +743,9 @@ module SPARQL; module Grammar
         {
           :finish => lambda { |data|
             if data[:_Compare_Numeric]
-              add_prod_data(:Expression, data[:_Compare_Numeric].insert(1, *data[:Expression]))
+              add_prod_datum(:Expression, Algebra::Expression.for(data[:_Compare_Numeric].insert(1, *data[:Expression])))
             else
+              # NumericExpression with no comparitor
               add_prod_datum(:Expression, data[:Expression])
             end
           }
@@ -814,10 +785,10 @@ module SPARQL; module Grammar
         {
           :finish => lambda { |data|
             case data[:UnaryExpression]
-            when [:"!"], [:"+"]
-              add_prod_data(:Expression, data[:UnaryExpression] + data[:Expression])
+            when [:"!"]
+              add_prod_datum(:Expression, Algebra::Expression[:not, data[:Expression].first])
             when [:"-"]
-              add_prod_data(:Expression, data[:UnaryExpression] + data[:Expression])
+              add_prod_datum(:Expression, Algebra::Expression[:minus, data[:Expression].first])
             else
               add_prod_datum(:Expression, data[:Expression])
             end
@@ -834,7 +805,7 @@ module SPARQL; module Grammar
             elsif data[:IRIref]
               add_prod_datum(:Expression, data[:IRIref])
             elsif data[:Function]
-              add_prod_datum(:Expression, data[:Function])
+              add_prod_datum(:Expression, data[:Function]) # Maintain array representation
             elsif data[:literal]
               add_prod_datum(:Expression, data[:literal])
             elsif data[:Var]
@@ -859,11 +830,11 @@ module SPARQL; module Grammar
         {
           :finish => lambda { |data|
             if data[:regex]
-              add_prod_datum(:BuiltInCall, [data[:regex].unshift(:regex)])
+              add_prod_datum(:BuiltInCall, Algebra::Expression.for(data[:regex].unshift(:regex)))
             elsif data[:BOUND]
-              add_prod_datum(:BuiltInCall, [data[:Var].unshift(:bound)])
+              add_prod_datum(:BuiltInCall, Algebra::Expression.for(data[:Var].unshift(:bound)))
             elsif data[:BuiltInCall]
-              add_prod_data(:BuiltInCall, data[:BuiltInCall] + data[:Expression])
+              add_prod_datum(:BuiltInCall, Algebra::Expression.for(data[:BuiltInCall] + data[:Expression]))
             end
           }
         }
@@ -1094,27 +1065,15 @@ module SPARQL; module Grammar
     # [1]     Query                     ::=       Prologue ( SelectQuery | ConstructQuery | DescribeQuery | AskQuery )
     #
     # Generate an S-Exp for the final query
-    # Inputs are :BaseDecl, :PrefixDecl, and :Query
+    # Inputs are :BaseDecl, :PrefixDecl, and :query
     def finalize_query(data)
-      GRAPH_OUTPUTS.each do |key|
-        next unless sxp = data[key]
-        sxp_1 = sxp.first
+      return unless data[:query]
 
-        # Wrap in :base or :prefix or just use key
-        if data[:PrefixDecl] && data[:BaseDecl] && !options[:expand_uris]
-          add_prod_datum(:base, *data[:BaseDecl])
-          add_prod_data(:base, data[:PrefixDecl].unshift(:prefix) + [sxp_1])
-        elsif data[:PrefixDecl] && !options[:expand_uris]
-          add_prod_datum(:prefix, data[:PrefixDecl])
-          add_prod_data(:prefix, sxp_1)
-        elsif data[:BaseDecl] && !options[:expand_uris]
-          add_prod_datum(:base, *data[:BaseDecl])
-          add_prod_data(:base, sxp_1)
-        else
-          add_prod_datum(key, sxp)
-        end
-        return
-      end
+      query = data[:query].first
+
+      query = Algebra::Expression[:prefix, data[:PrefixDecl].first, query] if data[:PrefixDecl]
+      query = Algebra::Expression[:base, data[:BaseDecl].first, query] if data[:BaseDecl]
+      add_prod_datum(:query, query)
     end
 
     # [40]    Collection ::= '(' GraphNode+ ')'
@@ -1165,12 +1124,39 @@ module SPARQL; module Grammar
     end
     alias_method :fail!, :fail
 
+    # Flatten a Data in form of :filter => [op+ bgp?], without a query into filter and query creating exprlist, if necessary
+    # @return [Array[:expr, query]]
+    def flatten_filter(data)
+      query = data.pop if data.last.respond_to?(:execute)
+      expr = data.length > 1 ? Algebra::Operator::Exprlist.new(*data) : data.first
+      [expr, query]
+    end
+    
+    # Merge query modifiers, datasets, and projections
+    def merge_modifiers(data)
+      return nil unless data[:query]
+      query = data[:query].first
+      
+      # Add datasets and modifiers in order
+      query = Algebra::Expression[:order, data[:order], query] if data[:order]
+
+      query = Algebra::Expression[:project, data[:Var], query] if data[:Var] # project
+
+      query = Algebra::Expression[data[:DISTINCT_REDUCED].first, query] if data[:DISTINCT_REDUCED]
+
+      query = Algebra::Expression[:slice, data[:slice][0], data[:slice][1], query] if data[:slice]
+      
+      query = Algebra::Expression[:dataset, data[:dataset], query] if data[:dataset]
+      
+      query
+    end
+
     # Add joined expressions in for prod1 (op prod2)* to form (op (op 1 2) 3)
     def add_operator_expressions(production, data)
       # Iterate through expression to create binary operations
       res = data[:Expression]
       while data[production] && !data[production].empty?
-        res = [data[production].shift + res + data[production].shift]
+        res = Algebra::Expression[data[production].shift + res + data[production].shift]
       end
       add_prod_datum(:Expression, res)
     end

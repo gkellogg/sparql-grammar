@@ -25,7 +25,10 @@ module ProductionRequirements
       elsif options[:shift]
         parser(production, options).call(input)[1..-1].should == result
       elsif result.is_a?(String)
-        parser(production, options).call(input).to_sxp.should == result.gsub(/[\n ]+/m, " ")
+        sse = SPARQL::Algebra.parse(result)
+        parser(production, options).call(input).should == sse
+      elsif result.is_a?(Symbol)
+        parser(production, options).call(input).to_sxp.should == result.to_s
       else
         parser(production, options).call(input).should == result
       end
@@ -271,20 +274,20 @@ module ProductionExamples
 
   # [47]    ConditionalOrExpression ::=       ConditionalAndExpression ( '||' ConditionalAndExpression )*
   def it_recognizes_conditional_or_expression(production)
-    parser(production).call(%q(1 || 2)).should == [:Expression, [:"||", RDF::Literal(1), RDF::Literal(2)]]
-    parser(production).call(%q(1 || 2 && 3)).should == [:Expression, [:"||", RDF::Literal(1), [:"&&", RDF::Literal(2), RDF::Literal(3)]]]
-    parser(production).call(%q(1 && 2 || 3)).should == [:Expression, [:"||", [:"&&", RDF::Literal(1), RDF::Literal(2)], RDF::Literal(3)]]
+    parser(production).call(%q(1 || 2)).last.should == SPARQL::Algebra::Expression[:"||", RDF::Literal(1), RDF::Literal(2)]
+    parser(production).call(%q(1 || 2 && 3)).last.should == SPARQL::Algebra::Expression[:"||", RDF::Literal(1), [:"&&", RDF::Literal(2), RDF::Literal(3)]]
+    parser(production).call(%q(1 && 2 || 3)).last.should == SPARQL::Algebra::Expression[:"||", [:"&&", RDF::Literal(1), RDF::Literal(2)], RDF::Literal(3)]
 
-    parser(production).call(%q(1 || 2 || 3)).should == [:Expression, [:"||", [:"||", RDF::Literal(1), RDF::Literal(2)], RDF::Literal(3)]]
+    parser(production).call(%q(1 || 2 || 3)).last.should == SPARQL::Algebra::Expression[:"||", [:"||", RDF::Literal(1), RDF::Literal(2)], RDF::Literal(3)]
     it_recognizes_conditional_and_expression(production)
   end
 
   # [48]    ConditionalAndExpression ::=       ValueLogical ( '&&' ValueLogical )*
   def it_recognizes_conditional_and_expression(production)
-    parser(production).call(%q(1 && 2)).should == [:Expression, [:"&&", RDF::Literal(1), RDF::Literal(2)]]
-    parser(production).call(%q(1 && 2 = 3)).should == [:Expression, [:"&&", RDF::Literal(1), [:"=", RDF::Literal(2), RDF::Literal(3)]]]
+    parser(production).call(%q(1 && 2)).last.should == SPARQL::Algebra::Expression[:"&&", RDF::Literal(1), RDF::Literal(2)]
+    parser(production).call(%q(1 && 2 = 3)).last.should == SPARQL::Algebra::Expression[:"&&", RDF::Literal(1), [:"=", RDF::Literal(2), RDF::Literal(3)]]
 
-    parser(production).call(%q(1 && 2 && 3)).should == [:Expression, [:"&&", [:"&&", RDF::Literal(1), RDF::Literal(2)], RDF::Literal(3)]]
+    parser(production).call(%q(1 && 2 && 3)).last.should == SPARQL::Algebra::Expression[:"&&", [:"&&", RDF::Literal(1), RDF::Literal(2)], RDF::Literal(3)]
     it_recognizes_value_logical(production)
   end
 
@@ -301,14 +304,14 @@ module ProductionExamples
   #                                    | '<=' NumericExpression
   #                                    | '>=' NumericExpression )?
   def it_recognizes_relational_expression(production)
-    parser(production).call(%q(1 = 2)).should == [:Expression, [:"=", RDF::Literal(1), RDF::Literal(2)]]
-    parser(production).call(%q(1 != 2)).should == [:Expression, [:"!=", RDF::Literal(1), RDF::Literal(2)]]
-    parser(production).call(%q(1 < 2)).should == [:Expression, [:"<", RDF::Literal(1), RDF::Literal(2)]]
-    parser(production).call(%q(1 > 2)).should == [:Expression, [:">", RDF::Literal(1), RDF::Literal(2)]]
-    parser(production).call(%q(1 <= 2)).should == [:Expression, [:"<=", RDF::Literal(1), RDF::Literal(2)]]
-    parser(production).call(%q(1 >= 2)).should == [:Expression, [:">=", RDF::Literal(1), RDF::Literal(2)]]
+    parser(production).call(%q(1 = 2)).last.should == SPARQL::Algebra::Expression[:"=", RDF::Literal(1), RDF::Literal(2)]
+    parser(production).call(%q(1 != 2)).last.should == SPARQL::Algebra::Expression[:"!=", RDF::Literal(1), RDF::Literal(2)]
+    parser(production).call(%q(1 < 2)).last.should == SPARQL::Algebra::Expression[:"<", RDF::Literal(1), RDF::Literal(2)]
+    parser(production).call(%q(1 > 2)).last.should == SPARQL::Algebra::Expression[:">", RDF::Literal(1), RDF::Literal(2)]
+    parser(production).call(%q(1 <= 2)).last.should == SPARQL::Algebra::Expression[:"<=", RDF::Literal(1), RDF::Literal(2)]
+    parser(production).call(%q(1 >= 2)).last.should == SPARQL::Algebra::Expression[:">=", RDF::Literal(1), RDF::Literal(2)]
 
-    parser(production).call(%q(1 + 2 = 3)).should == [:Expression, [:"=", [:"+", RDF::Literal(1), RDF::Literal(2)], RDF::Literal(3)]]
+    parser(production).call(%q(1 + 2 = 3)).last.should == SPARQL::Algebra::Expression[:"=", [:"+", RDF::Literal(1), RDF::Literal(2)], RDF::Literal(3)]
     
     it_recognizes_numeric_expression(production)
   end
@@ -320,35 +323,35 @@ module ProductionExamples
 
   # [52]    AdditiveExpression ::= MultiplicativeExpression ( '+' MultiplicativeExpression | '-' MultiplicativeExpression )*
   def it_recognizes_additive_expression(production)
-    parser(production).call(%q(1 + 2)).should == [:Expression, [:"+", RDF::Literal(1), RDF::Literal(2)]]
-    parser(production).call(%q(1 - 2)).should == [:Expression, [:"-", RDF::Literal(1), RDF::Literal(2)]]
-    parser(production).call(%q(3+4)).should == [:Expression, [:"+", RDF::Literal(3), RDF::Literal(4)]]
+    parser(production).call(%q(1 + 2)).last.should == SPARQL::Algebra::Expression[:"+", RDF::Literal(1), RDF::Literal(2)]
+    parser(production).call(%q(1 - 2)).last.should == SPARQL::Algebra::Expression[:"-", RDF::Literal(1), RDF::Literal(2)]
+    parser(production).call(%q(3+4)).last.should == SPARQL::Algebra::Expression[:"+", RDF::Literal(3), RDF::Literal(4)]
 
-    parser(production).call(%q("1" + "2" - "3")).should == [:Expression, [:"-", [:"+", RDF::Literal("1"), RDF::Literal("2")], RDF::Literal("3")]]
-    parser(production).call(%q("1" - "2" + "3")).should == [:Expression, [:"+", [:"-", RDF::Literal("1"), RDF::Literal("2")], RDF::Literal("3")]]
+    parser(production).call(%q("1" + "2" - "3")).last.should == SPARQL::Algebra::Expression[:"-", [:"+", RDF::Literal("1"), RDF::Literal("2")], RDF::Literal("3")]
+    parser(production).call(%q("1" - "2" + "3")).last.should == SPARQL::Algebra::Expression[:"+", [:"-", RDF::Literal("1"), RDF::Literal("2")], RDF::Literal("3")]
     
     it_recognizes_multiplicative_expression(production)
   end
 
   # [53]    MultiplicativeExpression ::=       UnaryExpression ( '*' UnaryExpression | '/' UnaryExpression )*
   def it_recognizes_multiplicative_expression(production)
-    parser(production).call(%q(1 * 2)).should == [:Expression, [:"*", RDF::Literal(1), RDF::Literal(2)]]
-    parser(production).call(%q(1 / 2)).should == [:Expression, [:"/", RDF::Literal(1), RDF::Literal(2)]]
-    parser(production).call(%q(3*4)).should == [:Expression, [:"*", RDF::Literal(3), RDF::Literal(4)]]
+    parser(production).call(%q(1 * 2)).last.should == SPARQL::Algebra::Expression[:"*", RDF::Literal(1), RDF::Literal(2)]
+    parser(production).call(%q(1 / 2)).last.should == SPARQL::Algebra::Expression[:"/", RDF::Literal(1), RDF::Literal(2)]
+    parser(production).call(%q(3*4)).last.should == SPARQL::Algebra::Expression[:"*", RDF::Literal(3), RDF::Literal(4)]
 
-    parser(production).call(%q("1" * "2" * "3")).should == [:Expression, [:"*", [:"*", RDF::Literal("1"), RDF::Literal("2")], RDF::Literal("3")]]
-    parser(production).call(%q("1" * "2" / "3")).should == [:Expression, [:"/", [:"*", RDF::Literal("1"), RDF::Literal("2")], RDF::Literal("3")]]
+    parser(production).call(%q("1" * "2" * "3")).last.should == SPARQL::Algebra::Expression[:"*", [:"*", RDF::Literal("1"), RDF::Literal("2")], RDF::Literal("3")]
+    parser(production).call(%q("1" * "2" / "3")).last.should == SPARQL::Algebra::Expression[:"/", [:"*", RDF::Literal("1"), RDF::Literal("2")], RDF::Literal("3")]
 
     it_recognizes_unary_expression(production)
   end
 
   # [54] UnaryExpression ::=  '!' PrimaryExpression | '+' PrimaryExpression | '-' PrimaryExpression | PrimaryExpression
   def it_recognizes_unary_expression(production)
-    parser(production).call(%q(! "foo")).should == [:Expression, [:"!", RDF::Literal("foo")]]
-    parser(production).call(%q(+ 1)).should == [:Expression, [:"+", RDF::Literal(1)]]
-    parser(production).call(%q(- 1)).should == [:Expression, [:"-", RDF::Literal(1)]]
-    parser(production).call(%q(+ "foo")).should == [:Expression, [:"+", RDF::Literal("foo")]]
-    parser(production).call(%q(- "foo")).should == [:Expression, [:"-", RDF::Literal("foo")]]
+    parser(production).call(%q(! "foo")).last.should == SPARQL::Algebra::Expression[:not, RDF::Literal("foo")]
+    parser(production).call(%q(+ 1)).last.should == RDF::Literal(1)
+    parser(production).call(%q(- 1)).last.should == SPARQL::Algebra::Expression[:minus, RDF::Literal(1)]
+    parser(production).call(%q(+ "foo")).last.should == RDF::Literal("foo")
+    parser(production).call(%q(- "foo")).last.should == SPARQL::Algebra::Expression[:minus, RDF::Literal("foo")]
 
     it_recognizes_bracketted_expression production
     it_recognizes_built_in_call production
@@ -391,17 +394,17 @@ module ProductionExamples
   #                        | 'isLITERAL' '(' Expression ')'
   #                        | RegexExpression
   def it_recognizes_built_in_call(production)
-    parser(production).call(%q(STR ("foo"))).last.should == [:str, RDF::Literal("foo")]
-    parser(production).call(%q(LANG ("foo"))).last.should == [:lang, RDF::Literal("foo")]
-    parser(production).call(%q(LANGMATCHES ("foo", "bar"))).last.should == [:langMatches, RDF::Literal("foo"), RDF::Literal("bar")]
-    parser(production).call(%q(DATATYPE ("foo"))).last.should == [:datatype, RDF::Literal("foo")]
-    parser(production).call(%q(sameTerm ("foo", "bar"))).last.should == [:sameTerm, RDF::Literal("foo"), RDF::Literal("bar")]
-    parser(production).call(%q(isIRI ("foo"))).last.should == [:isIRI, RDF::Literal("foo")]
-    parser(production).call(%q(isURI ("foo"))).last.should == [:isURI, RDF::Literal("foo")]
-    parser(production).call(%q(isBLANK ("foo"))).last.should == [:isBLANK, RDF::Literal("foo")]
-    parser(production).call(%q(isLITERAL ("foo"))).last.should == [:isLITERAL, RDF::Literal("foo")]
-    parser(production).call(%q(BOUND (?foo))).last.should == [:bound, RDF::Query::Variable.new("foo")]
-    parser(production).call(%q(REGEX ("foo", "bar"))).last.should == [:regex, RDF::Literal("foo"), RDF::Literal("bar")]
+    parser(production).call(%q(STR ("foo"))).last.should == SPARQL::Algebra::Expression[:str, RDF::Literal("foo")]
+    parser(production).call(%q(LANG ("foo"))).last.should == SPARQL::Algebra::Expression[:lang, RDF::Literal("foo")]
+    parser(production).call(%q(LANGMATCHES ("foo", "bar"))).last.should == SPARQL::Algebra::Expression[:langMatches, RDF::Literal("foo"), RDF::Literal("bar")]
+    parser(production).call(%q(DATATYPE ("foo"))).last.should == SPARQL::Algebra::Expression[:datatype, RDF::Literal("foo")]
+    parser(production).call(%q(sameTerm ("foo", "bar"))).last.should == SPARQL::Algebra::Expression[:sameTerm, RDF::Literal("foo"), RDF::Literal("bar")]
+    parser(production).call(%q(isIRI ("foo"))).last.should == SPARQL::Algebra::Expression[:isIRI, RDF::Literal("foo")]
+    parser(production).call(%q(isURI ("foo"))).last.should == SPARQL::Algebra::Expression[:isURI, RDF::Literal("foo")]
+    parser(production).call(%q(isBLANK ("foo"))).last.should == SPARQL::Algebra::Expression[:isBLANK, RDF::Literal("foo")]
+    parser(production).call(%q(isLITERAL ("foo"))).last.should == SPARQL::Algebra::Expression[:isLITERAL, RDF::Literal("foo")]
+    parser(production).call(%q(BOUND (?foo))).last.should == SPARQL::Algebra::Expression[:bound, RDF::Query::Variable.new("foo")]
+    parser(production).call(%q(REGEX ("foo", "bar"))).last.should == SPARQL::Algebra::Expression[:regex, RDF::Literal("foo"), RDF::Literal("bar")]
   end
 
   # [58]    RegexExpression ::=       'REGEX' '(' Expression ',' Expression ( ',' Expression )? ')'
@@ -675,8 +678,8 @@ describe SPARQL::Grammar::Parser do
           :anon_base => "gen0000")
       end
 
-      given_it_generates(production, "SELECT * FROM <a> WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
-      given_it_generates(production, "SELECT * FROM NAMED <a> WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
+      given_it_generates(production, "SELECT * FROM <a> WHERE {?a ?b ?c}", %q((dataset (<a>) (bgp (triple ?a ?b ?c)))))
+      given_it_generates(production, "SELECT * FROM NAMED <a> WHERE {?a ?b ?c}", %q((dataset ((named <a>)) (bgp (triple ?a ?b ?c)))))
       given_it_generates(production, "SELECT * WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
       given_it_generates(production, "SELECT * WHERE {GRAPH <a> {?a ?b ?c}}", %q((graph <a> (bgp (triple ?a ?b ?c)))))
       given_it_generates(production, "SELECT * WHERE {?a ?b ?c OPTIONAL {?d ?e ?f}}", %q((leftjoin (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
@@ -701,21 +704,20 @@ describe SPARQL::Grammar::Parser do
         given_it_generates(production, "SELECT * WHERE {?a ?b ?c FILTER (?a)}", %q((filter ?a (bgp (triple ?a ?b ?c)))))
         given_it_generates(production, "SELECT * WHERE {FILTER (?a) ?a ?b ?c}", %q((filter ?a (bgp (triple ?a ?b ?c)))))
         given_it_generates(production, "SELECT * WHERE { FILTER (?o>5) . ?s ?p ?o }", %q((filter (> ?o 5) (bgp (triple ?s ?p ?o)))))
-        given_it_generates(production, "SELECT  ?title ?price WHERE { ?book dc:title ?title . OPTIONAL { ?book x:price ?price . FILTER (?price < 15) .} .}", %q((project (?title ?price) (leftjoin (bgp (triple ?book dc:title ?title)) (bgp (triple ?book x:price ?price)) (< ?price 15)))), :resolve_uris => false)
       end
 
-      given_it_generates(production, "CONSTRUCT {?a ?b ?c} FROM <a> WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
-      given_it_generates(production, "CONSTRUCT {?a ?b ?c} FROM NAMED <a> WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
-      given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
-      given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {GRAPH <a> {?a ?b ?c}}", %q((graph <a> (bgp (triple ?a ?b ?c)))))
-      given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {?a ?b ?c OPTIONAL {?d ?e ?f}}", %q((leftjoin (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
-      given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {?a ?b ?c {?d ?e ?f}}", %q((join (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
-      given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {{?a ?b ?c} UNION {?d ?e ?f}}", %q((union (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
-      given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {?a ?b ?c FILTER (?a)}", %q((filter ?a (bgp (triple ?a ?b ?c)))))
+      given_it_generates(production, "CONSTRUCT {?a ?b ?c} FROM <a> WHERE {?a ?b ?c}", %q((construct ((triple ?a ?b ?c)) (dataset (<a>) (bgp (triple ?a ?b ?c))))))
+      given_it_generates(production, "CONSTRUCT {?a ?b ?c} FROM NAMED <a> WHERE {?a ?b ?c}", %q((construct ((triple ?a ?b ?c)) (dataset ((named <a>)) (bgp (triple ?a ?b ?c))))))
+      given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {?a ?b ?c}", %q((construct ((triple ?a ?b ?c)) (bgp (triple ?a ?b ?c)))))
+      given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {GRAPH <a> {?a ?b ?c}}", %q((construct ((triple ?a ?b ?c)) (graph <a> (bgp (triple ?a ?b ?c))))))
+      given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {?a ?b ?c OPTIONAL {?d ?e ?f}}", %q((construct ((triple ?a ?b ?c)) (leftjoin (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f))))))
+      given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {?a ?b ?c {?d ?e ?f}}", %q((construct ((triple ?a ?b ?c)) (join (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f))))))
+      given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {{?a ?b ?c} UNION {?d ?e ?f}}", %q((construct ((triple ?a ?b ?c)) (union (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f))))))
+      given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {?a ?b ?c FILTER (?a)}", %q((construct ((triple ?a ?b ?c)) (filter ?a (bgp (triple ?a ?b ?c))))))
 
-      given_it_generates(production, "DESCRIBE * FROM <a> WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
+      given_it_generates(production, "DESCRIBE * FROM <a> WHERE {?a ?b ?c}", %q((describe () (dataset (<a>) (bgp (triple ?a ?b ?c))))))
 
-      given_it_generates(production, "ASK WHERE {GRAPH <a> {?a ?b ?c}}", %q((graph <a> (bgp (triple ?a ?b ?c)))))
+      given_it_generates(production, "ASK WHERE {GRAPH <a> {?a ?b ?c}}", %q((ask (graph <a> (bgp (triple ?a ?b ?c))))))
     end
   end
 
@@ -768,8 +770,8 @@ describe SPARQL::Grammar::Parser do
             :anon_base => "gen0000")
         end
       end
-      given_it_generates(production, "SELECT * FROM <a> WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
-      given_it_generates(production, "SELECT * FROM NAMED <a> WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
+      given_it_generates(production, "SELECT * FROM <a> WHERE {?a ?b ?c}", %q((dataset (<a>) (bgp (triple ?a ?b ?c)))))
+      given_it_generates(production, "SELECT * FROM NAMED <a> WHERE {?a ?b ?c}", %q((dataset ((named <a>)) (bgp (triple ?a ?b ?c)))))
       given_it_generates(production, "SELECT * WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
       given_it_generates(production, "SELECT * WHERE {GRAPH <a> {?a ?b ?c}}", %q((graph <a> (bgp (triple ?a ?b ?c)))))
       given_it_generates(production, "SELECT * WHERE {?a ?b ?c OPTIONAL {?d ?e ?f}}", %q((leftjoin (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
@@ -803,32 +805,39 @@ describe SPARQL::Grammar::Parser do
     with_production(:ConstructQuery) do |production|
       it_rejects_empty_input_using production
       
-      given_it_generates(production, "CONSTRUCT {?a ?b ?c} FROM <a> WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
-      given_it_generates(production, "CONSTRUCT {?a ?b ?c} FROM NAMED <a> WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
-      given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
-      given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {GRAPH <a> {?a ?b ?c}}", %q((graph <a> (bgp (triple ?a ?b ?c)))))
-      given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {?a ?b ?c OPTIONAL {?d ?e ?f}}", %q((leftjoin (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
-      given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {?a ?b ?c {?d ?e ?f}}", %q((join (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
-      given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {{?a ?b ?c} UNION {?d ?e ?f}}", %q((union (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
-      given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {?a ?b ?c FILTER (?a)}", %q((filter ?a (bgp (triple ?a ?b ?c)))))
+      given_it_generates(production, "CONSTRUCT {?a ?b ?c} FROM <a> WHERE {?a ?b ?c}", %q((construct ((triple ?a ?b ?c)) (dataset (<a>) (bgp (triple ?a ?b ?c))))))
+      given_it_generates(production, "CONSTRUCT {?a ?b ?c} FROM NAMED <a> WHERE {?a ?b ?c}", %q((construct ((triple ?a ?b ?c)) (dataset ((named <a>)) (bgp (triple ?a ?b ?c))))))
+      given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {?a ?b ?c}", %q((construct ((triple ?a ?b ?c)) (bgp (triple ?a ?b ?c)))))
+      given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {GRAPH <a> {?a ?b ?c}}", %q((construct ((triple ?a ?b ?c)) (graph <a> (bgp (triple ?a ?b ?c))))))
+      given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {?a ?b ?c OPTIONAL {?d ?e ?f}}", %q((construct ((triple ?a ?b ?c)) (leftjoin (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f))))))
+      given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {?a ?b ?c {?d ?e ?f}}", %q((construct ((triple ?a ?b ?c)) (join (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f))))))
+      given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {{?a ?b ?c} UNION {?d ?e ?f}}", %q((construct ((triple ?a ?b ?c)) (union (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f))))))
+      given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {?a ?b ?c FILTER (?a)}", %q((construct ((triple ?a ?b ?c)) (filter ?a (bgp (triple ?a ?b ?c))))))
     end
   end
 
   describe "when matching the [7] DescribeQuery production rule" do
     with_production(:DescribeQuery) do |production|
-      it_rejects_empty_input_using production
+      given_it_generates(production, "DESCRIBE * FROM <a> WHERE {?a ?b ?c}", %q((describe () (dataset (<a>) (bgp (triple ?a ?b ?c))))))
+      given_it_generates(production, "DESCRIBE * FROM <a> WHERE {?a ?b ?c}", %q((describe () (dataset (<a>) (bgp (triple ?a ?b ?c))))))
+      given_it_generates(production, "DESCRIBE * FROM NAMED <a> WHERE {?a ?b ?c}", %q((describe () (dataset ((named <a>))(bgp (triple ?a ?b ?c))))))
+      given_it_generates(production, "DESCRIBE * WHERE {?a ?b ?c}", %q((describe () (bgp (triple ?a ?b ?c)))))
+      given_it_generates(production, "DESCRIBE * WHERE {GRAPH <a> {?a ?b ?c}}", %q((describe () (graph <a> (bgp (triple ?a ?b ?c))))))
+      given_it_generates(production, "DESCRIBE * WHERE {?a ?b ?c OPTIONAL {?d ?e ?f}}", %q((describe () (leftjoin (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f))))))
+      given_it_generates(production, "DESCRIBE * WHERE {?a ?b ?c {?d ?e ?f}}", %q((describe () (join (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f))))))
+      given_it_generates(production, "DESCRIBE * WHERE {{?a ?b ?c} UNION {?d ?e ?f}}", %q((describe () (union (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f))))))
+      given_it_generates(production, "DESCRIBE * WHERE {?a ?b ?c FILTER (?a)}", %q((describe () (filter ?a (bgp (triple ?a ?b ?c))))))
 
-      given_it_generates(production, "DESCRIBE * FROM <a> WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
-      given_it_generates(production, "DESCRIBE * FROM NAMED <a> WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
-      given_it_generates(production, "DESCRIBE * WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
-      given_it_generates(production, "DESCRIBE * WHERE {GRAPH <a> {?a ?b ?c}}", %q((graph <a> (bgp (triple ?a ?b ?c)))))
-      given_it_generates(production, "DESCRIBE * WHERE {?a ?b ?c OPTIONAL {?d ?e ?f}}", %q((leftjoin (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
-      given_it_generates(production, "DESCRIBE * WHERE {?a ?b ?c {?d ?e ?f}}", %q((join (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
-      given_it_generates(production, "DESCRIBE * WHERE {{?a ?b ?c} UNION {?d ?e ?f}}", %q((union (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
-      given_it_generates(production, "DESCRIBE * WHERE {?a ?b ?c FILTER (?a)}", %q((filter ?a (bgp (triple ?a ?b ?c)))))
+      describe "No Query" do
+        given_it_generates(production, "DESCRIBE *", %q((describe () (bgp))))
+        given_it_generates(production, "DESCRIBE ?a", %q((describe (?a) (bgp))))
+        given_it_generates(production, "DESCRIBE * FROM <a>", %q((describe () (dataset (<a>) (bgp)))))
+      end
 
-      describe "Var+" do
-        given_it_generates(production, "DESCRIBE ?a ?b WHERE {?a ?b ?c}", %q((project (?a ?b) (bgp (triple ?a ?b ?c)))))
+      describe "VarOrIRIref+" do
+        given_it_generates(production, "DESCRIBE <a> WHERE {?a ?b ?c}", %q((describe (<a>) (bgp (triple ?a ?b ?c)))))
+        given_it_generates(production, "DESCRIBE ?a <a> WHERE {?a ?b ?c}", %q((describe (?a <a>) (bgp (triple ?a ?b ?c)))))
+        given_it_generates(production, "DESCRIBE ?a ?b WHERE {?a ?b ?c}", %q((describe (?a ?b) (bgp (triple ?a ?b ?c)))))
       end
     end
   end
@@ -837,22 +846,22 @@ describe SPARQL::Grammar::Parser do
     with_production(:AskQuery) do |production|
       it_rejects_empty_input_using production
 
-      given_it_generates(production, "ASK FROM <a> WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
-      given_it_generates(production, "ASK FROM NAMED <a> WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
-      given_it_generates(production, "ASK WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
-      given_it_generates(production, "ASK WHERE {GRAPH <a> {?a ?b ?c}}", %q((graph <a> (bgp (triple ?a ?b ?c)))))
-      given_it_generates(production, "ASK WHERE {?a ?b ?c OPTIONAL {?d ?e ?f}}", %q((leftjoin (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
-      given_it_generates(production, "ASK WHERE {?a ?b ?c {?d ?e ?f}}", %q((join (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
-      given_it_generates(production, "ASK WHERE {{?a ?b ?c} UNION {?d ?e ?f}}", %q((union (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
-      given_it_generates(production, "ASK WHERE {?a ?b ?c FILTER (?a)}", %q((filter ?a (bgp (triple ?a ?b ?c)))))
+      given_it_generates(production, "ASK FROM <a> WHERE {?a ?b ?c}", %q((ask (dataset (<a>) (bgp (triple ?a ?b ?c))))))
+      given_it_generates(production, "ASK FROM NAMED <a> WHERE {?a ?b ?c}", %q((ask (dataset ((named <a>))(bgp (triple ?a ?b ?c))))))
+      given_it_generates(production, "ASK WHERE {?a ?b ?c}", %q((ask (bgp (triple ?a ?b ?c)))))
+      given_it_generates(production, "ASK WHERE {GRAPH <a> {?a ?b ?c}}", %q((ask (graph <a> (bgp (triple ?a ?b ?c))))))
+      given_it_generates(production, "ASK WHERE {?a ?b ?c OPTIONAL {?d ?e ?f}}", %q((ask (leftjoin (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f))))))
+      given_it_generates(production, "ASK WHERE {?a ?b ?c {?d ?e ?f}}", %q((ask (join (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f))))))
+      given_it_generates(production, "ASK WHERE {{?a ?b ?c} UNION {?d ?e ?f}}", %q((ask (union (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f))))))
+      given_it_generates(production, "ASK WHERE {?a ?b ?c FILTER (?a)}", %q((ask (filter ?a (bgp (triple ?a ?b ?c))))))
     end
   end
 
   describe "when matching the [9] DatasetClause production rule" do
     with_production(:DatasetClause) do |production|
       it_rejects_empty_input_using production
-      it_does_not_generate_using(production, %q(FROM <http://example.org/foaf/aliceFoaf>))
-      it_does_not_generate_using(production, %q(FROM NAMED <http://example.org/foaf/aliceFoaf>))
+      given_it_generates(production, %q(FROM <http://example.org/foaf/aliceFoaf>), [:dataset, RDF::URI("http://example.org/foaf/aliceFoaf")])
+      given_it_generates(production, %q(FROM NAMED <http://example.org/foaf/aliceFoaf>), [:dataset, [:named, RDF::URI("http://example.org/foaf/aliceFoaf")]])
     end
   end
 
@@ -885,17 +894,15 @@ describe SPARQL::Grammar::Parser do
     with_production(:SolutionModifier) do |production|
       it_rejects_empty_input_using production
 
-      given_it_generates(production, "LIMIT 1", %q((slice _ 1)))
-      given_it_generates(production, "OFFSET 1", %q((slice 1 _)))
-      given_it_generates(production, "LIMIT 1 OFFSET 2", %q((slice 2 1)))
-      given_it_generates(production, "OFFSET 2 LIMIT 1", %q((slice 2 1)))
+      given_it_generates(production, "LIMIT 1", [:slice, :_, RDF::Literal(1)])
+      given_it_generates(production, "OFFSET 1", [:slice, RDF::Literal(1), :_])
+      given_it_generates(production, "LIMIT 1 OFFSET 2", [:slice, RDF::Literal(2), RDF::Literal(1)])
+      given_it_generates(production, "OFFSET 2 LIMIT 1", [:slice, RDF::Literal(2), RDF::Literal(1)])
 
-      given_it_generates(production, "ORDER BY ?a", %q((order (?a))))
-      given_it_generates(production, "ORDER BY ASC (1)", %q((order ((asc 1)))))
-      given_it_generates(production, "ORDER BY DESC (?a)", %q((order ((desc ?a)))))
-
-      given_it_generates(production, "ORDER BY ?a ASC (1)", %q((order (?a (asc 1)))))
-      given_it_generates(production, "ORDER BY ?a ASC (1) isURI(<b>)", %q((order (?a (asc 1) (isURI <b>)))))
+      given_it_generates(production, "ORDER BY ASC (1)", [:order, [SPARQL::Algebra::Operator::Asc.new(RDF::Literal(1))]])
+      given_it_generates(production, "ORDER BY DESC (?a)", [:order, [SPARQL::Algebra::Operator::Desc.new(RDF::Query::Variable.new("a"))]])
+      given_it_generates(production, "ORDER BY ?a ?b ?c", [:order, [RDF::Query::Variable.new("a"), RDF::Query::Variable.new("b"), RDF::Query::Variable.new("c")]])
+      given_it_generates(production, "ORDER BY ?a ASC (1) isURI(<b>)", [:order, [RDF::Query::Variable.new("a"), SPARQL::Algebra::Operator::Asc.new(RDF::Literal(1)), SPARQL::Algebra::Operator::IsURI.new(RDF::URI("b"))]])
       
       # Can't test both together, as they are handled individually in [5] SelectQuery
     end
@@ -904,28 +911,28 @@ describe SPARQL::Grammar::Parser do
   # [15]    LimitOffsetClauses        ::=       ( LimitClause OffsetClause? | OffsetClause LimitClause? )
   describe "when matching the [15] LimitOffsetClauses production rule" do
     with_production(:LimitOffsetClauses) do |production|
-      given_it_generates(production, "LIMIT 1", %q((slice _ 1)))
-      given_it_generates(production, "OFFSET 1", %q((slice 1 _)))
-      given_it_generates(production, "LIMIT 1 OFFSET 2", %q((slice 2 1)))
-      given_it_generates(production, "OFFSET 2 LIMIT 1", %q((slice 2 1)))
+      given_it_generates(production, "LIMIT 1", [:slice, :_, RDF::Literal(1)])
+      given_it_generates(production, "OFFSET 1", [:slice, RDF::Literal(1), :_])
+      given_it_generates(production, "LIMIT 1 OFFSET 2", [:slice, RDF::Literal(2), RDF::Literal(1)])
+      given_it_generates(production, "OFFSET 2 LIMIT 1", [:slice, RDF::Literal(2), RDF::Literal(1)])
     end
   end
 
   # [16]    OrderClause               ::=       'ORDER' 'BY' OrderCondition+
   describe "when matching the [16] OrderClause production rule" do
     with_production(:OrderClause) do |production|
-      given_it_generates(production, "ORDER BY ASC (1)", %q((order ((asc 1)))))
-      given_it_generates(production, "ORDER BY DESC (?a)", %q((order ((desc ?a)))))
-      given_it_generates(production, "ORDER BY ?a ?b ?c", %q((order (?a ?b ?c))))
-      given_it_generates(production, "ORDER BY ?a ASC (1) isURI(<b>)", %q((order (?a (asc 1) (isURI <b>)))))
+      given_it_generates(production, "ORDER BY ASC (1)", [:order, [SPARQL::Algebra::Operator::Asc.new(RDF::Literal(1))]])
+      given_it_generates(production, "ORDER BY DESC (?a)", [:order, [SPARQL::Algebra::Operator::Desc.new(RDF::Query::Variable.new("a"))]])
+      given_it_generates(production, "ORDER BY ?a ?b ?c", [:order, [RDF::Query::Variable.new("a"), RDF::Query::Variable.new("b"), RDF::Query::Variable.new("c")]])
+      given_it_generates(production, "ORDER BY ?a ASC (1) isURI(<b>)", [:order, [RDF::Query::Variable.new("a"), SPARQL::Algebra::Operator::Asc.new(RDF::Literal(1)), SPARQL::Algebra::Operator::IsURI.new(RDF::URI("b"))]])
     end
   end
 
   # [17]    OrderCondition            ::=       ( ( 'ASC' | 'DESC' ) BrackettedExpression ) | ( Constraint | Var )
   describe "when matching the [17] OrderCondition production rule" do
     with_production(:OrderCondition) do |production|
-      given_it_generates(production, "ASC (1)", [:OrderCondition, [:asc, RDF::Literal(1)]])
-      given_it_generates(production, "DESC (?a)", [:OrderCondition, [:desc, RDF::Query::Variable.new("a")]])
+      given_it_generates(production, "ASC (1)", [:OrderCondition, SPARQL::Algebra::Expression[:asc, RDF::Literal(1)]])
+      given_it_generates(production, "DESC (?a)", [:OrderCondition, SPARQL::Algebra::Expression[:desc, RDF::Query::Variable.new("a")]])
 
       # Constraint
       it_recognizes_bracketted_expression_using production
@@ -947,7 +954,7 @@ describe SPARQL::Grammar::Parser do
   describe "when matching the [19] OffsetClause production rule" do
     with_production(:OffsetClause) do |production|
       it "recognizes OFFSET clauses" do
-        parser(production).call(%q(OFFSET 10)).should == [:offset, 10]
+        parser(production).call(%q(OFFSET 10)).should == [:offset, RDF::Literal(10)]
       end
     end
   end
@@ -964,7 +971,7 @@ describe SPARQL::Grammar::Parser do
         "{OPTIONAL {<d><e><f>}}" =>
           %q((leftjoin
             (bgp)
-            (bgp (triple <d> <e> <f>)))),     # XXX Really?
+            (bgp (triple <d> <e> <f>)))),
         # From data/Optional/q-opt-2.rq
         "{<a><b><c> OPTIONAL {<d><e><f>} OPTIONAL {<g><h><i>}}" =>
           %q((leftjoin
@@ -976,31 +983,31 @@ describe SPARQL::Grammar::Parser do
           %q((join
               (join
                 (bgp (triple <a> <b> <c>))
-                (bgp (triple :x :y :z)))
+                (bgp (triple <x> <y> <z>)))
               (bgp (triple <d> <e> <f>)))),
         "{<a><b><c> {:x :y :z} <d><e><f>}" =>
           %q((join
               (join
                 (bgp (triple <a> <b> <c>))
-                (bgp (triple :x :y :z)))
+                (bgp (triple <x> <y> <z>)))
               (bgp (triple <d> <e> <f>)))),
         # From data/extracted-examples/query-4.1-q1.rq
        "{{:x :y :z} {<d><e><f>}}" =>
           %q((join
-              (bgp (triple :x :y :z))
+              (bgp (triple <x> <y> <z>))
               (bgp (triple <d> <e> <f>)))),
         "{<a><b><c> {:x :y :z} UNION {<d><e><f>}}" =>
           %q((join
               (bgp (triple <a> <b> <c>))
               (union
-                (bgp (triple :x :y :z))
+                (bgp (triple <x> <y> <z>))
                 (bgp (triple <d> <e> <f>))))),
         # From data/Optional/q-opt-3.rq
         "{{:x :y :z} UNION {<d><e><f>}}" =>
           %q((union
-              (bgp (triple :x :y :z))
+              (bgp (triple <x> <y> <z>))
               (bgp (triple <d> <e> <f>)))),
-        "{GRAPH ?src { :x :y :z}}" => %q((graph ?src (bgp (triple :x :y :z)))),
+        "{GRAPH ?src { :x :y :z}}" => %q((graph ?src (bgp (triple <x> <y> <z>)))),
         "{<a><b><c> GRAPH <graph> {<d><e><f>}}" =>
           %q((join
               (bgp (triple <a> <b> <c>))
@@ -1009,15 +1016,27 @@ describe SPARQL::Grammar::Parser do
         "{ ?a :b ?c .  OPTIONAL { ?c :d ?e } . FILTER (! bound(?e))}" =>
           %q((filter (! (bound ?e))
               (leftjoin
-                (bgp (triple ?a :b ?c))
-                (bgp (triple ?c :d ?e))))),
+                (bgp (triple ?a <b> ?c))
+                (bgp (triple ?c <d> ?e))))),
         # From data/Expr1/expr-2
         "{ ?book dc:title ?title . 
           OPTIONAL
             { ?book x:price ?price . 
               FILTER (?price < 15) .
             } .
-        }" => %q((leftjoin (bgp (triple ?book dc:title ?title)) (bgp (triple ?book x:price ?price)) (< ?price 15))),
+        }" => %q((leftjoin (bgp (triple ?book <title> ?title)) (bgp (triple ?book <price> ?price)) (< ?price 15))),
+        # From data-r2/filter-nested-2
+        "{ :x :p ?v . { FILTER(?v = 1) } }" =>
+          %q((join
+            (bgp (triple <x> <p> ?v))
+            (filter (= ?v 1)
+              (bgp)))),
+        "{FILTER (?v = 2) FILTER (?w = 3) ?s :p ?v . ?s :q ?w . }" =>
+          %q((filter (exprlist (= ?v 2) (= ?w 3))
+            (bgp
+              (triple ?s <p> ?v)
+              (triple ?s <q> ?w)
+            ))),
       }.each_pair do |input, result|
         given_it_generates(production, input, result, :resolve_uris => false)
       end
@@ -1042,27 +1061,27 @@ describe SPARQL::Grammar::Parser do
       it_rejects_empty_input_using production
       {
         # OptionalGraphPattern
-        "OPTIONAL {<d><e><f>}" => %q((leftjoin (bgp (triple <d> <e> <f>)))),
+        "OPTIONAL {<d><e><f>}" => %q((leftjoin placeholder (bgp (triple <d> <e> <f>)))),
 
         # GroupOrUnionGraphPattern
-        "{:x :y :z}" => %q((bgp (triple :x :y :z))),
+        "{:x :y :z}" => %q((bgp (triple <x> <y> <z>))),
         "{:x :y :z} UNION {<d><e><f>}" =>
           %q((union
-              (bgp (triple :x :y :z))
+              (bgp (triple <x> <y> <z>))
               (bgp (triple <d> <e> <f>)))),
         "{:x :y :z} UNION {<d><e><f>} UNION {?a ?b ?c}" =>
           %q((union
               (union
-                (bgp (triple :x :y :z))
+                (bgp (triple <x> <y> <z>))
                 (bgp (triple <d> <e> <f>)))
               (bgp (triple ?a ?b ?c)))),
 
         # GraphGraphPattern
         "GRAPH ?a {<d><e><f>}" => %q((graph ?a (bgp (triple <d> <e> <f>)))),
-        "GRAPH :a {<d><e><f>}" => %q((graph :a (bgp (triple <d> <e> <f>)))),
+        "GRAPH :a {<d><e><f>}" => %q((graph <a> (bgp (triple <d> <e> <f>)))),
         "GRAPH <a> {<d><e><f>}" => %q((graph <a> (bgp (triple <d> <e> <f>)))),
       }.each_pair do |input, result|
-        given_it_generates(production, input, result, :resolve_uris => false)
+        given_it_generates(production, input, result)
       end
     end
   end
@@ -1072,9 +1091,11 @@ describe SPARQL::Grammar::Parser do
     with_production(:OptionalGraphPattern) do |production|
       it_rejects_empty_input_using production
       {
-        "OPTIONAL {<d><e><f>}" => %q((leftjoin (bgp (triple <d> <e> <f>)))),
+        "OPTIONAL {<d><e><f>}" => %q((leftjoin placeholder (bgp (triple <d> <e> <f>)))).to_sym,
         "OPTIONAL {?book :price ?price . FILTER (?price < 15)}" =>
-          %q((leftjoin (bgp (triple ?book :price ?price)) (< ?price 15)))
+          %q((leftjoin placeholder (bgp (triple ?book :price ?price)) (< ?price 15))).to_sym,
+        %q(OPTIONAL {?y :q ?w . FILTER(?v=2) FILTER(?w=3)}) =>
+          %q((leftjoin placeholder (bgp (triple ?y :q ?w)) (exprlist (= ?v 2) (= ?w 3)))).to_sym,
       }.each_pair do |input, result|
         given_it_generates(production, input, result, :resolve_uris => false)
       end
@@ -1088,7 +1109,7 @@ describe SPARQL::Grammar::Parser do
 
       {
         "GRAPH ?a {<d><e><f>}" => %q((graph ?a (bgp (triple <d> <e> <f>)))),
-        "GRAPH :a {<d><e><f>}" => %q((graph :a (bgp (triple <d> <e> <f>)))),
+        "GRAPH :a {<d><e><f>}" => %q((graph <a> (bgp (triple <d> <e> <f>)))),
         "GRAPH <a> {<d><e><f>}" => %q((graph <a> (bgp (triple <d> <e> <f>)))),
       }.each_pair do |input, result|
         given_it_generates(production, input, result, :resolve_uris => false)
@@ -1103,15 +1124,15 @@ describe SPARQL::Grammar::Parser do
 
       {
         # From data/Optional/q-opt-3.rq
-        "{:x :y :z}" => %q((bgp (triple :x :y :z))),
+        "{:x :y :z}" => %q((bgp (triple <x> <y> <z>))),
         "{:x :y :z} UNION {<d><e><f>}" =>
           %q((union
-              (bgp (triple :x :y :z))
+              (bgp (triple <x> <y> <z>))
               (bgp (triple <d> <e> <f>)))),
         "{:x :y :z} UNION {<d><e><f>} UNION {?a ?b ?c}" =>
           %q((union
               (union
-                (bgp (triple :x :y :z))
+                (bgp (triple <x> <y> <z>))
                 (bgp (triple <d> <e> <f>)))
               (bgp (triple ?a ?b ?c)))),
       }.each_pair do |input, result|
@@ -1123,20 +1144,18 @@ describe SPARQL::Grammar::Parser do
   # [26]    Filter                    ::=       'FILTER' Constraint
   describe "when matching the [26] Filter production rule" do
     with_production(:Filter) do |production|
-      given_it_generates(production, %(FILTER (1)), %q((filter 1)))
-      given_it_generates(production, %(FILTER ((1))), %q((filter 1)))
-      given_it_generates(production, %(FILTER ("foo")), %q((filter "foo")))
-      given_it_generates(production, %(FILTER STR ("foo")), %q((filter (str "foo"))))
-      given_it_generates(production, %(FILTER LANGMATCHES ("foo", "bar")), %q((filter (langMatches "foo" "bar"))))
-      given_it_generates(production, %(FILTER isIRI ("foo")), %q((filter (isIRI "foo"))))
-      given_it_generates(production, %(FILTER REGEX ("foo", "bar")), %q((filter (regex "foo" "bar"))))
-      given_it_generates(production, %(FILTER <fun> ("arg")), %q((filter (<fun> "arg"))))
-      given_it_generates(production, %(FILTER BOUND (?e)), %q((filter (bound ?e))))
-      given_it_generates(production, %(FILTER (BOUND (?e))), %q((filter (bound ?e))))
-      given_it_generates(production, %(FILTER (! BOUND (?e))), %q((filter (! (bound ?e)))))
-      
-      # Doubled filters
-      given_it_generates(production, %(FILTER (?v = 2) FILTER (?w = 3)), %q((filter (exprlist (= ?v 2) (= ?w 3)))))
+      # Can't test against SSE, as filter also requires a BGP or other query operator
+      given_it_generates(production, %(FILTER (1)), [:filter, RDF::Literal(1)])
+      given_it_generates(production, %(FILTER ((1))), [:filter, RDF::Literal(1)])
+      given_it_generates(production, %(FILTER ("foo")), [:filter, RDF::Literal("foo")])
+      given_it_generates(production, %(FILTER STR ("foo")), [:filter, SPARQL::Algebra::Expression[:str, RDF::Literal("foo")]])
+      given_it_generates(production, %(FILTER LANGMATCHES ("foo", "bar")), [:filter, SPARQL::Algebra::Expression[:langmatches, RDF::Literal("foo"), RDF::Literal("bar")]])
+      given_it_generates(production, %(FILTER isIRI ("foo")), [:filter, SPARQL::Algebra::Expression[:isIRI, RDF::Literal("foo")]])
+      given_it_generates(production, %(FILTER REGEX ("foo", "bar")), [:filter, SPARQL::Algebra::Expression[:regex, RDF::Literal("foo"), RDF::Literal("bar")]])
+      given_it_generates(production, %(FILTER <fun> ("arg")), [:filter, [RDF::URI("fun"), RDF::Literal("arg")]])
+      given_it_generates(production, %(FILTER BOUND (?e)), [:filter, SPARQL::Algebra::Expression[:bound, RDF::Query::Variable.new("e")]])
+      given_it_generates(production, %(FILTER (BOUND (?e))), [:filter, SPARQL::Algebra::Expression[:bound, RDF::Query::Variable.new("e")]])
+      given_it_generates(production, %(FILTER (! BOUND (?e))), [:filter, SPARQL::Algebra::Expression[:not, SPARQL::Algebra::Expression[:bound, RDF::Query::Variable.new("e")]]])
     end
   end
 
