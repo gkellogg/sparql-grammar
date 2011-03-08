@@ -5,3 +5,4 @@ pkg
 tmp
 /dawg-bhuga/
 /*.gem
+/*.lock

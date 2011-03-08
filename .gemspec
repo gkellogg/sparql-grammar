@@ -12,7 +12,7 @@ GEMSPEC = Gem::Specification.new do |gem|
   gem.description        = gem.summary
   gem.rubyforge_project  = 'sparql'
 
-  gem.author             = 'Arto Bendiken'
+  gem.authors            = ['Gregg Kellogg', 'Arto Bendiken']
   gem.email              = 'public-rdf-ruby@w3.org'
 
   gem.platform           = Gem::Platform::RUBY
@@ -34,5 +34,7 @@ GEMSPEC = Gem::Specification.new do |gem|
   gem.add_development_dependency 'rspec',         '>= 2.1.0'
   gem.add_development_dependency 'rdf-spec',      '>= 0.3.0'
   gem.add_development_dependency 'rdf-n3',        '>= 0.3.0'
+  gem.add_development_dependency 'sparql-test',   '>= 0.0.1'
+  gem.add_development_dependency 'spira',         '>= 0.0.12'
   gem.post_install_message       = nil
 end
