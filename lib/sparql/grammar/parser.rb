@@ -1072,7 +1072,6 @@ module SPARQL; module Grammar
     def error(node, message, options = {})
       depth = options[:depth] || @productions.length
       node ||= options[:production]
-      $stderr.puts("[#{@lineno}]#{' ' * depth}#{node}: #{message}")
       raise Error.new("Error on production #{options[:production].inspect}#{' with input ' + options[:token].inspect if options[:token]} at line #{@lineno}: #{message}", options)
     end
 
