@@ -48,8 +48,8 @@ parser_options = {
 }
 
 opts = GetoptLong.new(
-  ["--debug", GetoptLong::NO_ARGUMENT],
   ["--dump", GetoptLong::NO_ARGUMENT],
+  ["--dbg", GetoptLong::NO_ARGUMENT],
   ["--execute", "-e", GetoptLong::REQUIRED_ARGUMENT],
   ["--help", "-?", GetoptLong::NO_ARGUMENT],
   ["--parse-only", GetoptLong::NO_ARGUMENT],
@@ -63,10 +63,12 @@ opts = GetoptLong.new(
 
 opts.each do |opt, arg|
   case opt
-  when '--quiet' then $quiet = true
+  when '--dbg' then parser_options[:debug] = true
+  when '--dump' then $dump = true
   when '--execute' then input = arg
+  when '--quiet' then $quiet = true
   when '--production' then parser_options[:production] = arg.match(/http/) ? arg : SPARQL::Grammar::SPARQL_GRAMMAR[arg]
-  when '--uri' then parser_options[:base_uri] = arg
+  when '--progress' then parser_options[:progress] = true
   when '--resolve-uris' then parser_options[:resolve_uris] = true
   when '--standard-prefixes'
     # Use a standard prefixes
@@ -74,9 +76,7 @@ opts.each do |opt, arg|
       prefix = v.__name__.to_s.split('::').last.downcase.to_sym
       parser_options[:prefixes][prefix] = v.to_uri
     end
-  when '--dump' then $dump = true
-  when '--progress' then parser_options[:progress] = true
-  when '--debug' then parser_options[:debug] = true
+  when '--uri' then parser_options[:base_uri] = arg
   when "--help"
     puts "Usage: #{$0} [options] file-or-uri ..."
     puts "Options:"
