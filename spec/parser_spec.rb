@@ -467,7 +467,7 @@ module ProductionExamples
   # [69] BlankNode
   def it_recognizes_blank_node(production)
     parser(production).call(%q(_:foobar)).last.should == RDF::Node(:foobar)
-    parser(production).call(%q([])).last.should be_an(RDF::Node)
+    parser(production).call(%q([])).last.should_not be_distinguished
   end
 
   # [74] VAR1
@@ -501,11 +501,11 @@ module ProductionExamples
     end,
     # From sytax-sparql1/syntax-bnodes-01.rq
     %q([:p :q ]) => RDF::Query.new do
-      pattern [RDF::Node("gen0001"), RDF::URI("http://example.com/p"), RDF::URI("http://example.com/q")]
+      pattern [SPARQL::Grammar::Parser.variable("0", false), RDF::URI("http://example.com/p"), RDF::URI("http://example.com/q")]
     end,
     # From sytax-sparql1/syntax-bnodes-02.rq
     %q([] :p :q) => RDF::Query.new do
-      pattern [RDF::Node("gen0001"), RDF::URI("http://example.com/p"), RDF::URI("http://example.com/q")]
+      pattern [SPARQL::Grammar::Parser.variable("0", false), RDF::URI("http://example.com/p"), RDF::URI("http://example.com/q")]
     end,
 
     # From sytax-sparql2/syntax-general-01.rq
@@ -563,22 +563,22 @@ module ProductionExamples
       pattern [RDF::URI("http://example.org/a"), RDF::URI("http://example.org/d"), RDF::URI("http://example.org/e")]
     end,
     %q([<b><c>,<d>]) => RDF::Query.new do
-      pattern [RDF::Node("gen0001"), RDF::URI("http://example.org/b"), RDF::URI("http://example.org/c")]
-      pattern [RDF::Node("gen0001"), RDF::URI("http://example.org/b"), RDF::URI("http://example.org/d")]
+      pattern [SPARQL::Grammar::Parser.variable("0", false), RDF::URI("http://example.org/b"), RDF::URI("http://example.org/c")]
+      pattern [SPARQL::Grammar::Parser.variable("0", false), RDF::URI("http://example.org/b"), RDF::URI("http://example.org/d")]
     end,
     %q([<b><c>;<d><e>]) => RDF::Query.new do
-      pattern [RDF::Node("gen0001"), RDF::URI("http://example.org/b"), RDF::URI("http://example.org/c")]
-      pattern [RDF::Node("gen0001"), RDF::URI("http://example.org/d"), RDF::URI("http://example.org/e")]
+      pattern [SPARQL::Grammar::Parser.variable("0", false), RDF::URI("http://example.org/b"), RDF::URI("http://example.org/c")]
+      pattern [SPARQL::Grammar::Parser.variable("0", false), RDF::URI("http://example.org/d"), RDF::URI("http://example.org/e")]
     end,
     %q((<a>)) => RDF::Query.new do
-      pattern [RDF::Node("gen0001"), RDF["first"], RDF::URI("http://example.org/a")]
-      pattern [RDF::Node("gen0001"), RDF["rest"], RDF["nil"]]
+      pattern [SPARQL::Grammar::Parser.variable("0", false), RDF["first"], RDF::URI("http://example.org/a")]
+      pattern [SPARQL::Grammar::Parser.variable("0", false), RDF["rest"], RDF["nil"]]
     end,
     %q((<a> <b>)) => RDF::Query.new do
-      pattern [RDF::Node("gen0001"), RDF["first"], RDF::URI("http://example.org/a")]
-      pattern [RDF::Node("gen0001"), RDF["rest"], RDF::Node("gen0002")]
-      pattern [RDF::Node("gen0002"), RDF["first"], RDF::URI("http://example.org/b")]
-      pattern [RDF::Node("gen0002"), RDF["rest"], RDF["nil"]]
+      pattern [SPARQL::Grammar::Parser.variable("0", false), RDF["first"], RDF::URI("http://example.org/a")]
+      pattern [SPARQL::Grammar::Parser.variable("0", false), RDF["rest"], SPARQL::Grammar::Parser.variable("1", false)]
+      pattern [SPARQL::Grammar::Parser.variable("1", false), RDF["first"], RDF::URI("http://example.org/b")]
+      pattern [SPARQL::Grammar::Parser.variable("1", false), RDF["rest"], RDF["nil"]]
     end,
     %q(<a><b>"foobar") => RDF::Query.new do
       pattern [RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::Literal("foobar")]
@@ -604,9 +604,9 @@ module ProductionExamples
 
     # From sytax-sparql1/syntax-bnodes-03.rq
     %q([ ?x ?y ] <http://example.com/p> [ ?pa ?b ]) => RDF::Query.new do
-      pattern [RDF::Node("gen0001"), RDF::Query::Variable.new("x"), RDF::Query::Variable.new("y")]
-      pattern [RDF::Node("gen0001"), RDF::URI("http://example.com/p"), RDF::Node("gen0002")]
-      pattern [RDF::Node("gen0002"), RDF::Query::Variable.new("pa"), RDF::Query::Variable.new("b")]
+      pattern [SPARQL::Grammar::Parser.variable("0", false), RDF::Query::Variable.new("x"), RDF::Query::Variable.new("y")]
+      pattern [SPARQL::Grammar::Parser.variable("0", false), RDF::URI("http://example.com/p"), SPARQL::Grammar::Parser.variable("1", false)]
+      pattern [SPARQL::Grammar::Parser.variable("1", false), RDF::Query::Variable.new("pa"), RDF::Query::Variable.new("b")]
     end,
     # From sytax-sparql1/syntax-bnodes-03.rq
     %q(_:a :p1 :q1 .
@@ -616,21 +616,21 @@ module ProductionExamples
     end,
     # From sytax-sparql1/syntax-forms-01.rq
     %q(( [ ?x ?y ] ) :p ( [ ?pa ?b ] 57 )) => RDF::Query.new do
-      pattern [RDF::Node("gen0002"), RDF::Query::Variable.new("x"), RDF::Query::Variable.new("y")]
-      pattern [RDF::Node("gen0001"), RDF["first"], RDF::Node("gen0002")]
-      pattern [RDF::Node("gen0001"), RDF["rest"], RDF["nil"]]
-      pattern [RDF::Node("gen0001"), RDF::URI("http://example.com/p"), RDF::Node("gen0003")]
-      pattern [RDF::Node("gen0004"), RDF::Query::Variable.new("pa"), RDF::Query::Variable.new("b")]
-      pattern [RDF::Node("gen0003"), RDF["first"], RDF::Node("gen0004")]
-      pattern [RDF::Node("gen0003"), RDF["rest"], RDF::Node("gen0005")]
-      pattern [RDF::Node("gen0005"), RDF["first"], RDF::Literal(57)]
-      pattern [RDF::Node("gen0005"), RDF["rest"], RDF["nil"]]
+      pattern [SPARQL::Grammar::Parser.variable("1", false), RDF::Query::Variable.new("x"), RDF::Query::Variable.new("y")]
+      pattern [SPARQL::Grammar::Parser.variable("0", false), RDF["first"], SPARQL::Grammar::Parser.variable("1", false)]
+      pattern [SPARQL::Grammar::Parser.variable("0", false), RDF["rest"], RDF["nil"]]
+      pattern [SPARQL::Grammar::Parser.variable("0", false), RDF::URI("http://example.com/p"), SPARQL::Grammar::Parser.variable("2", false)]
+      pattern [SPARQL::Grammar::Parser.variable("3", false), RDF::Query::Variable.new("pa"), RDF::Query::Variable.new("b")]
+      pattern [SPARQL::Grammar::Parser.variable("2", false), RDF["first"], SPARQL::Grammar::Parser.variable("3", false)]
+      pattern [SPARQL::Grammar::Parser.variable("2", false), RDF["rest"], SPARQL::Grammar::Parser.variable("4", false)]
+      pattern [SPARQL::Grammar::Parser.variable("4", false), RDF["first"], RDF::Literal(57)]
+      pattern [SPARQL::Grammar::Parser.variable("4", false), RDF["rest"], RDF["nil"]]
     end,
     # From sytax-sparql1/syntax-lists-01.rq
     %q(( ?x ) :p ?z) => RDF::Query.new do
-      pattern [RDF::Node("gen0001"), RDF["first"], RDF::Query::Variable.new("x")]
-      pattern [RDF::Node("gen0001"), RDF["rest"], RDF["nil"]]
-      pattern [RDF::Node("gen0001"), RDF::URI("http://example.com/p"), RDF::Query::Variable.new("z")]
+      pattern [SPARQL::Grammar::Parser.variable("0", false), RDF["first"], RDF::Query::Variable.new("x")]
+      pattern [SPARQL::Grammar::Parser.variable("0", false), RDF["rest"], RDF["nil"]]
+      pattern [SPARQL::Grammar::Parser.variable("0", false), RDF::URI("http://example.com/p"), RDF::Query::Variable.new("z")]
     end,
   }
 end
@@ -675,7 +675,7 @@ describe SPARQL::Grammar::Parser do
         given_it_generates(production, "SELECT * WHERE {#{input}}", result,
           :prefixes => {nil => "http://example.com/", :rdf => RDF.to_uri.to_s},
           :base_uri => RDF::URI("http://example.org/"),
-          :anon_base => "gen0000")
+          :anon_base => "b0")
       end
 
       given_it_generates(production, "SELECT * FROM <a> WHERE {?a ?b ?c}", %q((dataset (<a>) (bgp (triple ?a ?b ?c)))))
@@ -764,8 +764,7 @@ describe SPARQL::Grammar::Parser do
         BGP.each_pair do |input, result|
           given_it_generates(production, "SELECT * WHERE {#{input}}", result,
             :prefixes => {nil => "http://example.com/", :rdf => RDF.to_uri.to_s},
-            :base_uri => RDF::URI("http://example.org/"),
-            :anon_base => "gen0000")
+            :base_uri => RDF::URI("http://example.org/"))
         end
       end
       given_it_generates(production, "SELECT * FROM <a> WHERE {?a ?b ?c}", %q((dataset (<a>) (bgp (triple ?a ?b ?c)))))
@@ -810,6 +809,7 @@ describe SPARQL::Grammar::Parser do
       given_it_generates(production, "CONSTRUCT {?a ?b ?c} FROM <a> WHERE {?a ?b ?c}", %q((construct ((triple ?a ?b ?c)) (dataset (<a>) (bgp (triple ?a ?b ?c))))))
       given_it_generates(production, "CONSTRUCT {?a ?b ?c} FROM NAMED <a> WHERE {?a ?b ?c}", %q((construct ((triple ?a ?b ?c)) (dataset ((named <a>)) (bgp (triple ?a ?b ?c))))))
       given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {?a ?b ?c}", %q((construct ((triple ?a ?b ?c)) (bgp (triple ?a ?b ?c)))))
+      given_it_generates(production, "CONSTRUCT {[?b ?c]} WHERE {?a ?b ?c}", %q((construct ((triple _:b0 ?b ?c)) (bgp (triple ?a ?b ?c)))))
       given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {GRAPH <a> {?a ?b ?c}}", %q((construct ((triple ?a ?b ?c)) (graph <a> (bgp (triple ?a ?b ?c))))))
       given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {?a ?b ?c OPTIONAL {?d ?e ?f}}", %q((construct ((triple ?a ?b ?c)) (leftjoin (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f))))))
       given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {?a ?b ?c {?d ?e ?f}}", %q((construct ((triple ?a ?b ?c)) (join (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f))))))
@@ -878,7 +878,7 @@ describe SPARQL::Grammar::Parser do
         given_it_generates(production, "WHERE {#{input}}", result,
           :prefixes => {nil => "http://example.com/", :rdf => RDF.to_uri.to_s},
           :base_uri => RDF::URI("http://example.org/"),
-          :anon_base => "gen0000")
+          :anon_base => "b0")
       end
 
       given_it_generates(production, "WHERE {?a ?b ?c}", %q((bgp (triple ?a ?b ?c))))
@@ -1051,7 +1051,7 @@ describe SPARQL::Grammar::Parser do
         given_it_generates(production, input, result,
           :prefixes => {nil => "http://example.com/", :rdf => RDF.to_uri.to_s},
           :base_uri => RDF::URI("http://example.org/"),
-          :anon_base => "gen0000")
+          :anon_base => "b0")
       end
     end
   end
@@ -1188,11 +1188,38 @@ describe SPARQL::Grammar::Parser do
 
   describe "when matching the [30] ConstructTemplate production rule" do
     with_production(:ConstructTemplate) do |production|
-      BGP.each_pair do |input, result|
+      {
+        # From sytax-sparql1/syntax-basic-03.rq
+        %q(?x ?y ?z) => RDF::Query.new do
+          pattern [RDF::Query::Variable.new("x"), RDF::Query::Variable.new("y"), RDF::Query::Variable.new("z")]
+        end,
+        # From sytax-sparql1/syntax-basic-05.rq
+        %q(?x ?y ?z . ?a ?b ?c) => RDF::Query.new do
+          pattern [RDF::Query::Variable.new("x"), RDF::Query::Variable.new("y"), RDF::Query::Variable.new("z")]
+          pattern [RDF::Query::Variable.new("a"), RDF::Query::Variable.new("b"), RDF::Query::Variable.new("c")]
+        end,
+        # From sytax-sparql1/syntax-bnodes-01.rq
+        %q([:p :q ]) => RDF::Query.new do
+          pattern [RDF::Node.new("b0"), RDF::URI("http://example.com/p"), RDF::URI("http://example.com/q")]
+        end,
+        # From sytax-sparql1/syntax-bnodes-02.rq
+        %q([] :p :q) => RDF::Query.new do
+          pattern [RDF::Node.new("b0"), RDF::URI("http://example.com/p"), RDF::URI("http://example.com/q")]
+        end,
+
+        # From sytax-sparql2/syntax-general-01.rq
+        %q(<a><b><c>) => RDF::Query.new do
+          pattern [RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::URI("http://example.org/c")]
+        end,
+        # From sytax-sparql2/syntax-general-02.rq
+        %q(<a><b>_:x) => RDF::Query.new do
+          pattern [RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::Node("x")]
+        end,
+      }.each_pair do |input, result|
         given_it_generates(production, "{#{input}}", ([:ConstructTemplate] + result.patterns),
           :prefixes => {nil => "http://example.com/", :rdf => RDF.to_uri.to_s},
           :base_uri => RDF::URI("http://example.org/"),
-          :anon_base => "gen0000")
+          :anon_base => "b0")
       end
     end
   end
@@ -1482,15 +1509,15 @@ describe SPARQL::Grammar::Parser do
 
     describe "when matching the [69] BlankNode production rule" do
       with_production(:BlankNode) do |production|
-        inputs = {
-          :BLANK_NODE_LABEL => %q(_:foobar),
-          :ANON             => %q([]),
-        }
-        inputs.each do |terminal, input|
-          it "recognizes the #{terminal} terminal" do
-            if output = parser(production).call(input)
-              output.last.should be_an(RDF::Node)
-            end
+        it "recognizes the BlankNode terminal" do
+          if output = parser(production).call(%q(_:foobar))
+            output.last.should be_an(RDF::Node)
+          end
+        end
+
+        it "recognizes the ANON terminal" do
+          if output = parser(production).call(%q([]))
+            output.last.should_not be_distinguished
           end
         end
       end

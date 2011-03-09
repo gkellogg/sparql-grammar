@@ -20,7 +20,7 @@ module SPARQL; module Grammar
     #   the prefix mappings to use (for acessing intermediate parser productions)
     # @option options [#to_s]    :base_uri     (nil)
     #   the base URI to use when resolving relative URIs (for acessing intermediate parser productions)
-    # @option options [#to_s]    :anon_base     ("gen0000")
+    # @option options [#to_s]    :anon_base     ("b0")
     #   Basis for generating anonymous Nodes
     # @option options [Boolean] :resolve_uris (false)
     #   Resolve prefix and relative IRIs, otherwise output as symbols
@@ -32,9 +32,11 @@ module SPARQL; module Grammar
     #   Detailed debug output
     # @return [SPARQL::Grammar::Parser]
     def initialize(input = nil, options = {})
-      @options = {:anon_base => "gen0000", :validate => false}.merge(options)
+      @options = {:anon_base => "b0", :validate => false}.merge(options)
       self.input = input if input
       @productions = []
+      @vars = {}
+      @nd_var_gen = "0"
     end
 
     ##
@@ -612,7 +614,9 @@ module SPARQL; module Grammar
       when :ConstructTemplate
         # [30]    ConstructTemplate ::=       '{' ConstructTriples? '}'
         {
+          :start => lambda { |data| @nd_var_gen = false},  # Generate BNodes instead of non-distinguished variables
           :finish => lambda { |data|
+            @nd_var_gen = "0"
             add_prod_datum(:ConstructTemplate, data[:pattern])
             add_prod_datum(:ConstructTemplate, data[:ConstructTemplate])
           }
@@ -1002,7 +1006,7 @@ module SPARQL; module Grammar
         when :STRING_LITERAL1, :STRING_LITERAL2, :STRING_LITERAL_LONG1, :STRING_LITERAL_LONG2
           lambda { |token| add_prod_datum(:string, token) }
         when :VAR1, :VAR2       # [44]    Var ::= VAR1 | VAR2
-          lambda { |token| add_prod_datum(:Var, RDF::Query::Variable.new(token)) }
+          lambda { |token| add_prod_datum(:Var, variable(token, true)) }
         when :"*", :"/"
           lambda { |token| add_prod_datum(:MultiplicativeExpression, production) }
         when :"=", :"!=", :"<", :">", :"<=", :">="
@@ -1100,6 +1104,11 @@ module SPARQL; module Grammar
       add_pattern(:Collection, :subject => first, :predicate => RDF["rest"], :object => RDF["nil"])
     end
 
+    # Class method version to aid in specs
+    def self.variable(id, distinguished = true)
+      Parser.new.send(:variable, id, distinguished)
+    end
+    
   private
 
     def abbr(prodURI)
@@ -1199,9 +1208,41 @@ module SPARQL; module Grammar
     # Generate a BNode identifier
     def gen_node(id = nil)
       unless id
-        id = @options[:anon_base] = @options[:anon_base].succ
+        return variable(nil, false) unless @nd_var_gen == false # Use non-distinguished variables within patterns
+        id = @options[:anon_base]
+        @options[:anon_base] = @options[:anon_base].succ
       end
       RDF::Node.new(id)
+    end
+    
+    ##
+    # Return variable allocated to an ID.
+    # If no ID is provided, a new variable
+    # is allocated. Otherwise, any previous assignment will be used.
+    #
+    # The variable has a #distinguished? method applied depending on if this
+    # is a disinguished or non-distinguished variable. Non-distinguished
+    # variables are effectively the same as BNodes.
+    # @return [RDF::Query::Variable]
+    def variable(id, distinguished = true)
+      id = nil if id.to_s.empty?
+      
+      if id
+        @vars[id] ||= begin
+          v = RDF::Query::Variable.new(id)
+          v.distinguished = distinguished
+          v
+        end
+      else
+        unless distinguished
+          # Allocate a non-distinguished variable identifier
+          id = @nd_var_gen
+          @nd_var_gen = id.succ
+        end
+        v = RDF::Query::Variable.new(id)
+        v.distinguished = distinguished
+        v
+      end
     end
     
     # Create URIs
