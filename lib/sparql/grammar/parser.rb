@@ -1252,7 +1252,7 @@ module SPARQL; module Grammar
       # If we have a base URI, use that when constructing a new URI
       uri = if self.base_uri
         u = self.base_uri.join(value.to_s)
-        u.qname = "<#{value}>" unless u.to_s == value.to_s || options[:resolve_uris]
+        u.lexical = "<#{value}>" unless u.to_s == value.to_s || options[:resolve_uris]
         u
       else
         RDF::URI(value)
@@ -1269,8 +1269,8 @@ module SPARQL; module Grammar
       suffix = suffix.to_s.sub(/^\#/, "") if base.index("#")
       debug("ns(#{prefix.inspect})", "base: '#{base}', suffix: '#{suffix}'")
       uri = uri(base + suffix.to_s)
-      # Cause URI to be serialized as a qname
-      uri.qname = "#{prefix}:#{suffix}" unless options[:resolve_uris]
+      # Cause URI to be serialized as a lexical
+      uri.lexical = "#{prefix}:#{suffix}" unless options[:resolve_uris]
       uri
     end
     
