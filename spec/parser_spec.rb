@@ -760,8 +760,6 @@ describe SPARQL::Grammar::Parser do
   # [5]     SelectQuery               ::=       'SELECT' ( 'DISTINCT' | 'REDUCED' )? ( Var+ | '*' ) DatasetClause* WhereClause SolutionModifier
   describe "when matching the [5] SelectQuery production rule" do
     with_production(:SelectQuery) do |production|
-      it_rejects_empty_input_using production
-
       describe "SELECT * WHERE {...}" do
         BGP.each_pair do |input, result|
           given_it_generates(production, "SELECT * WHERE {#{input}}", result,
@@ -777,6 +775,12 @@ describe SPARQL::Grammar::Parser do
       given_it_generates(production, "SELECT * WHERE {?a ?b ?c OPTIONAL {?d ?e ?f}}", %q((leftjoin (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
       given_it_generates(production, "SELECT * WHERE {?a ?b ?c {?d ?e ?f}}", %q((join (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
       given_it_generates(production, "SELECT * WHERE {{?a ?b ?c} UNION {?d ?e ?f}}", %q((union (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f)))))
+      given_it_generates(production, "SELECT * {GRAPH ?g { :x :b ?a . GRAPH ?g2 { :x :p ?x } }}",
+        %q((graph ?g
+            (join
+              (bgp (triple <x> <b> ?a))
+              (graph ?g2
+                (bgp (triple <x> <p> ?x)))))))
 
       describe "Var+" do
         given_it_generates(production, "SELECT ?a ?b WHERE {?a ?b ?c}", %q((project (?a ?b) (bgp (triple ?a ?b ?c)))))
@@ -803,8 +807,6 @@ describe SPARQL::Grammar::Parser do
   # [6]     ConstructQuery            ::=       'CONSTRUCT' ConstructTemplate DatasetClause* WhereClause SolutionModifier
   describe "when matching the [6] ConstructQuery production rule" do
     with_production(:ConstructQuery) do |production|
-      it_rejects_empty_input_using production
-      
       given_it_generates(production, "CONSTRUCT {?a ?b ?c} FROM <a> WHERE {?a ?b ?c}", %q((construct ((triple ?a ?b ?c)) (dataset (<a>) (bgp (triple ?a ?b ?c))))))
       given_it_generates(production, "CONSTRUCT {?a ?b ?c} FROM NAMED <a> WHERE {?a ?b ?c}", %q((construct ((triple ?a ?b ?c)) (dataset ((named <a>)) (bgp (triple ?a ?b ?c))))))
       given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {?a ?b ?c}", %q((construct ((triple ?a ?b ?c)) (bgp (triple ?a ?b ?c)))))
@@ -813,6 +815,7 @@ describe SPARQL::Grammar::Parser do
       given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {?a ?b ?c {?d ?e ?f}}", %q((construct ((triple ?a ?b ?c)) (join (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f))))))
       given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {{?a ?b ?c} UNION {?d ?e ?f}}", %q((construct ((triple ?a ?b ?c)) (union (bgp (triple ?a ?b ?c)) (bgp (triple ?d ?e ?f))))))
       given_it_generates(production, "CONSTRUCT {?a ?b ?c} WHERE {?a ?b ?c FILTER (?a)}", %q((construct ((triple ?a ?b ?c)) (filter ?a (bgp (triple ?a ?b ?c))))))
+      given_it_generates(production, "CONSTRUCT {} WHERE {}", %q((construct () (bgp))))
     end
   end
 
@@ -844,8 +847,6 @@ describe SPARQL::Grammar::Parser do
 
   describe "when matching the [8] AskQuery production rule" do
     with_production(:AskQuery) do |production|
-      it_rejects_empty_input_using production
-
       given_it_generates(production, "ASK FROM <a> WHERE {?a ?b ?c}", %q((ask (dataset (<a>) (bgp (triple ?a ?b ?c))))))
       given_it_generates(production, "ASK FROM NAMED <a> WHERE {?a ?b ?c}", %q((ask (dataset ((named <a>))(bgp (triple ?a ?b ?c))))))
       given_it_generates(production, "ASK WHERE {?a ?b ?c}", %q((ask (bgp (triple ?a ?b ?c)))))

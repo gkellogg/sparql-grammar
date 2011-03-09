@@ -344,21 +344,19 @@ module SPARQL; module Grammar
         {
           :finish => lambda { |data|
             query = merge_modifiers(data)
-            template = data[:ConstructTemplate]
+            template = data[:ConstructTemplate] || []
             
-            add_prod_datum(:query, Algebra::Expression[:construct, template, query]) if template && query
+            add_prod_datum(:query, Algebra::Expression[:construct, template, query])
           }
         }
       when :DescribeQuery
         # [7]     DescribeQuery             ::=       'DESCRIBE' ( VarOrIRIref+ | '*' ) DatasetClause* WhereClause? SolutionModifier
         {
           :finish => lambda { |data|
-            puts data.inspect
-            data[:query] ||= [RDF::Query.new]
             query = merge_modifiers(data)
             to_describe = data[:VarOrIRIref] || []
             query = Algebra::Expression[:describe, to_describe, query]
-            add_prod_datum(:query, query) if query
+            add_prod_datum(:query, query)
           }
         }
       when :AskQuery
@@ -366,7 +364,7 @@ module SPARQL; module Grammar
         {
           :finish => lambda { |data|
             query = merge_modifiers(data)
-            add_prod_datum(:query, Algebra::Expression[:ask, query]) if query
+            add_prod_datum(:query, Algebra::Expression[:ask, query])
           }
         }
       when :DefaultGraphClause
@@ -1134,8 +1132,7 @@ module SPARQL; module Grammar
     
     # Merge query modifiers, datasets, and projections
     def merge_modifiers(data)
-      return nil unless data[:query]
-      query = data[:query].first
+      query = data[:query] ? data[:query].first : RDF::Query.new
       
       # Add datasets and modifiers in order
       query = Algebra::Expression[:order, data[:order], query] if data[:order]

@@ -10,7 +10,8 @@ describe SPARQL::Grammar::Parser do
           case t.type
           when MF.PositiveSyntaxTest
             it "parses #{t.name}" do
-              SPARQL::Grammar.parse(t.action.query_string).should be_a(SPARQL::Algebra::Operator)
+              query = SPARQL::Grammar.parse(t.action.query_string)
+              query.should respond_to(:execute)
             end
           when MF.NegativeSyntaxTest
             it "throws error for #{t.name}" do
