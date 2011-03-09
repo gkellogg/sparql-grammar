@@ -23,7 +23,9 @@ module SPARQL; module Grammar
     # @option options [#to_s]    :anon_base     ("b0")
     #   Basis for generating anonymous Nodes
     # @option options [Boolean] :resolve_uris (false)
-    #   Resolve prefix and relative IRIs, otherwise output as symbols
+    #   Resolve prefix and relative IRIs, otherwise, when serializing the parsed SSE
+    #   as S-Expressions, use the original prefixed and relative URIs along with `base` and `prefix`
+    #   definitions.
     # @option options [Boolean]  :validate     (false)
     #   whether to validate the parsed statements and values
     # @option options [Boolean] :progress
@@ -320,7 +322,7 @@ module SPARQL; module Grammar
         {
           :finish => lambda { |data|
             self.base_uri = uri(data[:iri].last)
-            add_prod_datum(:BaseDecl, data[:iri].last)
+            add_prod_datum(:BaseDecl, data[:iri].last) unless options[:resolve_uris]
           }
         }
       when :PrefixDecl
@@ -1246,13 +1248,20 @@ module SPARQL; module Grammar
     end
     
     # Create URIs
-    def uri(value, append = nil)
-      value = self.base_uri ? (self.base_uri.join(value.to_s)) : RDF::URI(value)
-      value = value.join(append) if append
-      #value.validate! if validate? && value.respond_to?(:validate)
-      #value.canonicalize! if canonicalize?
-      #value = RDF::URI.intern(value) if intern?
-      value
+    def uri(value)
+      # If we have a base URI, use that when constructing a new URI
+      uri = if self.base_uri
+        u = self.base_uri.join(value.to_s)
+        u.qname = "<#{value}>" unless u.to_s == value.to_s || options[:resolve_uris]
+        u
+      else
+        RDF::URI(value)
+      end
+
+      #uri.validate! if validate? && uri.respond_to?(:validate)
+      #uri.canonicalize! if canonicalize?
+      #uri = RDF::URI.intern(uri) if intern?
+      uri
     end
     
     def ns(prefix, suffix)
