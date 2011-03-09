@@ -336,7 +336,7 @@ module SPARQL; module Grammar
         {
           :finish => lambda { |data|
             query = merge_modifiers(data)
-            add_prod_datum(:query, query) if query
+            add_prod_datum(:query, query)
           }
         }
       when :ConstructQuery
