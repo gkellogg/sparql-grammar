@@ -349,7 +349,7 @@ module ProductionExamples
   def it_recognizes_unary_expression(production)
     parser(production).call(%q(! "foo")).last.should == SPARQL::Algebra::Expression[:not, RDF::Literal("foo")]
     parser(production).call(%q(+ 1)).last.should == RDF::Literal(1)
-    parser(production).call(%q(- 1)).last.should == SPARQL::Algebra::Expression[:minus, RDF::Literal(1)]
+    parser(production).call(%q(- 1)).last.should == -RDF::Literal(1)
     parser(production).call(%q(+ "foo")).last.should == RDF::Literal("foo")
     parser(production).call(%q(- "foo")).last.should == SPARQL::Algebra::Expression[:minus, RDF::Literal("foo")]
 

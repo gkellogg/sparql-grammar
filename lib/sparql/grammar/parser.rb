@@ -10,6 +10,7 @@ module SPARQL; module Grammar
     include SPARQL::Grammar::Meta
 
     START = SPARQL_GRAMMAR.Query
+    RDF_TYPE  = (a = RDF.type.dup; a.lexical = 'a'; a).freeze
 
     ##
     # Initializes a new parser instance.
@@ -792,7 +793,12 @@ module SPARQL; module Grammar
             when [:"!"]
               add_prod_datum(:Expression, Algebra::Expression[:not, data[:Expression].first])
             when [:"-"]
-              add_prod_datum(:Expression, Algebra::Expression[:minus, data[:Expression].first])
+              e = data[:Expression].first
+              if e.is_a?(RDF::Literal::Numeric)
+                add_prod_datum(:Expression, -e) # Simple optimization to match ARQ generation
+              else
+                add_prod_datum(:Expression, Algebra::Expression[:minus, e])
+              end
             else
               add_prod_datum(:Expression, data[:Expression])
             end
@@ -953,7 +959,7 @@ module SPARQL; module Grammar
         # Generic tokens that don't depend on a particular production
         case production
         when :a
-          lambda { |token| add_prod_datum(:Verb, RDF.type) }
+          lambda { |token| add_prod_datum(:Verb, RDF_TYPE) }
         when :ANON
           lambda { |token| add_prod_datum(:BlankNode, gen_node()) }
         when :ASC, :DESC
@@ -1146,7 +1152,7 @@ module SPARQL; module Grammar
       query = data[:query] ? data[:query].first : RDF::Query.new
       
       # Add datasets and modifiers in order
-      query = Algebra::Expression[:order, data[:order], query] if data[:order]
+      query = Algebra::Expression[:order, data[:order].first, query] if data[:order]
 
       query = Algebra::Expression[:project, data[:Var], query] if data[:Var] # project
 
