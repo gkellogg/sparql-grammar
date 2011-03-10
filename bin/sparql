@@ -1,0 +1,62 @@
+#!/usr/bin/env ruby
+require 'rubygems'
+$:.unshift(File.expand_path(File.join(File.dirname(__FILE__), "..", 'lib')))
+require 'sparql/grammar'
+#require 'linkeddata'
+require 'rdf'
+require 'rdf/n3'
+require 'getoptlong'
+require 'open-uri'
+
+def run(input, options = {})
+  if options[:debug]
+    puts "input graph:\n#{options[:graph].dump(:n3)}\n" if options[:graph]
+    puts "query:\n#{input}\n"
+  end
+  query = SPARQL::Grammar.parse(input, options)
+  res = query.execute(options[:graph])
+  res.each do |sol|
+    puts sol.inspect
+  end
+end
+
+opts = GetoptLong.new(
+  ["--debug", GetoptLong::NO_ARGUMENT],
+  ["--dump", GetoptLong::NO_ARGUMENT],
+  ["--execute", "-e", GetoptLong::REQUIRED_ARGUMENT],
+  ["--default-graph", "-g", GetoptLong::REQUIRED_ARGUMENT],
+  ["--help", "-?", GetoptLong::NO_ARGUMENT]
+)
+
+options = {
+  :graph => RDF::Graph.new,
+}
+
+opts.each do |opt, arg|
+  case opt
+  when '--execute' then input = arg
+  when '--dump' then $dump = true
+  when '--debug' then options[:debug] = true
+  when "--default-graph" then options[:graph] = RDF::Graph.load(arg)
+  when "--help"
+    puts "Usage: #{$0} [options] file-or-uri ..."
+    puts "Options:"
+    puts "      --execute,-e:         Use option argument as the SSE input if no files are given"
+    puts "      --default-graph:      Load default graph"
+    puts "      --dump:               Dump raw output, otherwise serialize to SSE"
+    puts "      --debug:              Display detailed debug output"
+    puts "      --help,-?:            This message"
+    exit(0)
+  end
+end
+
+if ARGV.empty?
+  s = input ? input : $stdin.read
+  run(s, options)
+else
+  ARGV.each do |test_file|
+    puts "parse #{test_file}"
+    run(Kernel.open(test_file).read, options)
+  end
+end
+puts
