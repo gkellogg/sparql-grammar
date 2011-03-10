@@ -72,7 +72,7 @@ SPARQL:
 
 Result:
     RDF::Query.new {
-      pattern [RDF::Query::Variable.new("a"), RDF::Query::Variable.new("d"), RDF::Query::Variable.new("c")]
+      pattern [RDF::Query::Variable.new("a"), RDF::Query::Variable.new("b"), RDF::Query::Variable.new("c")]
     }
     
 SSE:
@@ -82,34 +82,39 @@ SPARQL:
     SELECT * FROM <a> WHERE { ?a ?b ?c }
 
 Result:
-    RDF::Query.new {
-      pattern [RDF::Query::Variable.new("a"), RDF::Query::Variable.new("d"), RDF::Query::Variable.new("c")]
-    }
+    SPARQL::Algebra::Operator::Dataset.new(
+      [RDF::URI("a")],
+      RDF::Query.new {
+        pattern [RDF::Query::Variable.new("a"), RDF::Query::Variable.new("b"), RDF::Query::Variable.new("c")]
+      }
+    )
 
 SSE:
-    (bgp (triple ?a ?b ?c))
+    (dataset (<a>) (bgp (triple ?a ?b ?c)))
 
 SPARQL:
     SELECT * FROM NAMED <a> WHERE { ?a ?b ?c }
 
 Result:
-    RDF::Query.new {
-      pattern [RDF::Query::Variable.new("a"), RDF::Query::Variable.new("d"), RDF::Query::Variable.new("c")]
-    }
+    SPARQL::Algebra::Operator::Dataset.new(
+      [[:named, RDF::URI("a")]],
+      RDF::Query.new {
+        pattern [RDF::Query::Variable.new("a"), RDF::Query::Variable.new("b"), RDF::Query::Variable.new("c")]
+      }
+    )
     
 SSE:
-    (bgp (triple ?a ?b ?c))
+    (dataset ((named <a>)) (bgp (triple ?a ?b ?c)))
 
 SPARQL:
     SELECT DISTINCT * WHERE {?a ?b ?c}
 
 Result:
-    [
-      :distinct, 
+    SPARQL::Algebra::Operator::Distinct.new(
       RDF::Query.new {
-        pattern [RDF::Query::Variable.new("a"), RDF::Query::Variable.new("d"), RDF::Query::Variable.new("c")]
+        pattern [RDF::Query::Variable.new("a"), RDF::Query::Variable.new("b"), RDF::Query::Variable.new("c")]
       }
-    ]
+    )
     
 SSE:
     (distinct (bgp (triple ?a ?b ?c)))
@@ -118,12 +123,12 @@ SPARQL:
     SELECT ?a ?b WHERE {?a ?b ?c}
 
 Result:
-    [
-      :project, [RDF::Query::Variable.new("a"), RDF::Query::Variable.new("d")], 
+    SPARQL::Algebra::Operator::Project.new(
+      [RDF::Query::Variable.new("a"), RDF::Query::Variable.new("b")], 
       RDF::Query.new {
-        pattern [RDF::Query::Variable.new("a"), RDF::Query::Variable.new("d"), RDF::Query::Variable.new("c")]
+        pattern [RDF::Query::Variable.new("a"), RDF::Query::Variable.new("b"), RDF::Query::Variable.new("c")]
       }
-    ]
+    )
     
 SSE:
     (project (?a ?b) (bgp (triple ?a ?b ?c)))
@@ -132,45 +137,47 @@ SPARQL:
     CONSTRUCT {?a ?b ?c} WHERE {?a ?b ?c FILTER (?a)}
 
 Result:
-    [
-      :fliter, RDF::Query::Variable.new("a"),
-      RDF::Query.new {
-        pattern [RDF::Query::Variable.new("a"), RDF::Query::Variable.new("d"), RDF::Query::Variable.new("c")]
-      }
-    ]
+    SPARQL::Algebra::Operator::Construct.new(
+      [RDF::Query::Pattern.new(RDF::Query::Variable.new("a"), RDF::Query::Variable.new("b"), RDF::Query::Variable.new("c"))],
+      SPARQL::Algebra::Operator::Filter.new(
+        RDF::Query::Variable.new("a"),
+        RDF::Query.new {
+          pattern [RDF::Query::Variable.new("a"), RDF::Query::Variable.new("b"), RDF::Query::Variable.new("c")]
+        }
+      )
+    )
     
 SSE:
-    (filter ?a (bgp (triple ?a ?b ?c)))
+    (construct ((triple ?a ?b ?c)) (filter ?a (bgp (triple ?a ?b ?c))))
 
 SPARQL:
     SELECT * WHERE {<a> <b> <c> OPTIONAL {<d> <e> <f>}}
 
 Result:
-    RDF::GroupQuery.new {
-      operation = :leftjoin
-      query RDF::Query.new {
-        pattern [RDF::URI("a"), RDF::URI("d"), RDF::URI("c")]
-      }
-      query RDF::Query.new {
-        pattern [RDF::URI("d"), RDF::URI("e"), RDF::URI("f")]
+    SPARQL::Algebra::Operator::LeftJoin.new(
+      RDF::Query.new {
+        pattern [RDF::URI("a"), RDF::URI("b"), RDF::URI("c")]
       },
-    }
+      RDF::Query.new {
+        pattern [RDF::URI("d"), RDF::URI("e"), RDF::URI("f")]
+      }
+    )
     
 SSE:
-    ((leftjoin (bgp (triple <a> <b> <c>)) (bgp (triple <d> <e> <f>)))
+    (leftjoin (bgp (triple <a> <b> <c>)) (bgp (triple <d> <e> <f>)))
 
 SPARQL:
     SELECT * WHERE {<a> <b> <c> {<d> <e> <f>}}
 
 Result:
-    RDF::GroupQuery.new {
-      query RDF::Query.new {
-        pattern [RDF::URI("a"), RDF::URI("d"), RDF::URI("c")]
-      }
-      query RDF::Query.new {
-        pattern [RDF::URI("d"), RDF::URI("e"), RDF::URI("f")]
+    SPARQL::Algebra::Operator::Join.new(
+      RDF::Query.new {
+        pattern [RDF::URI("a"), RDF::URI("b"), RDF::URI("c")]
       },
-    }
+      RDF::Query.new {
+        pattern [RDF::URI("d"), RDF::URI("e"), RDF::URI("f")]
+      }
+    )
     
 SSE:
     (join (bgp (triple <a> <b> <c>)) (bgp (triple <d> <e> <f>)))
@@ -179,48 +186,17 @@ SPARQL:
     SELECT * WHERE {{<a> <b> <c>} UNION {<d> <e> <f>}}
 
 Result:
-    RDF::GroupQuery.new {
-      operation = :union
-      query RDF::Query.new {
-        pattern [RDF::URI("a"), RDF::URI("d"), RDF::URI("c")]
-      }
-      query RDF::Query.new {
-        pattern [RDF::URI("d"), RDF::URI("e"), RDF::URI("f")]
+    SPARQL::Algebra::Operator::Union.new(
+      RDF::Query.new {
+        pattern [RDF::URI("a"), RDF::URI("b"), RDF::URI("c")]
       },
-    }
+      RDF::Query.new {
+        pattern [RDF::URI("d"), RDF::URI("e"), RDF::URI("f")]
+      }
+    )
     
 SSE:
     (union (bgp (triple <a> <b> <c>)) (bgp (triple <d> <e> <f>)))
-
-To extend this, so that SPARQL::Algebra does not need independent knowledge of datasets and output formats:
-
-SPARQL:
-    SELECT * FROM <a> WHERE { ?a ?b ?c }
-
-Result:
-    [
-      :dataset, RDF::URI("a"),
-      RDF::Query.new {
-        pattern [RDF::Query::Variable.new("a"), RDF::Query::Variable.new("d"), RDF::Query::Variable.new("c")]
-      }
-    ]
-    
-SSE:
-    (dataset <a> (bgp (triple ?a ?b ?c)))
-
-SPARQL:
-    SELECT * FROM NAMED <a> WHERE { ?a ?b ?c }
-
-Result:
-    [
-      :dataset, [:named, RDF::URI("a")],
-      RDF::Query.new {
-        pattern [RDF::Query::Variable.new("a"), RDF::Query::Variable.new("d"), RDF::Query::Variable.new("c")]
-      }
-    ]
-    
-SSE:
-    (dataset (named <a>) (bgp (triple ?a ?b ?c)))
 
 Implementation Notes
 --------------------
