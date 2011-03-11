@@ -3,7 +3,7 @@ require File.join(File.dirname(__FILE__), 'spec_helper')
 require 'sparql/spec'
 
 describe SPARQL::Grammar::Parser do
-  describe "w3c dawg SPARQL syntax tests" do
+  describe "w3c dawg SPARQL evaluation tests" do
     SPARQL::Spec.load_sparql1_0_tests.group_by(&:manifest).each do |man, tests|
       describe man.to_s.split("/")[-2] do
         tests.each do |t|

@@ -13,5 +13,5 @@ if q.is_a?(RDF::Query)
     puts solution.inspect
   end
 else
-  puts "Can't run query directly, SSE: #{p.to_sse}"
+  puts "Can't run query directly, SSE: #{p}"
 end

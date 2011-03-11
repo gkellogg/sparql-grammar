@@ -61,28 +61,10 @@ module SPARQL; module Grammar
     attr_reader   :tokens
 
     ##
-    # The internal representation of the result using hierarch of RDF objects and SPARQL Algebra operations
-    # represented using symbols and arrays.
-    #
-    # Symbols are have meaning as follows:
-    # :"+", :"-", :"/", :"*", :"!"::
-    #   Arithmetic or Unary operations for example [:"+", 1, 2], [:"-", 1]
-    # :"&&", :"||", :"=", :"!=", :"<", :">", :"<=", :">="::
-    #   Logical operations, for example [:"=", 2, [:"+", 1, 1]]
-    # :project::
-    #   Project a set of results, for example [:project [:?a, :?b], RDF::Query]
-    # :distinct, :reduced::
-    #   Trim result set, for example [:distinct RDF::Query] or [:reduced RDF::Query]
-    # :order, :slice::
-    #   Subset and order results
-    # :filter::
-    #   Filter result set using builtins, functions or expressions. For example,
-    #   [:filter, [:!, [:bound, ?e]], RDF::Query]
-    # :str, :lang, :langMatches, :datatype, :bound, :sameTerm, :isIRI, :isURI, :isBLANK, :isLITERAL::
-    #   Builtin functions, for example [:isURI <a>]
-    # :regex::
-    #   Regular Expression, for example [:regex, ?title, "web", "i"]
+    # The internal representation of the result using hierarch of RDF objects and SPARQL::Algebra::Operator
+    # objects.
     # @return [Array]
+    # @see http://sparql.rubyforge.org/algebra
     attr_accessor :result
 
     ##
@@ -110,24 +92,25 @@ module SPARQL; module Grammar
       false
     end
     
-    # Output SSE as an S-Expression
-    #
     # @return [String]
     def to_sse
-      @result.to_sxp
+      @result
     end
     
-    alias_method :to_s, :to_sse
+    def to_s
+      @result.to_sxp
+    end
 
     # Parse query
     #
     # The result is a SPARQL Algebra S-List. Productions return an array such as the following:
     #
-    #   [:prefix, :foo, <http://example.com>]
-    #   [:prologue, [:prefix, :foo, <http://example.com>]]
-    #   [:prologue, [:base, <http://example.com>], [:prefix :foo <http://example.com>]]
+    #   (prefix ((: <http://example/>))
+    #     (union
+    #       (bgp (triple ?s ?p ?o))
+    #       (graph ?g
+    #         (bgp (triple ?s ?p ?o)))))
     #
-    # Algebra is based on the SPARQL Algebra notes
     # @param [Symbol, #to_s] prod The starting production for the parser.
     #   It may be a URI from the grammar, or a symbol representing the local_name portion of the grammar URI.
     # @return [Array]
@@ -189,13 +172,13 @@ module SPARQL; module Grammar
         while !pushed && !todo_stack.empty? && todo_stack.last[:terms].to_a.empty?
           debug("parse(pop)", "stack #{todo_stack.last.inspect}, depth #{todo_stack.length}")
           todo_stack.pop
-          self.onFinish
+          onFinish
         end
       end
       while !todo_stack.empty?
         debug("parse(pop)", "stack #{todo_stack.last.inspect}, depth #{todo_stack.length}")
         todo_stack.pop
-        self.onFinish
+        onFinish
       end
       
       # The last thing on the @prod_data stack is the result
@@ -295,7 +278,7 @@ module SPARQL; module Grammar
       @options[:validate]
     end
 
-  protected
+  private
 
     # Handlers used to define actions for each productions.
     # If a context is defined, create a producation data element and add to the @prod_data stack
@@ -1117,8 +1100,6 @@ module SPARQL; module Grammar
       Parser.new.send(:variable, id, distinguished)
     end
     
-  private
-
     def abbr(prodURI)
       prodURI.to_s.split('#').last
     end

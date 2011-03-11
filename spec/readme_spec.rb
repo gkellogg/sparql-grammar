@@ -9,9 +9,9 @@ describe "README" do
     scanner.skip_until(/^SPARQL:$/)
     until scanner.eos?
       current = {}
-      current[:sparql] = scanner.scan_until(/^Result:$/)[0..-8].strip
-      current[:result] = scanner.scan_until(/^SSE:$/)[0..-5].strip
-      current[:sse]    = scanner.scan_until(/^(SPARQL:|Implementation Notes)$/)[0..-8].strip
+      current[:sparql] = scanner.scan_until(/^SSE:$/)[0..-5].strip
+      current[:sse] = scanner.scan_until(/^SXP:$/)[0..-5].strip
+      current[:sxp]    = scanner.scan_until(/^(SPARQL:|Implementation Notes)$/)[0..-8].strip
       examples << current
       break if scanner.matched =~ /Implementation Notes/
     end
@@ -22,12 +22,12 @@ describe "README" do
     describe "query #{example[:sparql]}" do
       subject { parse(example[:sparql])}
       
-      it "parses to #{example[:sse]}" do
-        subject.should == SPARQL::Algebra.parse(example[:sse])
+      it "parses to #{example[:sxp]}" do
+        subject.should == SPARQL::Algebra.parse(example[:sxp])
       end
       
       it "reproduces object description" do
-        subject.should == eval(example[:result])
+        subject.should == eval(example[:sse])
       end
     end
   end
