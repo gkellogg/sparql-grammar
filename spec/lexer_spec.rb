@@ -70,7 +70,7 @@ describe SPARQL::Grammar::Lexer do
       tokenize(%q(true)) do |tokens|
         tokens.should have(1).element
         tokens.first.type.should  == :BooleanLiteral
-        tokens.first.value.should == true
+        tokens.first.value.should == "true"
       end
     end
 
@@ -78,7 +78,7 @@ describe SPARQL::Grammar::Lexer do
       tokenize(%q(false)) do |tokens|
         tokens.should have(1).element
         tokens.first.type.should  == :BooleanLiteral
-        tokens.first.value.should == false
+        tokens.first.value.should == "false"
       end
     end
 
@@ -96,7 +96,7 @@ describe SPARQL::Grammar::Lexer do
       tokenize(%q(42)) do |tokens|
         tokens.should have(1).element
         tokens.first.type.should  == :INTEGER
-        tokens.first.value.should == 42
+        tokens.first.value.should == "42"
       end
     end
 
@@ -106,7 +106,7 @@ describe SPARQL::Grammar::Lexer do
         tokens.first.type.should be_nil
         tokens.first.value.should == "+"
         tokens.last.type.should  == :INTEGER
-        tokens.last.value.should == 42
+        tokens.last.value.should == "42"
       end
     end
 
@@ -116,7 +116,7 @@ describe SPARQL::Grammar::Lexer do
         tokens.first.type.should be_nil
         tokens.first.value.should == "-"
         tokens.last.type.should  == :INTEGER
-        tokens.last.value.should == 42
+        tokens.last.value.should == "42"
       end
     end
 
@@ -124,7 +124,7 @@ describe SPARQL::Grammar::Lexer do
       tokenize(%q(3.1415)) do |tokens|
         tokens.should have(1).element
         tokens.first.type.should  == :DECIMAL
-        tokens.first.value.should == 3.1415
+        tokens.first.value.should == "3.1415"
       end
     end
 
@@ -134,7 +134,7 @@ describe SPARQL::Grammar::Lexer do
         tokens.first.type.should be_nil
         tokens.first.value.should == "+"
         tokens.last.type.should  == :DECIMAL
-        tokens.last.value.should == 3.1415
+        tokens.last.value.should == "3.1415"
       end
     end
 
@@ -144,7 +144,7 @@ describe SPARQL::Grammar::Lexer do
         tokens.first.type.should be_nil
         tokens.first.value.should == "-"
         tokens.last.type.should  == :DECIMAL
-        tokens.last.value.should == 3.1415
+        tokens.last.value.should == "3.1415"
       end
     end
 
@@ -152,7 +152,7 @@ describe SPARQL::Grammar::Lexer do
       tokenize(%q(1e6)) do |tokens|
         tokens.should have(1).element
         tokens.first.type.should  == :DOUBLE
-        tokens.first.value.should == 1e6
+        tokens.first.value.should == "1e6"
       end
     end
 
@@ -162,7 +162,7 @@ describe SPARQL::Grammar::Lexer do
         tokens.first.type.should be_nil
         tokens.first.value.should == "+"
         tokens.last.type.should  == :DOUBLE
-        tokens.last.value.should == 1e6
+        tokens.last.value.should == "1e6"
       end
     end
 
@@ -172,7 +172,7 @@ describe SPARQL::Grammar::Lexer do
         tokens.first.type.should be_nil
         tokens.first.value.should == "-"
         tokens.last.type.should  == :DOUBLE
-        tokens.last.value.should == 1e6
+        tokens.last.value.should == "1e6"
       end
     end
   end

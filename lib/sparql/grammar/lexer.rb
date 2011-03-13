@@ -374,25 +374,25 @@ module SPARQL; module Grammar
 
     def match_double
       if matched = scanner.scan(DOUBLE)
-        token(:DOUBLE, Float(matched))
+        token(:DOUBLE, matched)
       end
     end
 
     def match_decimal
       if matched = scanner.scan(DECIMAL)
-        token(:DECIMAL, BigDecimal(matched))
+        token(:DECIMAL, matched)
       end
     end
 
     def match_integer
       if matched = scanner.scan(INTEGER)
-        token(:INTEGER, Integer(matched))
+        token(:INTEGER, matched)
       end
     end
 
     def match_boolean_literal
       if matched = scanner.scan(BooleanLiteral)
-        token(:BooleanLiteral, matched.eql?('true'))
+        token(:BooleanLiteral, matched)
       end
     end
 
