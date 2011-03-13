@@ -1376,21 +1376,21 @@ describe SPARQL::Grammar::Parser do
         it_recognizes_numeric_literal_using production
 
         it "recognizes the NumericLiteralUnsigned nonterminal" do
-          parser(production).call(%q(123)).last.should     == RDF::Literal::Integer.new(123)
-          parser(production).call(%q(3.1415)).last.should  == RDF::Literal::Decimal.new(3.1415)
-          parser(production).call(%q(1e6)).last.should     == RDF::Literal::Double.new(1e6)
+          parser(production).call(%q(123)).last.should     eql RDF::Literal::Integer.new("123")
+          parser(production).call(%q(3.1415)).last.should  eql RDF::Literal::Decimal.new("3.1415")
+          parser(production).call(%q(1e6)).last.should     eql RDF::Literal::Double.new("1e6")
         end
 
         it "recognizes the NumericLiteralPositive nonterminal" do
-          parser(production).call(%q(+123)).last.should    == RDF::Literal::Integer.new(123)
-          parser(production).call(%q(+3.1415)).last.should == RDF::Literal::Decimal.new(3.1415)
-          parser(production).call(%q(+1e6)).last.should    == RDF::Literal::Double.new(1e6)
+          parser(production).call(%q(+123)).last.should    eql RDF::Literal::Integer.new("+123")
+          parser(production).call(%q(+3.1415)).last.should eql RDF::Literal::Decimal.new("+3.1415")
+          parser(production).call(%q(+1e6)).last.should    eql RDF::Literal::Double.new("+1e6")
         end
 
         it "recognizes the NumericLiteralNegative nonterminal" do
-          parser(production).call(%q(-123)).last.should    == RDF::Literal::Integer.new(-123)
-          parser(production).call(%q(-3.1415)).last.should == RDF::Literal::Decimal.new(-3.1415)
-          parser(production).call(%q(-1e6)).last.should    == RDF::Literal::Double.new(-1e6)
+          parser(production).call(%q(-123)).last.should    eql RDF::Literal::Integer.new("-123")
+          parser(production).call(%q(-3.1415)).last.should eql RDF::Literal::Decimal.new("-3.1415")
+          parser(production).call(%q(-1e6)).last.should    eql RDF::Literal::Double.new("-1e6")
         end
       end
     end
@@ -1401,19 +1401,19 @@ describe SPARQL::Grammar::Parser do
 
         it "recognizes the INTEGER terminal" do
           %w(1 2 3 42 123).each do |input|
-            parser(production).call(input).last.should == RDF::Literal::Integer.new(input.to_i)
+            parser(production).call(input).last.should eql RDF::Literal::Integer.new(input)
           end
         end
 
         it "recognizes the DECIMAL terminal" do
           %w(1. 3.1415 .123).each do |input|
-            parser(production).call(input).last.should == RDF::Literal::Decimal.new(input.to_f)
+            parser(production).call(input).last.should eql RDF::Literal::Decimal.new(input)
           end
         end
 
         it "recognizes the DOUBLE terminal" do
           %w(1e2 3.1415e2 .123e2).each do |input|
-            parser(production).call(input).last.should == RDF::Literal::Double.new(input.to_f)
+            parser(production).call(input).last.should eql RDF::Literal::Double.new(input)
           end
         end
       end
@@ -1421,23 +1421,21 @@ describe SPARQL::Grammar::Parser do
 
     describe "when matching the [63] NumericLiteralPositive production rule" do
       with_production(:NumericLiteralPositive) do |production|
-        it_rejects_empty_input_using production
-
         it "recognizes the INTEGER_POSITIVE terminal" do
           %w(+1 +2 +3 +42 +123).each do |input|
-            parser(production).call(input).last.should == RDF::Literal::Integer.new(input.to_i)
+            parser(production).call(input).last.should eql RDF::Literal::Integer.new(input)
           end
         end
 
         it "recognizes the DECIMAL_POSITIVE terminal" do
           %w(+1. +3.1415 +.123).each do |input|
-            parser(production).call(input).last.should == RDF::Literal::Decimal.new(input.to_f)
+            parser(production).call(input).last.should eql RDF::Literal::Decimal.new(input)
           end
         end
 
         it "recognizes the DOUBLE_POSITIVE terminal" do
           %w(+1e2 +3.1415e2 +.123e2).each do |input|
-            parser(production).call(input).last.should == RDF::Literal::Double.new(input.to_f)
+            parser(production).call(input).last.should eql RDF::Literal::Double.new(input)
           end
         end
       end
@@ -1447,19 +1445,19 @@ describe SPARQL::Grammar::Parser do
       with_production(:NumericLiteralNegative) do |production|
         it "recognizes the INTEGER_NEGATIVE terminal" do
           %w(-1 -2 -3 -42 -123).each do |input|
-            parser(production).call(input).last.should == RDF::Literal::Integer.new(input.to_i)
+            parser(production).call(input).last.should eql RDF::Literal::Integer.new(input)
           end
         end
 
         it "recognizes the DECIMAL_NEGATIVE terminal" do
           %w(-1. -3.1415 -.123).each do |input|
-            parser(production).call(input).last.should == RDF::Literal::Decimal.new(input.to_f)
+            parser(production).call(input).last.should eql RDF::Literal::Decimal.new(input)
           end
         end
 
         it "recognizes the DOUBLE_NEGATIVE terminal" do
           %w(-1e2 -3.1415e2 -.123e2).each do |input|
-            parser(production).call(input).last.should == RDF::Literal::Double.new(input.to_f)
+            parser(production).call(input).last.should eql RDF::Literal::Double.new(input)
           end
         end
       end

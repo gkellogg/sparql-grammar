@@ -865,7 +865,8 @@ module SPARQL; module Grammar
         # [63]    NumericLiteralPositive    ::=       INTEGER_POSITIVE | DECIMAL_POSITIVE | DOUBLE_POSITIVE
         {
           :finish => lambda { |data|
-            add_prod_datum(:literal, data.values.flatten.last)
+            num = data.values.flatten.last
+            add_prod_datum(:literal, num.class.new("+#{num.value}"))
             add_prod_datum(:UnaryExpression, data[:UnaryExpression]) # Keep track of this for parent UnaryExpression production
           }
         }
@@ -873,7 +874,8 @@ module SPARQL; module Grammar
         # [64]    NumericLiteralNegative ::= INTEGER_NEGATIVE | DECIMAL_NEGATIVE | DOUBLE_NEGATIVE
         {
           :finish => lambda { |data|
-            add_prod_datum(:literal, -data.values.flatten.last)
+            num = data.values.flatten.last
+            add_prod_datum(:literal, num.class.new("-#{num.value}"))
             add_prod_datum(:UnaryExpression, data[:UnaryExpression]) # Keep track of this for parent UnaryExpression production
           }
         }
