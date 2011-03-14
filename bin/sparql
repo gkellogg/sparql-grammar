@@ -5,31 +5,41 @@ require 'sparql/grammar'
 #require 'linkeddata'
 require 'rdf'
 require 'rdf/n3'
+require 'rdf/rdfxml'
 require 'getoptlong'
-require 'open-uri'
 
 def run(input, options = {})
   if options[:debug]
     puts "input graph:\n#{options[:graph].dump(:n3)}\n" if options[:graph]
     puts "query:\n#{input}\n"
   end
-  query = SPARQL::Grammar.parse(input, options)
+  parser = SPARQL::Grammar::Parser.new(input, options)
+  query = parser.parse
+
+  if options[:verbose]
+    puts ("\nSPARQL:\n" + input) 
+    puts ("\nSXP:\n" + query.to_sxp)
+  end
+
   res = query.execute(options[:graph])
-  res.each do |sol|
-    puts sol.inspect
+  puts res.inspect if options[:verbose]
+  puts case res
+  when RDF::Graph     then res.dump(:n3, :base_uri => parser.base_uri, :prefixes => parser.prefixes)
+  else                     res.map {|s| s.bindings.map {|k,v| "#{k}: #{v}"}}.join("\n")
   end
 end
 
 opts = GetoptLong.new(
   ["--debug", GetoptLong::NO_ARGUMENT],
   ["--dump", GetoptLong::NO_ARGUMENT],
+  ["--verbose", GetoptLong::NO_ARGUMENT],
   ["--execute", "-e", GetoptLong::REQUIRED_ARGUMENT],
   ["--default-graph", "-g", GetoptLong::REQUIRED_ARGUMENT],
   ["--help", "-?", GetoptLong::NO_ARGUMENT]
 )
 
 options = {
-  :graph => RDF::Graph.new,
+  :graph => RDF::Repository.new,
 }
 
 opts.each do |opt, arg|
@@ -37,6 +47,7 @@ opts.each do |opt, arg|
   when '--execute' then input = arg
   when '--dump' then $dump = true
   when '--debug' then options[:debug] = true
+  when '--verbose' then options[:verbose] = true
   when "--default-graph" then options[:graph] = RDF::Graph.load(arg)
   when "--help"
     puts "Usage: #{$0} [options] file-or-uri ..."
@@ -56,7 +67,7 @@ if ARGV.empty?
 else
   ARGV.each do |test_file|
     puts "parse #{test_file}"
-    run(Kernel.open(test_file).read, options)
+    run(RDF::Util::File.open_file(test_file).read, options.merge(:base_uri => RDF::URI(test_file)))
   end
 end
 puts
