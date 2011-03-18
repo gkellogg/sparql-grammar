@@ -27,14 +27,14 @@ GEMSPEC = Gem::Specification.new do |gem|
 
   gem.required_ruby_version      = '>= 1.8.1'
   gem.requirements               = []
-  gem.add_runtime_dependency     'rdf',           '>= 0.3.1'
-  gem.add_runtime_dependency     'sxp',           '>= 0.0.14'
-  gem.add_runtime_dependency     'sparql-algebra' '>= 0.0.6'
-  gem.add_development_dependency 'yard' ,         '>= 0.6.0'
-  gem.add_development_dependency 'rspec',         '>= 2.1.0'
-  gem.add_development_dependency 'rdf-spec',      '>= 0.3.1'
-  gem.add_development_dependency 'rdf-n3',        '>= 0.3.1'
-  gem.add_development_dependency 'sparql-test',   '>= 0.0.1'
-  gem.add_development_dependency 'spira',         '>= 0.0.12'
+  gem.add_runtime_dependency     'rdf',             '>= 0.3.1'
+  gem.add_runtime_dependency     'sxp',             '>= 0.0.14'
+  gem.add_runtime_dependency     'sparql-algebra',  '>= 0.0.6'
+  gem.add_development_dependency 'yard' ,           '>= 0.6.0'
+  gem.add_development_dependency 'rspec',           '>= 2.1.0'
+  gem.add_development_dependency 'rdf-spec',        '>= 0.3.1'
+  gem.add_development_dependency 'rdf-n3',          '>= 0.3.1'
+  gem.add_development_dependency 'sparql-test',     '>= 0.0.1'
+  gem.add_development_dependency 'spira',           '>= 0.0.12'
   gem.post_install_message       = nil
 end
