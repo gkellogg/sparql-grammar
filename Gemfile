@@ -9,7 +9,7 @@ group :development do
   gem 'rdf-isomorphic', '>= 0.3.4', :require => 'rdf/isomorphic'
   gem 'rdf-n3',         '>= 0.3.1', :require => 'rdf/n3'
   gem 'rdf-rdfxml',     '>= 0.3.1', :require => 'rdf/rdfxml'
-  gem 'rspec',          '>= 2.1.0'
+  gem 'rspec',          '>= 2.5.0'
   gem 'sparql-client'
   gem 'sparql-tests',   :git => "https://github.com/gkellogg/sparql-tests.git", :branch => "gkellogg-master", :require => 'sparql/spec'
   gem 'spira',          '>= 0.0.12'
