@@ -466,7 +466,7 @@ module ProductionExamples
 
   # [69] BlankNode
   def it_recognizes_blank_node(production)
-    parser(production).call(%q(_:foobar)).last.should == RDF::Node(:foobar)
+    parser(production).call(%q(_:foobar)).last.should == SPARQL::Grammar::Parser.variable("foobar", false)
     parser(production).call(%q([])).last.should_not be_distinguished
   end
 
@@ -514,7 +514,7 @@ module ProductionExamples
     end,
     # From sytax-sparql2/syntax-general-02.rq
     %q(<a><b>_:x) => RDF::Query.new do
-      pattern [RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), RDF::Node("x")]
+      pattern [RDF::URI("http://example.org/a"), RDF::URI("http://example.org/b"), SPARQL::Grammar::Parser.variable("x", false)]
     end,
     # From sytax-sparql2/syntax-general-03.rq
     %q(<a><b>1) => RDF::Query.new do
@@ -611,8 +611,8 @@ module ProductionExamples
     # From sytax-sparql1/syntax-bnodes-03.rq
     %q(_:a :p1 :q1 .
        _:a :p2 :q2 .) => RDF::Query.new do
-      pattern [RDF::Node("a"), RDF::URI("http://example.com/p1"), RDF::URI("http://example.com/q1")]
-      pattern [RDF::Node("a"), RDF::URI("http://example.com/p2"), RDF::URI("http://example.com/q2")]
+      pattern [SPARQL::Grammar::Parser.variable("a", false), RDF::URI("http://example.com/p1"), RDF::URI("http://example.com/q1")]
+      pattern [SPARQL::Grammar::Parser.variable("a", false), RDF::URI("http://example.com/p2"), RDF::URI("http://example.com/q2")]
     end,
     # From sytax-sparql1/syntax-forms-01.rq
     %q(( [ ?x ?y ] ) :p ( [ ?pa ?b ] 57 )) => RDF::Query.new do
@@ -1509,7 +1509,10 @@ describe SPARQL::Grammar::Parser do
       with_production(:BlankNode) do |production|
         it "recognizes the BlankNode terminal" do
           if output = parser(production).call(%q(_:foobar))
-            output.last.should be_an(RDF::Node)
+            v = RDF::Query::Variable.new("foobar")
+            v.distinguished = false
+            output.last.should == v
+            output.last.should_not be_distinguished
           end
         end
 

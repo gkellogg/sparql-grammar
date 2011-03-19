@@ -1198,12 +1198,16 @@ module SPARQL; module Grammar
     
     # Generate a BNode identifier
     def gen_node(id = nil)
-      unless id
-        return variable(nil, false) unless @nd_var_gen == false # Use non-distinguished variables within patterns
-        id = @options[:anon_base]
-        @options[:anon_base] = @options[:anon_base].succ
+      if @nd_var_gen
+        # Use non-distinguished variables within patterns
+        variable(id, false)
+      else
+        unless id
+          id = @options[:anon_base]
+          @options[:anon_base] = @options[:anon_base].succ
+        end
+        RDF::Node.new(id)
       end
-      RDF::Node.new(id)
     end
     
     ##
