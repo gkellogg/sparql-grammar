@@ -1,6 +1,7 @@
 source "http://rubygems.org"
-gem 'rdf',              :git => "https://github.com/gkellogg/rdf.git", :branch => "query-algebra"
-gem 'sxp',              :git => "https://github.com/gkellogg/sxp-ruby.git", :branch => "query-algebra"
+#gem 'rdf',              :git => "https://github.com/gkellogg/rdf.git", :branch => "query-algebra"
+gem 'rdf',              :path => "../rdf"
+gem 'sxp',              '>= 0.0.5'
 gem 'sparql-algebra',   :git => "https://github.com/gkellogg/sparql-algebra.git", :require => 'sparql/algebra'
 
 group :development do
