@@ -25,13 +25,14 @@ module SPARQL
     constants.each { |name| const_get(name).freeze unless autoload?(name) }
 
     ##
-    # Parser the given SPARQL `query` string.
+    # Parse the given SPARQL `query` string.
     #
     # @example
-    #   parser = SPARQL::Grammar.new("SELECT * WHERE { ?s ?p ?o }")
-    #   result = parser.parse
+    #   result = SPARQL::Grammar.parse("SELECT * WHERE { ?s ?p ?o }")
     #
-    # @param  [String, #to_s]          query
+    # @param  [IO, StringIO, Lexer, Array, String, #to_s] query
+    #   Query may be an array of lexed tokens, a lexer, or a
+    #   string or open file.
     # @param  [Hash{Symbol => Object}] options
     # @return [Parser]
     # @raise  [Parser::Error] on invalid input

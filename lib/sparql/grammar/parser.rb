@@ -68,7 +68,9 @@ module SPARQL; module Grammar
     attr_accessor :result
 
     ##
-    # @param  [String, #to_s] input
+    # @param  [IO, StringIO, Lexer, Array, String, #to_s] input
+    #   Query may be an array of lexed tokens, a lexer, or a
+    #   string or open file.
     # @return [void]
     def input=(input)
       case input
