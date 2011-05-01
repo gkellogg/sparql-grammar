@@ -1,0 +1,126 @@
+GIT
+  remote: https://github.com/gkellogg/dydra.git
+  revision: 3dd6d698ea6fc0bcccc1676cd5fb8942e8453198
+  branch: 0.4.x
+  specs:
+    dydra (0.0.6)
+      rdf (>= 0.3.0)
+      rest-client (>= 1.6.1)
+      sparql-client (>= 0.0.9)
+
+GIT
+  remote: https://github.com/gkellogg/rdf-json.git
+  revision: 0a4decbe783d601eff5de426a4a8cf218209a132
+  branch: 0.4.x
+  specs:
+    rdf-json (0.3.1)
+      json_pure (>= 1.5.1)
+      rdf (>= 0.3.3)
+
+GIT
+  remote: https://github.com/gkellogg/rdf-spec.git
+  revision: acfa065b6f6635099229cb9e00f78cf5e4ce386c
+  branch: 0.4.x
+  specs:
+    rdf-spec (0.4.0)
+      rspec (>= 2.1)
+
+GIT
+  remote: https://github.com/gkellogg/rdf.git
+  revision: 8bb0f571e6b588ef94fbfe81a86a22dd1f15bd2e
+  branch: 0.4.x
+  specs:
+    rdf (0.4.0)
+      addressable (>= 2.2)
+
+GIT
+  remote: https://github.com/gkellogg/sparql-algebra
+  revision: 058b98a0b60153af6a2d05d495d1b7db59a2d73c
+  specs:
+    sparql-algebra (0.0.8)
+      rdf (~> 0.4.0)
+      rdf-n3 (>= 0.3.1)
+
+GIT
+  remote: https://github.com/gkellogg/sparql-client.git
+  revision: 7c127c11fb8ef9d97c4477d5c8c63535ceac5ad7
+  branch: 0.4.x
+  specs:
+    sparql-client (0.0.11)
+      json_pure (>= 1.4.2)
+      net-http-persistent (~> 1.4.1)
+      rdf (>= 0.3.4)
+
+GIT
+  remote: https://github.com/gkellogg/sparql-tests.git
+  revision: 7da06d896ed8c1ff52faa0d76f1074d5403c7451
+  branch: gkellogg-master
+  specs:
+    sparql-tests (0.0.2)
+      addressable (>= 2.2.4)
+      rdf (>= 0.3.0)
+      rdf-isomorphic (>= 0.3.0)
+      rdf-n3 (>= 0.3.0)
+      rdf-rdfxml (>= 0.3.0)
+      rdf-spec (>= 0.3.0)
+      rspec (>= 2.5.0)
+      sparql-client (>= 0.0.9)
+      spira (>= 0.0.12)
+
+GEM
+  remote: http://rubygems.org/
+  specs:
+    addressable (2.2.4)
+    diff-lcs (1.1.2)
+    json (1.5.1)
+    json_pure (1.5.1)
+    mime-types (1.16)
+    net-http-persistent (1.4.1)
+    nokogiri (1.4.4)
+    open-uri-cached (0.0.3)
+    promise (0.3.0)
+    rdf-isomorphic (0.3.4)
+      rdf (>= 0.2.3)
+    rdf-n3 (0.3.3.1)
+      rdf (>= 0.3.3)
+    rdf-rdfxml (0.3.3)
+      nokogiri (>= 1.4.4)
+      rdf (>= 0.3.3)
+    rest-client (1.6.1)
+      mime-types (>= 1.16)
+    rspec (2.5.0)
+      rspec-core (~> 2.5.0)
+      rspec-expectations (~> 2.5.0)
+      rspec-mocks (~> 2.5.0)
+    rspec-core (2.5.1)
+    rspec-expectations (2.5.0)
+      diff-lcs (~> 1.1.2)
+    rspec-mocks (2.5.0)
+    spira (0.0.12)
+      promise (>= 0.3.0)
+      rdf (>= 0.2.3)
+      rdf-isomorphic (>= 0.3.0)
+    sxp (0.0.14)
+      json (>= 1.5.1)
+    yard (0.6.8)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  addressable (= 2.2.4)
+  dydra!
+  open-uri-cached
+  rdf!
+  rdf-isomorphic (>= 0.3.4)
+  rdf-json!
+  rdf-n3 (>= 0.3.1)
+  rdf-rdfxml (>= 0.3.1)
+  rdf-spec!
+  rspec (>= 2.5.0)
+  sparql-algebra!
+  sparql-client!
+  sparql-tests!
+  spira (>= 0.0.12)
+  sxp (>= 0.0.5)
+  yard (>= 0.6.4)

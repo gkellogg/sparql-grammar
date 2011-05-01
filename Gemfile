@@ -17,4 +17,4 @@ group :development do
   gem 'spira',          '>= 0.0.12'
   gem 'yard',           '>= 0.6.4'
 end
-gem 'sparql-algebra',   :path => "../sparql-algebra", :require => 'sparql/algebra'
+gem 'sparql-algebra',   :git => "https://github.com/gkellogg/sparql-algebra", :require => 'sparql/algebra'
